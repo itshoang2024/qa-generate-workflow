@@ -4,6 +4,8 @@
 
 This document defines the storage boundary for the prototype. Both in-memory and Supabase implementations must satisfy `WorkflowRepository` from `backend/app/repositories/workflow_repository.py`.
 
+The target storage model is derived from the root source-of-truth solution files. Current tables describe the MVP schema; planned tables describe the knowledge-base and risk state that later stages need.
+
 ## Implementations
 
 | Provider | Class | Enabled by |
@@ -22,6 +24,8 @@ The repository layer stores and retrieves already-validated domain models. It sh
 - validate business rules
 - construct Notion payloads
 - expose storage-provider-specific response objects to API routes
+
+Storage also should not decide S0 mode. S0 mode detection is rule-based service/API logic: existing project means `DELTA`, new project means `NEW_GAME`.
 
 ## Required Method Semantics
 
@@ -65,6 +69,14 @@ Tables:
 - `agent_runs`
 - `sync_events`
 
+Planned knowledge-base/risk tables:
+
+- `gdd_documents`: one row per GDD version for a game project, registered in S1.
+- `session_memory`: per-run short-term state, initialized in S0.
+- `project_memory`: long-term per-project corrections, supplements, and prior patterns.
+- `risk_events`: Task 4 risk flags, severity, response, owner action, and resolution state.
+- `notion_page_mappings`: `external_id -> page_id` relation cache for Sync-A/B/C.
+
 JSON arrays and snapshots are stored as `jsonb`. Timestamps use `timestamptz`.
 
 ## Idempotency Keys
@@ -79,6 +91,12 @@ These tables enforce unique `external_id`:
 `external_id` is the Notion-style idempotency key. It should stay stable across sync replays and future external integrations.
 
 `sync_events.external_id` is not unique because the same external target may produce multiple sync attempts over time.
+
+Target GDD version keys:
+
+- `gdd_documents` should enforce unique `(project_id, version_id)`.
+- `version_id` is generated during S1 GDD registration, not during S0 mode detection.
+- `parent_document_id` links DELTA uploads to the prior GDD version used for diff.
 
 ## Provider Differences
 
@@ -108,6 +126,8 @@ Use `REPOSITORY_PROVIDER=supabase` only after applying `supabase/schema.sql`.
 - Changing `set_*` methods from replacement to merge semantics affects pipeline reruns and Supabase behavior.
 - Changing `external_id` formats can break idempotent sync assumptions.
 - Exposing Supabase directly to frontend would bypass backend validation and service-role safety.
+- Moving parsing/versioning back into S0 would drift from Task 1. Keep S0 small; S1 owns GDD document registration and context loading.
+- Real Notion sync needs page-id mappings for relations; `external_id` alone is not enough once writing relation properties.
 
 ## Validation Checklist For Storage Changes
 
@@ -126,4 +146,3 @@ For Supabase changes, also manually verify:
 2. Set `REPOSITORY_PROVIDER=supabase`.
 3. Run `POST /api/v1/demo-runs`.
 4. Confirm rows exist in `runs`, `features`, `qa_tasks`, `test_cases`, and `sync_events`.
-

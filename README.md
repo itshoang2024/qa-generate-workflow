@@ -4,6 +4,15 @@ A FastAPI turns the Snake Escape sample GDD into a QA execution plan with featur
 
 Phase 1 focuses on backend/API. The frontend can be built later against the documented `/api/v1` endpoints.
 
+The target product behavior is defined by the four root-level solution files in the parent workspace:
+
+- `Task-1-AI-workflow-design.md`
+- `Task-2-Agent-prompts-JSON.md`
+- `Task-3-Sync-to-Notion.md`
+- `Task-4-Risk-Failure-handling.md`
+
+Current backend docs distinguish implemented MVP behavior from that target design.
+
 ## What Is Included
 
 - FastAPI backend under `backend/`
@@ -13,6 +22,16 @@ Phase 1 focuses on backend/API. The frontend can be built later against the docu
 - In-memory repository for zero-setup demo runs
 - Optional Supabase repository for cloud persistence
 - Unit and API tests
+
+## Source-Of-Truth Stage Boundary
+
+For future implementation work, keep this boundary intact:
+
+- S0 only handles trigger + mode detection from GDD upload and project selection. Existing project means `DELTA`; new project means `NEW_GAME`; S0 creates `run_id` and session memory.
+- S1 handles raw GDD loading, document version registration, structural parsing, actionability filtering, HIL-0, and DELTA diff.
+- Agent stages must follow the structured JSON contracts in Task 2.
+- Notion sync must follow Task 3 Sync-A/B/C and use `external_id` for idempotency.
+- Risk handling must follow Task 4 severity, retry, HIL, learning-loop, and kill-switch behavior.
 
 ## Quick Start
 

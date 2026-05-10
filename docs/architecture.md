@@ -14,6 +14,13 @@
 
 The system is designed to demonstrate workflow thinking, interface boundaries, validation gates, and future frontend readiness. It is not a production AI or Notion integration yet.
 
+The root source-of-truth design files are:
+
+- `Task-1-AI-workflow-design.md`: stage boundaries and HIL flow.
+- `Task-2-Agent-prompts-JSON.md`: Agent A/B/C prompts and JSON contracts.
+- `Task-3-Sync-to-Notion.md`: Notion workspace, field mapping, Sync-A/B/C, idempotency, retry.
+- `Task-4-Risk-Failure-handling.md`: risk taxonomy, failure responses, learning loop, kill switch.
+
 ## Runtime Boundaries
 
 | Boundary | Current implementation |
@@ -25,6 +32,18 @@ The system is designed to demonstrate workflow thinking, interface boundaries, v
 | Notion sync | Mock payload events in `backend/app/services/notion_sync.py`. |
 | Storage | In-memory by default; optional Supabase via `REPOSITORY_PROVIDER=supabase`. |
 | Frontend | Not implemented; expected to consume `/api/v1` only. |
+
+## Target Stage Boundaries
+
+| Stage | Boundary |
+|---|---|
+| S0 | Trigger + mode detection only. Input is GDD upload plus project selection. Existing project means `DELTA`; new project means `NEW_GAME`; create `run_id`; initialize session memory. |
+| S1 | Context loader. Owns raw GDD loading, GDD version registration, structural parse, actionability filter, HIL-0, and DELTA diff. |
+| S2/S4/S6 | AI agents. Must use structured JSON contracts and source-grounding rules from Task 2. |
+| S3/S5/S7 | Deterministic validation and routers. Must enforce schema, traceability, confidence, dedup, assignee, and coverage rules. |
+| HIL | Human review gates: HIL-0 clarification, HIL-1 feature/epic review, HIL-2 task review, HIL-3 test-case review. |
+| Notion sync | Destination-only sync with Sync-A/B/C, idempotent `external_id`, replay, rate limit handling, and page-id relation mapping. |
+| Risk | Stores flags for hallucination, scope drift, JSON format failure, duplicates, bad assignee, Notion sync failure, and incomplete GDD. |
 
 ## Module Boundaries
 
@@ -68,6 +87,15 @@ The API layer should stay thin. Pipeline behavior belongs in `PipelineService`. 
 10. Mock test-case sync events are stored.
 11. `PipelineService._coverage_report()` stores final run coverage.
 
+Target artifact flow differs before and around the current demo path:
+
+- S0 creates a run/session from upload + project selection but does not parse the file.
+- S1 registers the GDD version and parses/filter sections.
+- Sync-A should write Epic/Story after HIL-1 before task sync.
+- Sync-B writes Tasks after HIL-2 or auto-approval.
+- Sync-C writes Test Cases after HIL-3 or auto-approval.
+- Risk events and correction records should be persisted alongside validation issues.
+
 ## Data Sources
 
 - `data/GDD_Sample_Snake Escape.docx`: tracked sample GDD artifact.
@@ -94,6 +122,8 @@ Note: `app/config.py` reads environment variables from the process. It does not 
 - Notion sync is mock-only.
 - AI provider selection is documented as mock-first; real provider adapters are not implemented.
 - In-memory storage is process-local and resets when the server restarts.
+- S0/S1 are not yet split according to Task 1; current demo performs project/run creation and parsing inside one synchronous pipeline method.
+- Risk events, correction memory, and kill-switch behavior are not implemented.
 
 ## Change Impact Notes
 
@@ -101,4 +131,5 @@ Note: `app/config.py` reads environment variables from the process. It does not 
 - Adding real Notion should preserve `SyncEvent` audit records and `external_id` idempotency.
 - Adding arbitrary GDD upload will affect parser inputs, API request shape, storage of source documents, and test fixtures.
 - Adding a frontend should consume API endpoints only; it should not read Supabase directly.
-
+- When implementing upload, keep S0 as trigger/mode detection and put GDD version registration/parsing in S1.
+- When implementing real agents, update JSON contracts, validators, retry policy, and risk docs together.

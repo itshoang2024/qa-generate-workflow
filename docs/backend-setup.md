@@ -42,6 +42,17 @@ python -m pip install -r backend\requirements.txt
 9. Validate test-case category coverage and create mock Notion test-case sync events.
 10. Store a coverage report on the run.
 
+## Target Stage Boundary
+
+The implemented demo path is intentionally compact. Future backend work must follow the root solution files:
+
+- S0 receives GDD upload + project selection, chooses `NEW_GAME` or `DELTA`, creates `run_id`, and initializes session memory.
+- S0 does not parse, hash, version, or persist detailed GDD document metadata.
+- S1 loads the raw GDD, registers the GDD document version, parses structure, filters actionability, creates HIL-0 questions, and runs DELTA diff.
+- Agent A/B/C real providers must use structured JSON output and schema validation.
+- Notion real sync must use Sync-A/B/C with `external_id` idempotency and replay from pipeline state.
+- Risk handling must persist flags, retries, HIL escalation, correction records, and kill-switch decisions.
+
 ## Supabase
 
 The schema stores pipeline objects directly in normalized tables with JSONB for arrays and snapshots. `external_id` is unique for Notion-like idempotency on epics, stories, tasks, and test cases.

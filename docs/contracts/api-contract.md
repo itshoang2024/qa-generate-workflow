@@ -4,6 +4,8 @@
 
 This document captures the hand-written API contract for the Phase 1 backend. Swagger is available at runtime, but this file documents behavior, mutation boundaries, and response conventions for humans and coding agents.
 
+Target API behavior is derived from the root source-of-truth solution files. Current implemented endpoints are listed separately from planned endpoints so implementation work does not accidentally claim unbuilt behavior.
+
 API entry point: `backend/app/api/v1/routes.py`.
 
 ## Base URL
@@ -50,6 +52,8 @@ The envelope is implemented in `backend/app/domain/responses.py`.
 
 ## Endpoints
 
+Current MVP endpoints:
+
 | Method | Path | Mutates state | Purpose |
 |---|---|---:|---|
 | `GET` | `/health` | No | Report app and provider mode. |
@@ -66,6 +70,42 @@ The envelope is implemented in `backend/app/domain/responses.py`.
 | `GET` | `/runs/{run_id}/sync-events` | No | Get mock Notion `SyncEvent[]`. |
 | `POST` | `/review-decisions` | Yes | Store a review decision and update in-memory target status when applicable. |
 | `POST` | `/runs/{run_id}/sync-replay` | Yes | Mark failed sync events as replayed. |
+
+## Planned Source-Of-Truth Endpoints
+
+These endpoints are not fully implemented yet. They represent the target API needed by Task 1-4.
+
+| Method | Path | Stage | Purpose |
+|---|---|---|---|
+| `POST` | `/projects` | Setup | Create a game project. |
+| `GET` | `/projects` | Setup | List game projects for the S0 dropdown. |
+| `GET` | `/projects/{project_id}` | Setup | Get one project. |
+| `POST` | `/runs/trigger` | S0 | Accept GDD upload reference + project selection, choose `NEW_GAME` or `DELTA`, create `run_id`, initialize session memory. |
+| `POST` | `/runs/{run_id}/context` | S1 | Load/register/parse GDD, run actionability filter, create HIL-0 questions, and optionally run DELTA diff. |
+| `GET` | `/projects/{project_id}/gdd-documents` | S1 | List registered GDD versions for one game project. |
+| `GET` | `/runs/{run_id}/epics` | S4/HIL-1 | Inspect generated/approved epics. |
+| `GET` | `/runs/{run_id}/stories` | S4 | Inspect generated stories. |
+| `GET` | `/runs/{run_id}/agent-runs` | Agents | Inspect agent input/output snapshots. |
+| `GET` | `/runs/{run_id}/review-decisions` | HIL | Inspect human decisions. |
+| `GET` | `/runs/{run_id}/risk-events` | Risk | Inspect Task 4 risk events. |
+| `GET` | `/providers/status` | Ops | Show provider readiness and missing credentials. |
+
+S0 response shape should include the Task 1 output inside the envelope:
+
+```json
+{
+  "data": {
+    "run_id": "run_...",
+    "project_id": "snake-escape",
+    "gdd_file": "upload-or-file-reference",
+    "mode": "NEW_GAME"
+  },
+  "meta": {"request_id": "req_..."},
+  "error": null
+}
+```
+
+S0 must not parse or register detailed GDD document metadata. S1 owns that work.
 
 ## Main Demo Request
 
@@ -126,6 +166,7 @@ In-memory status updates are best-effort and match either internal `id` or publi
 | Run not found | 404 |
 | Missing GDD path | 404 |
 | Unsupported preset | 422 |
+| Target stage not implemented | 422 |
 | Unexpected exception | 500 |
 
 ## Compatibility Rules
@@ -152,4 +193,3 @@ Also smoke test Swagger at:
 ```text
 http://127.0.0.1:8000/docs
 ```
-

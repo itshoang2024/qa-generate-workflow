@@ -4,6 +4,8 @@
 
 Use this runbook to enable cloud persistence through Supabase. The default local demo uses in-memory storage and does not require this setup.
 
+This runbook describes the current MVP schema. The target knowledge-base design also needs future tables such as `gdd_documents`, `session_memory`, `project_memory`, `risk_events`, and `notion_page_mappings`.
+
 ## Safety Notes
 
 - Use a Supabase project created for this prototype.
@@ -28,6 +30,8 @@ Use this runbook to enable cloud persistence through Supabase. The default local
    - `review_decisions`
    - `agent_runs`
    - `sync_events`
+
+Future source-of-truth tables are not implemented in the current schema yet. Add them only when implementing the matching S1, risk, and Notion Sync-A/B/C behavior.
 
 ## Configure The Backend
 
@@ -107,4 +111,3 @@ For prototype data, the simplest recovery is:
 2. Clear prototype rows in the Supabase project.
 3. Re-run `supabase/schema.sql` if schema drift is suspected.
 4. Restart backend and run the demo again.
-

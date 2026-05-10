@@ -2,79 +2,96 @@
 
 ## Goal
 
-Complete the backend as the source of truth for the prototype pipeline: ingest a game design document, generate QA planning artifacts, validate every stage, support human review, sync to Notion, and expose all data needed by the frontend demo through `/api/v1`.
+Complete the backend according to the four source-of-truth solution files in the workspace root:
 
-The backend must keep `AI_PROVIDER=mock` and `NOTION_PROVIDER=mock` as the stable default path. Real AI, real Notion, and Supabase persistence are target capabilities, but the local demo must remain deterministic without external credentials.
+- `Task-1-AI-workflow-design.md`
+- `Task-2-Agent-prompts-JSON.md`
+- `Task-3-Sync-to-Notion.md`
+- `Task-4-Risk-Failure-handling.md`
+
+The backend must remain mock-first for the local demo while evolving toward the full staged workflow: S0 trigger/mode detection, S1 rule-based context loading, Agent A/B/C structured JSON output, validation routers, HIL gates, Notion Sync-A/B/C, risk handling, and final coverage/sign-off.
 
 ## Current Backend State
 
 - FastAPI app, versioned routes, domain models, repository abstraction, mock pipeline, validators, mock Notion sync, Snake Escape fixture, Supabase schema, and tests exist.
 - `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, tasks, test cases, validation issues, coverage, and sync events.
-- The current flow is enough for a Swagger demo but still needs stronger stage boundaries, real adapter interfaces, richer HIL behavior, real sync validation, and frontend-oriented query endpoints.
+- `RunMode` already models `NEW_GAME` and `DELTA`.
+- Current implementation is a synchronous MVP; it does not yet implement S0 project-selection mode detection, S1 GDD version registration, HIL queues, real AI, real Notion, risk dashboard, or DELTA diff.
 
 ## Stage-Based Plan
 
 ### S0 Trigger + Mode Detection
 
-S0 normalizes the incoming work request into a project, run, and pipeline mode.
+S0 is rule-based and intentionally small.
 
-Current behavior:
+Source-of-truth behavior:
 
-- Demo mode creates a run and executes the Snake Escape pipeline.
-- `NEW_GAME` is effectively the only supported mode.
+- Input: GDD upload plus project selection.
+- If the user selects an existing project from the dropdown, set `mode=DELTA`.
+- If the user creates a new project, set `mode=NEW_GAME`.
+- Create a new `run_id`.
+- Initialize session memory.
+- Output `{run_id, project_id, gdd_file, mode}`.
 
-Target behavior:
+S0 must not:
 
-- Support `NEW_GAME` fully for upload/select GDD workflows.
-- Keep `DELTA` modeled as a first-class mode, but implement it in a later explicit phase.
-- Normalize project creation, run creation, source document metadata, and execution options before any agent work starts.
-- Preserve idempotent run metadata so API clients can safely refresh or replay sync operations.
+- parse the GDD
+- hash the file
+- persist detailed GDD document metadata
+- generate `version_id`
+- run DELTA diff
+- call AI
+- sync to Notion
+
+Those responsibilities start in S1 or later.
 
 Backend outputs:
 
-- `Project`
 - `Run`
-- mode metadata: `NEW_GAME` or `DELTA`
-- initial timeline events
+- `project_id`
+- uploaded/raw `gdd_file` reference
+- `mode`
+- initialized session memory pointer/record
+- `StageEvent` for S0
 
 Acceptance:
 
-- `/demo-runs` still creates a deterministic run.
-- Future frontend can create/select a run without knowing internal pipeline details.
+- New project selection creates a run with `mode=NEW_GAME`.
+- Existing project selection creates a run with `mode=DELTA`.
+- Response includes `{run_id, project_id, gdd_file, mode}` inside the API envelope.
+- `/demo-runs` remains backward-compatible for the mock Snake Escape demo.
 
 ### S1 Context Loader
 
-S1 converts source documents into structured, traceable context for agents and validators.
+S1 is rule-based and owns GDD raw loading, versioning, structural context, HIL-0, and DELTA diff.
 
-#### S1.1 Structural DOCX Parsing
-
-Current behavior:
-
-- Parser extracts Snake Escape content into sections from the tracked sample GDD.
+#### S1.1 Structural Parse
 
 Target behavior:
 
-- Harden source path handling for selected files and bundled fixtures.
-- Preserve heading hierarchy, paragraph text, tables, lists, special notes, and source order.
-- Assign stable `section_id` values that downstream agents can cite.
-- Record source metadata needed for audit and frontend inspection.
+- Load the raw GDD file handed off by S0.
+- Register a `GDDDocument` knowledge-base record for the project.
+- Auto-generate `version_id` per project as `v1`, `v2`, `v3`, and so on.
+- Store optional `description`, `description_status`, `parent_document_id`, filename/path metadata, origin, size, content type, and `sha256`.
+- Parse markdown/docx structure: section hierarchy, heading levels, tables, and IMPORTANT/NOTE/TIP blocks.
+- Extract game overview fields by fixed template.
+- Output `gdd_tree` with `section_id`, `parent_id`, `text`, `tables`, and `flags`.
 
 Acceptance:
 
-- Parser tests prove headings, tables, and special notes are extracted.
-- Every generated artifact can reference at least one source section.
+- Uploading the first GDD for a project creates `version_id=v1`.
+- Uploading the second GDD for the same project creates `version_id=v2`.
+- Parser tests prove headings, tables, special blocks, and stable section order are extracted.
 
 #### S1.2 QA-Actionability Filter
 
-Current behavior:
-
-- Mock fixture already implies useful sections for generation.
-
 Target behavior:
 
-- Classify sections by QA relevance: mechanics, rules, UI, levels, scoring, monetization, technical notes, and unclear notes.
-- Exclude or down-rank sections that are not actionable for QA.
-- Surface low-confidence or ambiguous sections for preflight review.
+- Mark each section as QA-actionable using deterministic heuristics.
+- External-reference-only sections become `actionable=false, reason=external_dep`.
+- Metadata sections such as Game Overview and Scope Summary become `actionable=false, reason=metadata`.
+- Behavior/UI/data sections become `actionable=true`.
+- Non-actionable sections are flagged and excluded from main agent analysis.
 
 Acceptance:
 
@@ -83,253 +100,200 @@ Acceptance:
 
 #### S1.3 HIL-0 Preflight Clarification
 
-Current behavior:
-
-- No dedicated preflight review model/API.
-
 Target behavior:
 
-- Add a preflight issue model for missing, contradictory, or unclear GDD requirements.
-- Expose an API for listing and resolving preflight issues.
-- Allow the pipeline to proceed in mock demo mode while recording unresolved assumptions.
+- Detect missing artifacts from IMPORTANT/NOTE/TIP blocks.
+- Detect ambiguous thin sections and dangling references.
+- Batch all clarification questions into one review screen.
+- Support user choices: provide artifact, proceed-with-flag, or skip section.
 
 Acceptance:
 
-- Frontend can show "needs clarification" before Agent A.
-- Pipeline records assumptions instead of silently hiding ambiguity.
+- Frontend can show one HIL-0 question batch before Agent A.
+- Proceed-with-flag caps confidence and marks incomplete source.
+- Skipped sections appear in final coverage.
 
 #### S1.4 DELTA Diff
 
-Current behavior:
-
-- Not implemented.
-
 Target behavior:
 
-- Model the diff between a previous source document and a revised source document.
-- Detect added, removed, and changed sections.
-- Route only changed context to affected downstream artifacts.
+- Run only when S0 set `mode=DELTA`.
+- Load previous GDD version from long-term memory.
+- Compare sections as `NEW`, `MODIFIED`, `UNCHANGED`, or `REMOVED`.
+- Load existing Notion tasks for the game.
+- Output `delta_report`.
 
 Acceptance:
 
-- DELTA is documented and represented in models before full implementation.
-- Later work can add partial regeneration without changing public contracts.
+- Later Agent A/B inputs include `delta_report`.
+- `GDDDocument.parent_document_id` links the current version to the compared prior version.
 
 ### S2 Agent A - GDD Analyzer
 
-S2 turns structured GDD context into features and epics.
+Target behavior from Task 2:
 
-Current behavior:
-
-- Mock Agent A returns deterministic feature output from `snake_escape_fixture.json`.
-
-Target behavior:
-
-- Formalize an `AgentClient` interface with mock and real implementations.
-- Keep the mock fixture as default and as fallback.
-- Add a real LLM adapter behind environment configuration.
-- Require structured JSON output matching the domain contract.
-- Preserve source section citations and confidence scores.
+- Input: `actionable_sections`, `user_clarifications`, and `delta_report` when DELTA.
+- Output strict JSON with `features`, `coverage_report`, and `ambiguities`.
+- Every feature must cite `source_sections`.
+- Feature types include gameplay, UI, level, economy, backend/liveops, animation, tutorial, and cross-cutting.
+- Agent uses low temperature and structured output where provider supports it.
 
 Acceptance:
 
-- Mock output remains byte-stable enough for tests.
-- Real provider failures can fall back to mock or return a clear validation issue.
-- Agent A output never bypasses schema validation.
+- Mock output remains stable.
+- Real output validates against schema before persistence.
+- Hallucinated or weakly grounded output never bypasses validation.
 
 ### S3 Validation A + Router A
 
-S3 validates Agent A output and assigns each item to a routing lane.
-
-Current behavior:
-
-- Validation covers source references and confidence issues.
-
 Target behavior:
 
-- Expand schema validation for missing fields, invalid source sections, low confidence, duplicate feature names, and incomplete epic grouping.
-- Add router lane output: `auto`, `needs_review`, or `blocked`.
-- Store validation issues with codes, severity, source artifact, and suggested resolution.
+- Validate schema, source traceability, keyword overlap, coverage, and confidence.
+- Retry schema/traceability failures up to policy limits.
+- Re-run Agent A for uncovered sections when useful.
+- Route by final confidence:
+  - `>=0.85` auto-proceed
+  - `[0.6, 0.85)` HIL-1 batch
+  - `<0.6` block/HIL-1
 
 Acceptance:
 
-- Good mock features enter `auto`.
-- Low-confidence or weakly sourced features enter `needs_review`.
-- Structurally invalid features enter `blocked`.
+- Validation issues include stable codes and severity.
+- Router lanes are visible to frontend.
 
 ### HIL-1 Epic-Level Review
 
-HIL-1 lets a reviewer approve, edit, reject, or unblock feature and epic decisions.
-
-Current behavior:
-
-- `POST /review-decisions` exists as a generic review decision endpoint.
-
 Target behavior:
 
-- Support review decisions against features and epics.
-- Keep behavior consistent between memory repository and Supabase repository.
-- Record reviewer role, decision, note, timestamp, and target artifact.
-- Expose enough listing/filtering support for frontend review queues.
+- QA Lead reviews feature inventory, epic candidates, coverage map, low-confidence items, and split/merge suggestions.
+- Lead can approve all, edit item, change assignee, merge/split epic, skip due to insufficient info, or request Agent A rerun with feedback.
+- Approved feature list and epic structure are saved to short-term memory.
 
 Acceptance:
 
-- A reviewer can approve or reject a feature before Agent B consumes it.
-- Decisions are auditable and do not erase the original agent output.
+- Agent B consumes only approved/corrected features and epic structure.
 
 ### S4 Agent B - QA Planner
 
-S4 expands approved features into epics, stories, and QA tasks.
+Target behavior from Task 2:
 
-Current behavior:
-
-- Mock Agent B returns deterministic task output from the fixture.
-
-Target behavior:
-
-- Use the same `AgentClient` interface pattern as Agent A.
-- Generate epics, stories, and QA tasks with explicit parent-child references.
-- Apply deterministic QA assignee mapping from the seeded QA roster.
-- Require real provider output to preserve the JSON contract exactly.
-- Include priority, estimate, acceptance criteria, source references, and confidence.
+- Input: approved features, epic grouping, and per-game memory.
+- Output Epic -> Story -> Task tree.
+- Assignee is rule-based from KB mapping, not invented by AI.
+- `external_id` uses stable project/feature/task pattern.
+- DELTA behavior:
+  - unchanged features skip
+  - modified features create update/retest tasks linked by external_id
+  - new features create new tasks
+  - removed features create archive tasks for Lead confirmation
 
 Acceptance:
 
-- Agent B tasks can be rendered in frontend boards and synced to Notion.
-- Invalid assignees, duplicate task IDs, and missing references are caught before sync.
+- Task output validates against JSON schema and Pydantic models.
+- Invalid assignees and duplicate tasks are caught before sync.
 
 ### S5 Validation B + Router B + HIL-2
 
-S5 validates QA planning output and routes task-level review.
-
-Current behavior:
-
-- Validation checks duplicate tasks, bad assignee values, low confidence, and idempotent external IDs.
-
 Target behavior:
 
-- Expand validation issue codes for duplicate external IDs, invalid parent references, missing acceptance criteria, weak source coverage, and invalid task state.
-- Add router lanes for auto-sync, task review, and blocked sync.
-- Support HIL-2 decisions for task approval, edit request, rejection, and manual assignee override.
+- Validate schema, traceability, cross-agent feature references, dedup, assignee sanity, confidence, and task count guardrails.
+- Router B lanes:
+  - Auto: confidence `>=0.85`, no cross-cutting flag, no dedup flag
+  - Batch: confidence `[0.65, 0.85)`
+  - Block: confidence `<0.65` or dedup/cross-cutting flag
+- HIL-2 provides batch review screens grouped by assignee and feature/epic.
 
 Acceptance:
 
-- Only valid auto-lane tasks are eligible for Notion sync.
-- Review decisions can move a task from review/blocked to sync-ready.
+- Only approved or auto-approved tasks are eligible for task sync and Agent C.
 
-### S5b Notion Task Sync
+### S5b Notion Sync
 
-S5b syncs QA tasks to Notion and preserves auditability.
+Task 3 refines sync into three sub-events. Backend may keep S5b/S7b stage labels, but implementation must distinguish:
 
-Current behavior:
-
-- Mock Notion sync records sync payloads and events.
+- Sync-A: Epic + Story after HIL-1.
+- Sync-B: Task after HIL-2 or Router B auto-approval.
+- Sync-C: Test Case after HIL-3 or Router C auto-approval.
 
 Target behavior:
 
-- Formalize a `NotionSyncClient` interface with mock and real implementations.
-- Implement real Notion upsert by stable `external_id`.
-- Validate Notion database schema before writing.
-- Store request payload, response payload, status, and error information in `SyncEvent`.
-- Keep sync replay idempotent.
+- Notion is destination only; pipeline state is source of truth.
+- Upsert by `external_id`, never title/description.
+- Sync failure does not block downstream pipeline work.
+- Retry with backoff; use dead-letter queue after max retries.
+- Maintain external_id -> Notion page_id mapping for relations.
 
 Acceptance:
 
-- Mock sync remains deterministic for demo and tests.
-- Real sync can be smoke-tested when credentials are configured.
-- Replaying sync does not create duplicate Notion pages.
+- Sync events preserve payload, action, status, retry count, and error.
+- Replay can resume from pipeline state without duplicates.
 
 ### S6 Agent C - Test Case Generator
 
-S6 generates test cases from approved QA tasks.
+Target behavior from Task 2:
 
-Current behavior:
-
-- Mock Agent C returns deterministic test cases from the fixture.
-
-Target behavior:
-
-- Use the shared `AgentClient` interface.
-- Generate four categories per eligible task: functional, edge, negative, and regression.
-- Preserve task references, source sections, confidence, preconditions, steps, expected results, and priority.
-- Allow per-task parallelism later without changing the public result shape.
+- Trigger per approved task, without waiting for all tasks to be approved.
+- Input: one approved task, feature context, and source section text.
+- Output test cases covering positive, negative, edge, and integration categories.
+- One assertion per expected result.
+- Concrete preconditions/test_data; RNG-dependent tests require seed or non-deterministic marker.
 
 Acceptance:
 
-- Each synced/approved QA task has a balanced test case set.
-- Real provider output is validated before storage or sync.
+- Each eligible task has required category coverage or explicit `[GAP]` placeholder.
+- Test cases inherit task priority and source sections.
 
 ### S7 Validation C + HIL-3
 
-S7 validates test cases and routes final review.
-
-Current behavior:
-
-- Validation checks broad coverage and source links.
-
 Target behavior:
 
-- Validate category coverage per task.
-- Validate source links, task links, missing expected results, duplicate cases, weak confidence, and impossible preconditions.
-- Support HIL-3 review decisions for generated test cases.
+- Validate schema, source traceability, four-category coverage, repeatability, forbidden vague phrases, one-assertion expected result, and related task links.
+- Assignees review their own test cases in HIL-3.
+- Lead review is not required for every test case unless risk rules trigger it.
 
 Acceptance:
 
-- Coverage gaps become validation issues with actionable codes.
-- Frontend can show review queues for test case corrections.
+- Invalid or incomplete-source test cases cannot auto-sync.
 
 ### S7b Test Case Sync
 
-S7b syncs validated test cases to Notion.
-
-Current behavior:
-
-- Mock sync records test case payloads.
-
 Target behavior:
 
-- Use the real Notion adapter for test case databases.
-- Upsert by `external_id`.
-- Preserve sync audit records separately from task sync events.
-- Support sync replay for failed or changed test cases.
+- Sync-C appends or upserts test cases in Notion.
+- Link test cases to task pages by Notion page_id resolved from `external_id`.
+- Update task status from `Ready for Test Cases` to `Test Cases Ready` when appropriate.
 
 Acceptance:
 
-- Test case sync is idempotent.
-- Sync events expose enough payload detail for demo inspection and debugging.
+- Test case sync is idempotent and replayable.
 
 ### Final Coverage Report + Sign-off
 
-The final stage summarizes pipeline quality and readiness.
-
-Current behavior:
-
-- Coverage data is exposed through `/runs/{run_id}/coverage`.
-
 Target behavior:
 
-- Store a coverage report with totals, task coverage, category coverage, source coverage, validation issue summary, sync summary, and reviewer sign-off state.
-- Expose report APIs for frontend summary screens and submission screenshots.
-- Prepare a final demo report export or printable view.
+- Report section coverage, story coverage, assignee distribution, P0/P1/P2 ratio, validation issues, sync status, risk metrics, and sign-off.
+- Notify QA Lead via email/Slack with report and Notion links.
+- Lead sign-off completes the workflow.
 
 Acceptance:
 
-- One run can show end-to-end traceability from GDD section to feature, task, test case, validation issue, sync event, and sign-off.
-- Mock mode can produce the complete report with no external services.
+- One run can show traceability from GDD version to section, feature, task, test case, validation issue, sync event, risk event, and sign-off.
 
 ## Cross-Cutting Backend Requirements
 
-- All public API responses keep the `{ data, meta, error }` envelope.
+- All successful public API responses keep `{ data, meta, error }`.
 - Mock providers remain the default for local demo and tests.
-- Supabase persistence remains optional and must not be required for the default demo.
-- Real providers are enabled only through explicit environment configuration.
-- Every external write path records an audit event before returning success.
-- Validation issues must use stable codes so frontend filters and documentation remain reliable.
+- Supabase persistence remains optional until explicitly configured.
+- Real agents must use structured JSON output and schema validation.
+- Validation and risk handling must use stable issue/event codes.
+- Session memory is per-run; long-term memory is per-project.
+- Every auto-decision logs a reason.
+- Stage boundaries from Task 1 are authoritative.
 
 ## Backend Acceptance Criteria
 
 - `pytest` passes in `backend/`.
 - `python -m ruff check .` passes in `backend/`.
-- Swagger can create a demo run and inspect timeline, coverage, sections, features, tasks, test cases, validation issues, and sync events.
-- Mock mode remains deterministic.
-- Real AI and Notion paths can be smoke-tested when credentials are present, without breaking mock mode.
+- Swagger can still run `/api/v1/demo-runs`.
+- Target Stage 0 can create a run from upload + project selection without parsing the file.
+- Target S1 can register/version/parse the uploaded GDD and produce HIL-0/DELTA context.

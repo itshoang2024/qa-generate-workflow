@@ -4,6 +4,8 @@
 
 Use this runbook to start the backend locally, run the Snake Escape demo pipeline, and inspect generated QA workflow artifacts.
 
+This runbook covers the current MVP. The target workflow in the root solution files splits S0 trigger/mode detection from S1 GDD context loading; that split is not fully implemented yet.
+
 ## Prerequisites
 
 - Conda is installed.
@@ -96,6 +98,8 @@ Expected response:
 - `data.coverage_report.task_count` is `11`.
 - `data.coverage_report.test_case_count` is `44`.
 
+Current limitation: this demo executes the whole mock pipeline in one request. It does not yet expose the target S0 output `{run_id, project_id, gdd_file, mode}` as a separate trigger step.
+
 ## Inspect The Run
 
 Use the returned `run_id`:
@@ -140,4 +144,3 @@ Expected test result:
 ## Stop The Server
 
 Press `Ctrl+C` in the terminal running uvicorn.
-
