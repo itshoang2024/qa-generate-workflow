@@ -158,12 +158,67 @@ def test_review_decisions_endpoint_returns_hil_decisions() -> None:
     assert response.json()["data"][0]["target_id"] == "T-007"
 
 
+def test_review_queue_endpoint_groups_items_by_reviewer_feature_and_epic() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    hil1 = client.get(f"/api/v1/runs/{run_id}/review-queues/HIL-1")
+    hil3 = client.get(f"/api/v1/runs/{run_id}/review-queues/HIL-3")
+    response = client.get(f"/api/v1/runs/{run_id}/review-queues/HIL-2")
+
+    assert hil1.status_code == 200
+    assert hil1.json()["data"]["item_count"] == 2
+    assert hil3.status_code == 200
+    assert hil3.json()["data"]["item_count"] == 8
+    assert response.status_code == 200
+    queue = response.json()["data"]
+    assert queue["hil_tier"] == "HIL-2"
+    assert queue["item_count"] == 2
+    assert queue["group_by"] == ["reviewer", "feature_id", "epic_id"]
+    assert {group["reviewer"] for group in queue["groups"]} == {"Linh", "Minh"}
+    assert all(group["feature_id"] and group["epic_id"] for group in queue["groups"])
+
+
+def test_review_decision_approval_updates_lane_and_removes_item_from_queue() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+    before = client.get(f"/api/v1/runs/{run_id}/tasks").json()["data"]
+    task_before = next(task for task in before if task["task_id"] == "T-007")
+    assert task_before["lane"] == "BATCH"
+    assert task_before["review_status"] == "NEEDS_REVIEW"
+
+    approved = client.post(
+        "/api/v1/review-decisions",
+        json={
+            "run_id": run_id,
+            "target_type": "task",
+            "target_id": "T-007",
+            "decision": "APPROVED",
+            "reviewer": "Minh",
+        },
+    )
+    assert approved.status_code == 200
+
+    after = client.get(f"/api/v1/runs/{run_id}/tasks").json()["data"]
+    task_after = next(task for task in after if task["task_id"] == "T-007")
+    assert task_after["lane"] == "AUTO"
+    assert task_after["review_status"] == "APPROVED"
+
+    queue = client.get(f"/api/v1/runs/{run_id}/review-queues/HIL-2").json()["data"]
+    queued_ids = {
+        item["target_id"]
+        for group in queue["groups"]
+        for item in group["items"]
+    }
+    assert "T-007" not in queued_ids
+
+
 def test_provider_status_endpoint_reports_credential_readiness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AI_PROVIDER", "mock")
     monkeypatch.setenv("NOTION_PROVIDER", "real")
-    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    monkeypatch.setenv("NOTION_TOKEN", "")
     monkeypatch.setenv("REPOSITORY_PROVIDER", "supabase")
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-role")

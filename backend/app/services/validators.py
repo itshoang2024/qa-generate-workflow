@@ -4,12 +4,15 @@ from collections import defaultdict
 from difflib import SequenceMatcher
 
 from app.domain.models import (
+    FEATURE_BATCH_CONFIDENCE_THRESHOLD,
     Feature,
     GDDSection,
     PipelineStage,
     QATask,
+    ReviewStatus,
     TestCase,
     TestCategory,
+    derive_router_lane,
     ValidationIssue,
     ValidationSeverity,
 )
@@ -83,6 +86,23 @@ def validate_features(
     return issues
 
 
+def validate_features_with_routing(
+    run_id: str,
+    features: list[Feature],
+    sections: list[GDDSection],
+) -> list[ValidationIssue]:
+    issues = validate_features(run_id, features, sections)
+    for feature in features:
+        lane = derive_router_lane(
+            feature.confidence,
+            dedup_flag=feature.dedup_flag,
+            cross_cutting_flag=feature.cross_cutting_flag,
+            batch_threshold=FEATURE_BATCH_CONFIDENCE_THRESHOLD,
+        )
+        _apply_routing_status(feature, lane)
+    return issues
+
+
 def validate_tasks(
     run_id: str,
     tasks: list[QATask],
@@ -150,6 +170,23 @@ def validate_tasks(
     return issues
 
 
+def validate_tasks_with_routing(
+    run_id: str,
+    tasks: list[QATask],
+    features: list[Feature],
+    sections: list[GDDSection],
+) -> list[ValidationIssue]:
+    issues = validate_tasks(run_id, tasks, features, sections)
+    for task in tasks:
+        lane = derive_router_lane(
+            task.confidence,
+            dedup_flag=task.dedup_flag,
+            cross_cutting_flag=task.cross_cutting_flag,
+        )
+        _apply_routing_status(task, lane)
+    return issues
+
+
 def validate_test_cases(
     run_id: str,
     test_cases: list[TestCase],
@@ -187,6 +224,18 @@ def validate_test_cases(
                     PipelineStage.S7_VALIDATION_C_SYNC,
                 )
             )
+        if test_case.confidence < 0.85:
+            issues.append(
+                _issue(
+                    run_id,
+                    "test_case",
+                    test_case.test_case_id,
+                    ValidationSeverity.S2_RECOVERABLE,
+                    "low_confidence_test_case",
+                    "Test case requires HIL-3 review because confidence is below 0.85.",
+                    PipelineStage.S7_VALIDATION_C_SYNC,
+                )
+            )
 
     required_categories = set(TestCategory)
     for task_id in known_tasks:
@@ -204,6 +253,23 @@ def validate_test_cases(
                 )
             )
 
+    return issues
+
+
+def validate_test_cases_with_routing(
+    run_id: str,
+    test_cases: list[TestCase],
+    tasks: list[QATask],
+    sections: list[GDDSection],
+) -> list[ValidationIssue]:
+    issues = validate_test_cases(run_id, test_cases, tasks, sections)
+    for test_case in test_cases:
+        lane = derive_router_lane(
+            test_case.confidence,
+            dedup_flag=test_case.dedup_flag,
+            cross_cutting_flag=test_case.cross_cutting_flag,
+        )
+        _apply_routing_status(test_case, lane)
     return issues
 
 
@@ -234,6 +300,15 @@ def _duplicate_task_issues(run_id: str, tasks: list[QATask]) -> list[ValidationI
                     )
                 )
     return issues
+
+
+def _apply_routing_status(item: Feature | QATask | TestCase, lane: str) -> None:
+    if lane == "AUTO":
+        item.review_status = ReviewStatus.AUTO_APPROVED
+    elif lane == "BATCH":
+        item.review_status = ReviewStatus.NEEDS_REVIEW
+    else:
+        item.review_status = ReviewStatus.BLOCKED
 
 
 def _issue(

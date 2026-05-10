@@ -82,6 +82,7 @@ Current implemented endpoints:
 | `GET` | `/runs/{run_id}/sync-events` | No | Get mock Notion `SyncEvent[]`. |
 | `GET` | `/runs/{run_id}/agent-runs` | No | Get Agent A/B/C input and output snapshots. |
 | `GET` | `/runs/{run_id}/review-decisions` | No | Get HIL review decisions for the run. |
+| `GET` | `/runs/{run_id}/review-queues/{hil_tier}` | No | Get HIL-0/1/2/3 review items grouped by reviewer, feature, and epic. |
 | `POST` | `/review-decisions` | Yes | Store a review decision and update in-memory target status when applicable. |
 | `POST` | `/runs/{run_id}/sync-replay` | Yes | Mark failed sync events as replayed. |
 
@@ -139,6 +140,59 @@ Router lane rules:
 - `BATCH`: confidence is below auto threshold but above the stage batch threshold.
 - `BLOCK`: confidence is below batch threshold, or a dedup/cross-cutting flag is set.
 - Feature lane uses Task 1 Router A batch threshold `0.60`; task and test-case lanes use Router B/C threshold `0.65`.
+- After a human approval, the item `review_status` becomes `APPROVED` and the exposed lane becomes `AUTO`, so the item leaves review queues.
+
+## Review Queues
+
+```http
+GET /api/v1/runs/{run_id}/review-queues/HIL-2
+```
+
+Supported `{hil_tier}` values are `HIL-0`, `HIL-1`, `HIL-2`, and `HIL-3`. Numeric aliases `0`, `1`, `2`, and `3` are accepted.
+
+Response shape:
+
+```json
+{
+  "data": {
+    "run_id": "run_abc123",
+    "hil_tier": "HIL-2",
+    "group_by": ["reviewer", "feature_id", "epic_id"],
+    "item_count": 2,
+    "groups": [
+      {
+        "group_id": "reviewer:Minh|feature:F-004|epic:E-BOOSTERS",
+        "reviewer": "Minh",
+        "feature_id": "F-004",
+        "epic_id": "E-BOOSTERS",
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "task",
+            "target_id": "T-007",
+            "title": "Review booster first-introduction overlay flow",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {}
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {"request_id": "req_..."},
+  "error": null
+}
+```
+
+Queue tier mapping:
+
+- `HIL-0`: open preflight clarification questions.
+- `HIL-1`: feature and epic-level items for QA Lead review.
+- `HIL-2`: QA task items; `BLOCK` lane goes to QA Lead, `BATCH` lane goes to the assignee.
+- `HIL-3`: test case items; `BLOCK` lane goes to QA Lead, `BATCH` lane goes to the related task assignee.
 
 ## Provider Status
 
@@ -188,6 +242,7 @@ Supported target types in the in-memory repository are:
 - `test_case`
 
 In-memory status updates are best-effort and match either internal `id` or public IDs such as `task_id`.
+For `epic` decisions, the in-memory store also applies the same decision to features and stories under that epic so HIL-1 approval can clear an epic-level queue.
 
 ## Status Codes
 

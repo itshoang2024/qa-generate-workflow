@@ -15,6 +15,7 @@ from app.domain.models import (
     S1ContextRequest,
 )
 from app.domain.responses import envelope
+from app.services.review_queues import build_review_queue
 
 router = APIRouter()
 
@@ -221,6 +222,16 @@ def get_agent_runs(run_id: str) -> dict[str, object]:
 def get_review_decisions(run_id: str) -> dict[str, object]:
     _require_run(run_id)
     return envelope(repository_dependency().list_review_decisions(run_id))
+
+
+@router.get("/runs/{run_id}/review-queues/{hil_tier}")
+def get_review_queue(run_id: str, hil_tier: str) -> dict[str, object]:
+    _require_run(run_id)
+    try:
+        queue = build_review_queue(repository_dependency(), run_id, hil_tier)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(queue)
 
 
 @router.post("/review-decisions")

@@ -315,20 +315,48 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         return replayed
 
     def _apply_review_status(self, decision: ReviewDecision) -> None:
-        collections: dict[str, list[Any]] = {
-            "feature": self.features.get(decision.run_id, []),
-            "task": self.tasks.get(decision.run_id, []),
-            "test_case": self.test_cases.get(decision.run_id, []),
-            "epic": self.epics.get(decision.run_id, []),
-            "story": self.stories.get(decision.run_id, []),
+        if decision.target_type == "epic":
+            epic = _apply_to_collection(
+                self.epics.get(decision.run_id, []),
+                "epic_id",
+                decision.target_id,
+                decision.decision,
+            )
+            if epic is not None:
+                for feature in self.features.get(decision.run_id, []):
+                    if feature.feature_id in epic.feature_ids:
+                        feature.review_status = decision.decision
+                for story in self.stories.get(decision.run_id, []):
+                    if story.epic_id == epic.epic_id:
+                        story.review_status = decision.decision
+            return
+
+        collections: dict[str, tuple[list[Any], str]] = {
+            "feature": (self.features.get(decision.run_id, []), "feature_id"),
+            "task": (self.tasks.get(decision.run_id, []), "task_id"),
+            "test_case": (self.test_cases.get(decision.run_id, []), "test_case_id"),
+            "story": (self.stories.get(decision.run_id, []), "story_id"),
         }
-        for item in collections.get(decision.target_type, []):
-            public_id = getattr(item, f"{decision.target_type}_id", None)
-            if item.id == decision.target_id or public_id == decision.target_id:
-                item.review_status = decision.decision
+        collection = collections.get(decision.target_type)
+        if collection is None:
+            return
+        _apply_to_collection(collection[0], collection[1], decision.target_id, decision.decision)
 
 
 def _version_number(version_id: str) -> int:
     if version_id.startswith("v") and version_id[1:].isdigit():
         return int(version_id[1:])
     return 0
+
+
+def _apply_to_collection(
+    collection: list[Any],
+    public_id_field: str,
+    target_id: str,
+    decision: Any,
+) -> Any | None:
+    for item in collection:
+        if item.id == target_id or getattr(item, public_id_field, None) == target_id:
+            item.review_status = decision
+            return item
+    return None

@@ -167,6 +167,7 @@ class SupabaseWorkflowRepository(WorkflowRepository):
 
     def add_review_decision(self, decision: ReviewDecision) -> ReviewDecision:
         self._insert("review_decisions", decision)
+        self._apply_review_status(decision)
         return decision
 
     def list_review_decisions(self, run_id: str) -> list[ReviewDecision]:
@@ -225,6 +226,54 @@ class SupabaseWorkflowRepository(WorkflowRepository):
 
     def _dump(self, model: Any) -> dict[str, Any]:
         return model.model_dump(mode="json", exclude={"lane"})
+
+    def _apply_review_status(self, decision: ReviewDecision) -> None:
+        if decision.target_type == "epic":
+            self._update_review_status("epics", "epic_id", decision.target_id, decision)
+            epic = next(
+                (
+                    epic
+                    for epic in self.list_epics(decision.run_id)
+                    if epic.id == decision.target_id or epic.epic_id == decision.target_id
+                ),
+                None,
+            )
+            if epic is None:
+                return
+            for feature_id in epic.feature_ids:
+                self._update_review_status("features", "feature_id", feature_id, decision)
+            self.client.table("stories").update({"review_status": decision.decision.value}).eq(
+                "run_id",
+                decision.run_id,
+            ).eq("epic_id", epic.epic_id).execute()
+            return
+
+        mapping = {
+            "feature": ("features", "feature_id"),
+            "task": ("qa_tasks", "task_id"),
+            "test_case": ("test_cases", "test_case_id"),
+            "story": ("stories", "story_id"),
+        }
+        if decision.target_type in mapping:
+            table, public_id_field = mapping[decision.target_type]
+            self._update_review_status(table, public_id_field, decision.target_id, decision)
+
+    def _update_review_status(
+        self,
+        table: str,
+        public_id_field: str,
+        target_id: str,
+        decision: ReviewDecision,
+    ) -> None:
+        payload = {"review_status": decision.decision.value}
+        self.client.table(table).update(payload).eq("run_id", decision.run_id).eq(
+            public_id_field,
+            target_id,
+        ).execute()
+        self.client.table(table).update(payload).eq("run_id", decision.run_id).eq(
+            "id",
+            target_id,
+        ).execute()
 
 
 def _version_number(version_id: str) -> int:

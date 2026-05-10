@@ -27,10 +27,15 @@ from app.domain.models import (
     utc_now,
 )
 from app.repositories.workflow_repository import WorkflowRepository
+from app.services.agents import AgentClient
+from app.services.agents.mock import MockAgentClient
 from app.services.gdd_parser import parse_docx_gdd
-from app.services.mock_agents import MockAgentClient
 from app.services.notion_sync import MockNotionSyncClient
-from app.services.validators import validate_features, validate_tasks, validate_test_cases
+from app.services.validators import (
+    validate_features_with_routing,
+    validate_tasks_with_routing,
+    validate_test_cases_with_routing,
+)
 
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -43,6 +48,7 @@ class PipelineService:
         snake_gdd_path: Path,
         upload_dir: Path | None = None,
         max_upload_bytes: int = 10 * 1024 * 1024,
+        agent_client: AgentClient | None = None,
     ) -> None:
         self.repository = repository
         self.project_root = fixture_path.parents[1]
@@ -50,7 +56,7 @@ class PipelineService:
         self.snake_gdd_path = snake_gdd_path
         self.upload_dir = upload_dir or self.project_root / "backend" / ".runtime" / "uploads"
         self.max_upload_bytes = max_upload_bytes
-        self.agent_client = MockAgentClient(fixture_path)
+        self.agent_client = agent_client or MockAgentClient(fixture_path)
         self.notion_sync = MockNotionSyncClient()
 
     def create_project(self, request: ProjectCreateRequest) -> Project:
@@ -147,7 +153,8 @@ class PipelineService:
             )
             run = self._stage(run, PipelineStage.S2_AGENT_A, f"Generated {len(features)} features.")
 
-            feature_issues = validate_features(run.id, features, sections)
+            feature_issues = validate_features_with_routing(run.id, features, sections)
+            self.repository.set_features(run.id, features)
             self.repository.add_validation_issues(feature_issues)
             run = self._stage(
                 run,
@@ -181,7 +188,8 @@ class PipelineService:
                 f"Generated {len(epics)} epics, {len(stories)} stories, and {len(tasks)} tasks.",
             )
 
-            task_issues = validate_tasks(run.id, tasks, features, sections)
+            task_issues = validate_tasks_with_routing(run.id, tasks, features, sections)
+            self.repository.set_tasks(run.id, tasks)
             self.repository.add_validation_issues(task_issues)
             feature_name_by_id = {feature.feature_id: feature.name for feature in features}
             sync_events = []
@@ -216,7 +224,13 @@ class PipelineService:
                 f"Generated {len(test_cases)} test cases.",
             )
 
-            test_case_issues = validate_test_cases(run.id, test_cases, tasks, sections)
+            test_case_issues = validate_test_cases_with_routing(
+                run.id,
+                test_cases,
+                tasks,
+                sections,
+            )
+            self.repository.set_test_cases(run.id, test_cases)
             self.repository.add_validation_issues(test_case_issues)
             test_case_sync_events = [
                 self.notion_sync.upsert_test_case(test_case) for test_case in test_cases

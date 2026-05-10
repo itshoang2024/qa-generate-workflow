@@ -128,6 +128,14 @@ def derive_router_lane(
     return "BATCH"
 
 
+def lane_for_review_status(review_status: ReviewStatus) -> RouterLane | None:
+    if review_status in {ReviewStatus.APPROVED, ReviewStatus.AUTO_APPROVED}:
+        return "AUTO"
+    if review_status in {ReviewStatus.BLOCKED, ReviewStatus.REJECTED}:
+        return "BLOCK"
+    return None
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: f"project_{uuid4().hex[:12]}")
     name: str
@@ -230,6 +238,8 @@ class Feature(BaseModel):
     @computed_field
     @property
     def lane(self) -> RouterLane:
+        if review_lane := lane_for_review_status(self.review_status):
+            return review_lane
         return derive_router_lane(
             self.confidence,
             dedup_flag=self.dedup_flag,
@@ -285,6 +295,8 @@ class QATask(BaseModel):
     @computed_field
     @property
     def lane(self) -> RouterLane:
+        if review_lane := lane_for_review_status(self.review_status):
+            return review_lane
         return derive_router_lane(
             self.confidence,
             dedup_flag=self.dedup_flag,
@@ -316,6 +328,8 @@ class TestCase(BaseModel):
     @computed_field
     @property
     def lane(self) -> RouterLane:
+        if review_lane := lane_for_review_status(self.review_status):
+            return review_lane
         return derive_router_lane(
             self.confidence,
             dedup_flag=self.dedup_flag,
@@ -438,3 +452,32 @@ class ReviewDecisionRequest(BaseModel):
     reviewer: str = "demo_user"
     comment: str | None = None
     patch: dict[str, Any] | None = None
+
+
+class ReviewQueueItem(BaseModel):
+    target_type: str
+    target_id: str
+    title: str
+    reviewer: str
+    lane: RouterLane
+    review_status: str
+    feature_id: str | None = None
+    epic_id: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReviewQueueGroup(BaseModel):
+    group_id: str
+    reviewer: str
+    feature_id: str | None = None
+    epic_id: str | None = None
+    item_count: int
+    items: list[ReviewQueueItem]
+
+
+class ReviewQueue(BaseModel):
+    run_id: str
+    hil_tier: str
+    group_by: list[str]
+    item_count: int
+    groups: list[ReviewQueueGroup]
