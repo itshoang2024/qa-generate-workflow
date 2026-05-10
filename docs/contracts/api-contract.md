@@ -57,6 +57,7 @@ Current implemented endpoints:
 | Method | Path | Mutates state | Purpose |
 |---|---|---:|---|
 | `GET` | `/health` | No | Report app and provider mode. |
+| `GET` | `/providers/status` | No | Report AI, Notion, and repository provider readiness. |
 | `POST` | `/projects` | Yes | Create a game project. |
 | `GET` | `/projects` | No | List game projects for the S0 dropdown. |
 | `GET` | `/projects/{project_id}` | No | Get one project. |
@@ -73,10 +74,14 @@ Current implemented endpoints:
 | `GET` | `/runs/{run_id}/hil-0/resolutions` | No | List HIL-0 decisions already made for the run. |
 | `POST` | `/runs/{run_id}/hil-0/resolutions` | Yes | Resolve one HIL-0 question with provide-artifact, proceed-with-flag, or skip-section. |
 | `GET` | `/runs/{run_id}/features` | No | Get `Feature[]`. |
+| `GET` | `/runs/{run_id}/epics` | No | Get `Epic[]`. |
+| `GET` | `/runs/{run_id}/stories` | No | Get `Story[]`. |
 | `GET` | `/runs/{run_id}/tasks` | No | Get `QATask[]`. |
 | `GET` | `/runs/{run_id}/test-cases` | No | Get `TestCase[]`. |
 | `GET` | `/runs/{run_id}/validation-issues` | No | Get `ValidationIssue[]`. |
 | `GET` | `/runs/{run_id}/sync-events` | No | Get mock Notion `SyncEvent[]`. |
+| `GET` | `/runs/{run_id}/agent-runs` | No | Get Agent A/B/C input and output snapshots. |
+| `GET` | `/runs/{run_id}/review-decisions` | No | Get HIL review decisions for the run. |
 | `POST` | `/review-decisions` | Yes | Store a review decision and update in-memory target status when applicable. |
 | `POST` | `/runs/{run_id}/sync-replay` | Yes | Mark failed sync events as replayed. |
 
@@ -86,12 +91,7 @@ These endpoints are not fully implemented yet. They represent the remaining targ
 
 | Method | Path | Stage | Purpose |
 |---|---|---|---|
-| `GET` | `/runs/{run_id}/epics` | S4/HIL-1 | Inspect generated/approved epics. |
-| `GET` | `/runs/{run_id}/stories` | S4 | Inspect generated stories. |
-| `GET` | `/runs/{run_id}/agent-runs` | Agents | Inspect agent input/output snapshots. |
-| `GET` | `/runs/{run_id}/review-decisions` | HIL | Inspect human decisions. |
 | `GET` | `/runs/{run_id}/risk-events` | Risk | Inspect Task 4 risk events. |
-| `GET` | `/providers/status` | Ops | Show provider readiness and missing credentials. |
 
 S0 response shape should include the Task 1 output inside the envelope:
 
@@ -130,7 +130,35 @@ Expected result:
 - `data.status` is `COMPLETED`.
 - `data.current_stage` is `FINAL_COVERAGE`.
 - `data.coverage_report` contains feature/task/test-case counts.
-- Follow-up endpoints can inspect sections, features, tasks, test cases, validation issues, and sync events.
+- Follow-up endpoints can inspect sections, features, epics, stories, tasks, test cases, agent runs, validation issues, review decisions, and sync events.
+- `Feature`, `QATask`, and `TestCase` payloads include `lane` as `AUTO`, `BATCH`, or `BLOCK`.
+
+Router lane rules:
+
+- `AUTO`: confidence `>= 0.85` and no dedup/cross-cutting flag.
+- `BATCH`: confidence is below auto threshold but above the stage batch threshold.
+- `BLOCK`: confidence is below batch threshold, or a dedup/cross-cutting flag is set.
+- Feature lane uses Task 1 Router A batch threshold `0.60`; task and test-case lanes use Router B/C threshold `0.65`.
+
+## Provider Status
+
+```http
+GET /api/v1/providers/status
+```
+
+```json
+{
+  "data": {
+    "ai": {"provider": "mock", "credentials_ready": true},
+    "notion": {"provider": "real", "credentials_ready": false},
+    "repository": {"provider": "supabase", "credentials_ready": true}
+  },
+  "meta": {"request_id": "req_..."},
+  "error": null
+}
+```
+
+Mock providers are always credential-ready. Real Notion requires `NOTION_TOKEN`; Supabase repository requires both `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Review Decision Request
 

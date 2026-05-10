@@ -102,6 +102,8 @@ create table if not exists features (
   dependencies jsonb not null default '[]'::jsonb,
   assignee text not null,
   confidence numeric not null,
+  dedup_flag boolean not null default false,
+  cross_cutting_flag boolean not null default false,
   ambiguities jsonb not null default '[]'::jsonb,
   review_status text not null,
   unique(run_id, feature_id)
@@ -150,6 +152,8 @@ create table if not exists qa_tasks (
   source_sections jsonb not null,
   external_id text not null,
   confidence numeric not null,
+  dedup_flag boolean not null default false,
+  cross_cutting_flag boolean not null default false,
   status text not null,
   review_status text not null,
   unique(run_id, task_id),
@@ -170,6 +174,9 @@ create table if not exists test_cases (
   related_task_id text not null,
   source_sections jsonb not null,
   external_id text not null,
+  confidence numeric not null default 1,
+  dedup_flag boolean not null default false,
+  cross_cutting_flag boolean not null default false,
   test_data jsonb not null default '{}'::jsonb,
   status text not null,
   review_status text not null,
@@ -229,6 +236,19 @@ create table if not exists sync_events (
 );
 
 create index if not exists idx_runs_project_id on runs(project_id);
+alter table features
+  add column if not exists dedup_flag boolean not null default false,
+  add column if not exists cross_cutting_flag boolean not null default false;
+
+alter table qa_tasks
+  add column if not exists dedup_flag boolean not null default false,
+  add column if not exists cross_cutting_flag boolean not null default false;
+
+alter table test_cases
+  add column if not exists confidence numeric not null default 1,
+  add column if not exists dedup_flag boolean not null default false,
+  add column if not exists cross_cutting_flag boolean not null default false;
+
 create index if not exists idx_gdd_documents_project_version
   on gdd_documents(project_id, version_id);
 create index if not exists idx_gdd_documents_parent_document_id

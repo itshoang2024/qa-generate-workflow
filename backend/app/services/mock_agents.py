@@ -129,6 +129,9 @@ class MockAgentClient:
                         related_task_id=task.task_id,
                         source_sections=task.source_sections,
                         external_id=f"{task.external_id}-TC-{sequence:02d}",
+                        confidence=task.confidence,
+                        dedup_flag=task.dedup_flag,
+                        cross_cutting_flag=task.cross_cutting_flag,
                         test_data={"source_task_external_id": task.external_id, "category": category.value},
                         review_status=ReviewStatus.AUTO_APPROVED
                         if task.review_status == ReviewStatus.AUTO_APPROVED

@@ -224,7 +224,7 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         return [model_type.model_validate(row) for row in rows]
 
     def _dump(self, model: Any) -> dict[str, Any]:
-        return model.model_dump(mode="json")
+        return model.model_dump(mode="json", exclude={"lane"})
 
 
 def _version_number(version_id: str) -> int:

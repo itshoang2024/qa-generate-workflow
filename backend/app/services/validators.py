@@ -107,6 +107,8 @@ def validate_tasks(
                     PipelineStage.S5_VALIDATION_B_SYNC,
                 )
             )
+        elif feature.cross_cutting_flag:
+            task.cross_cutting_flag = True
         if task.assignee not in QA_MEMBERS:
             issues.append(
                 _issue(
@@ -215,6 +217,8 @@ def _duplicate_task_issues(run_id: str, tasks: list[QATask]) -> list[ValidationI
                 other.title.lower(),
             ).ratio()
             if similarity >= 0.85:
+                task.dedup_flag = True
+                other.dedup_flag = True
                 issues.append(
                     _issue(
                         run_id,
@@ -250,4 +254,3 @@ def _issue(
         message=message,
         stage=stage,
     )
-

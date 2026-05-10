@@ -6,6 +6,7 @@ import pytest
 fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.api.v1.dependencies import settings_dependency  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -30,6 +31,13 @@ def test_demo_run_api_produces_enveloped_response() -> None:
     coverage = client.get(f"/api/v1/runs/{run_id}/coverage")
     assert coverage.status_code == 200
     assert coverage.json()["data"]["task_count"] == 11
+
+    features = client.get(f"/api/v1/runs/{run_id}/features")
+    tasks = client.get(f"/api/v1/runs/{run_id}/tasks")
+    test_cases = client.get(f"/api/v1/runs/{run_id}/test-cases")
+    assert features.json()["data"][0]["lane"] == "AUTO"
+    assert {task["lane"] for task in tasks.json()["data"]} >= {"AUTO", "BATCH"}
+    assert {case["lane"] for case in test_cases.json()["data"]} >= {"AUTO", "BATCH"}
 
 
 def test_project_trigger_context_and_gdd_document_apis() -> None:
@@ -94,3 +102,89 @@ def test_project_trigger_context_and_gdd_document_apis() -> None:
     documents_response = client.get(f"/api/v1/projects/{project_id}/gdd-documents")
     assert documents_response.status_code == 200
     assert [doc["version_id"] for doc in documents_response.json()["data"]] == ["v2", "v1"]
+
+
+def test_epics_endpoint_returns_generated_epics() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.get(f"/api/v1/runs/{run_id}/epics")
+
+    assert response.status_code == 200
+    assert len(response.json()["data"]) == 5
+
+
+def test_stories_endpoint_returns_generated_stories() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.get(f"/api/v1/runs/{run_id}/stories")
+
+    assert response.status_code == 200
+    assert len(response.json()["data"]) == 5
+
+
+def test_agent_runs_endpoint_returns_agent_snapshots() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.get(f"/api/v1/runs/{run_id}/agent-runs")
+
+    assert response.status_code == 200
+    assert [agent["stage"] for agent in response.json()["data"]] == [
+        "S2_AGENT_A",
+        "S4_AGENT_B",
+        "S6_AGENT_C",
+    ]
+
+
+def test_review_decisions_endpoint_returns_hil_decisions() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+    created = client.post(
+        "/api/v1/review-decisions",
+        json={
+            "run_id": run_id,
+            "target_type": "task",
+            "target_id": "T-007",
+            "decision": "APPROVED",
+        },
+    )
+    assert created.status_code == 200
+
+    response = client.get(f"/api/v1/runs/{run_id}/review-decisions")
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["target_id"] == "T-007"
+
+
+def test_provider_status_endpoint_reports_credential_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    monkeypatch.setenv("NOTION_PROVIDER", "real")
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    monkeypatch.setenv("REPOSITORY_PROVIDER", "supabase")
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-service-role")
+    settings_dependency.cache_clear()
+
+    try:
+        response = TestClient(app).get("/api/v1/providers/status")
+    finally:
+        settings_dependency.cache_clear()
+
+    data = response.json()["data"]
+    assert response.status_code == 200
+    assert data["ai"] == {"provider": "mock", "credentials_ready": True}
+    assert data["notion"] == {"provider": "real", "credentials_ready": False}
+    assert data["repository"] == {"provider": "supabase", "credentials_ready": True}
+
+
+def _create_demo_run(client: TestClient) -> str:
+    response = client.post(
+        "/api/v1/demo-runs",
+        json={"preset": "snake_escape", "mode": "NEW_GAME", "auto_approve": True},
+    )
+    assert response.status_code == 200
+    return response.json()["data"]["id"]

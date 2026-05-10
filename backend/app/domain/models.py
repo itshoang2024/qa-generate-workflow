@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field, model_validator
 
 
 def utc_now() -> datetime:
@@ -107,6 +107,27 @@ class TestType(StrEnum):
     PERFORMANCE = "performance"
 
 
+RouterLane = Literal["AUTO", "BATCH", "BLOCK"]
+
+AUTO_CONFIDENCE_THRESHOLD = 0.85
+FEATURE_BATCH_CONFIDENCE_THRESHOLD = 0.60
+TASK_BATCH_CONFIDENCE_THRESHOLD = 0.65
+
+
+def derive_router_lane(
+    confidence: float,
+    *,
+    dedup_flag: bool = False,
+    cross_cutting_flag: bool = False,
+    batch_threshold: float = TASK_BATCH_CONFIDENCE_THRESHOLD,
+) -> RouterLane:
+    if dedup_flag or cross_cutting_flag or confidence < batch_threshold:
+        return "BLOCK"
+    if confidence >= AUTO_CONFIDENCE_THRESHOLD:
+        return "AUTO"
+    return "BATCH"
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: f"project_{uuid4().hex[:12]}")
     name: str
@@ -201,8 +222,20 @@ class Feature(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     assignee: str
     confidence: float = Field(ge=0, le=1)
+    dedup_flag: bool = False
+    cross_cutting_flag: bool = False
     ambiguities: list[str] = Field(default_factory=list)
     review_status: ReviewStatus = ReviewStatus.PENDING
+
+    @computed_field
+    @property
+    def lane(self) -> RouterLane:
+        return derive_router_lane(
+            self.confidence,
+            dedup_flag=self.dedup_flag,
+            cross_cutting_flag=self.cross_cutting_flag,
+            batch_threshold=FEATURE_BATCH_CONFIDENCE_THRESHOLD,
+        )
 
 
 class Epic(BaseModel):
@@ -244,8 +277,19 @@ class QATask(BaseModel):
     source_sections: list[str]
     external_id: str
     confidence: float = Field(ge=0, le=1)
+    dedup_flag: bool = False
+    cross_cutting_flag: bool = False
     status: str = "Ready for Test Cases"
     review_status: ReviewStatus = ReviewStatus.PENDING
+
+    @computed_field
+    @property
+    def lane(self) -> RouterLane:
+        return derive_router_lane(
+            self.confidence,
+            dedup_flag=self.dedup_flag,
+            cross_cutting_flag=self.cross_cutting_flag,
+        )
 
 
 class TestCase(BaseModel):
@@ -262,9 +306,21 @@ class TestCase(BaseModel):
     related_task_id: str
     source_sections: list[str]
     external_id: str
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    dedup_flag: bool = False
+    cross_cutting_flag: bool = False
     test_data: dict[str, Any] = Field(default_factory=dict)
     status: str = "Not Run"
     review_status: ReviewStatus = ReviewStatus.PENDING
+
+    @computed_field
+    @property
+    def lane(self) -> RouterLane:
+        return derive_router_lane(
+            self.confidence,
+            dedup_flag=self.dedup_flag,
+            cross_cutting_flag=self.cross_cutting_flag,
+        )
 
 
 class ValidationIssue(BaseModel):

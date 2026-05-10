@@ -12,6 +12,9 @@ class Settings:
     ai_provider: str
     notion_provider: str
     repository_provider: str
+    openai_api_key: str | None
+    anthropic_api_key: str | None
+    notion_token: str | None
     supabase_url: str | None
     supabase_service_role_key: str | None
     project_root: Path
@@ -47,6 +50,9 @@ def get_settings(env_file: Path | None = None) -> Settings:
         ai_provider=_env_value("AI_PROVIDER", env_values, "mock"),
         notion_provider=_env_value("NOTION_PROVIDER", env_values, "mock"),
         repository_provider=_env_value("REPOSITORY_PROVIDER", env_values, "memory"),
+        openai_api_key=_env_value("OPENAI_API_KEY", env_values) or None,
+        anthropic_api_key=_env_value("ANTHROPIC_API_KEY", env_values) or None,
+        notion_token=_env_value("NOTION_TOKEN", env_values) or None,
         supabase_url=_env_value("SUPABASE_URL", env_values) or None,
         supabase_service_role_key=_env_value("SUPABASE_SERVICE_ROLE_KEY", env_values) or None,
         project_root=project_root,

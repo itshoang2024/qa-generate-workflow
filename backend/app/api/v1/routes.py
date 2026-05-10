@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.api.v1.dependencies import pipeline_dependency, repository_dependency, settings_dependency
+from app.config import Settings
 from app.domain.models import (
     DemoRunRequest,
     HIL0Resolution,
@@ -28,6 +29,27 @@ def health() -> dict[str, object]:
             "ai_provider": settings.ai_provider,
             "notion_provider": settings.notion_provider,
             "repository_provider": settings.repository_provider,
+        }
+    )
+
+
+@router.get("/providers/status")
+def get_provider_status() -> dict[str, object]:
+    settings = settings_dependency()
+    return envelope(
+        {
+            "ai": {
+                "provider": settings.ai_provider,
+                "credentials_ready": _ai_credentials_ready(settings),
+            },
+            "notion": {
+                "provider": settings.notion_provider,
+                "credentials_ready": _notion_credentials_ready(settings),
+            },
+            "repository": {
+                "provider": settings.repository_provider,
+                "credentials_ready": _repository_credentials_ready(settings),
+            },
         }
     )
 
@@ -153,6 +175,18 @@ def get_features(run_id: str) -> dict[str, object]:
     return envelope(repository_dependency().list_features(run_id))
 
 
+@router.get("/runs/{run_id}/epics")
+def get_epics(run_id: str) -> dict[str, object]:
+    _require_run(run_id)
+    return envelope(repository_dependency().list_epics(run_id))
+
+
+@router.get("/runs/{run_id}/stories")
+def get_stories(run_id: str) -> dict[str, object]:
+    _require_run(run_id)
+    return envelope(repository_dependency().list_stories(run_id))
+
+
 @router.get("/runs/{run_id}/tasks")
 def get_tasks(run_id: str) -> dict[str, object]:
     _require_run(run_id)
@@ -175,6 +209,18 @@ def get_validation_issues(run_id: str) -> dict[str, object]:
 def get_sync_events(run_id: str) -> dict[str, object]:
     _require_run(run_id)
     return envelope(repository_dependency().list_sync_events(run_id))
+
+
+@router.get("/runs/{run_id}/agent-runs")
+def get_agent_runs(run_id: str) -> dict[str, object]:
+    _require_run(run_id)
+    return envelope(repository_dependency().list_agent_runs(run_id))
+
+
+@router.get("/runs/{run_id}/review-decisions")
+def get_review_decisions(run_id: str) -> dict[str, object]:
+    _require_run(run_id)
+    return envelope(repository_dependency().list_review_decisions(run_id))
 
 
 @router.post("/review-decisions")
@@ -203,3 +249,29 @@ def _require_project(project_id: str):
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found.")
     return project
+
+
+def _ai_credentials_ready(settings: Settings) -> bool:
+    provider = settings.ai_provider.lower()
+    if provider == "mock":
+        return True
+    if provider == "openai":
+        return bool(settings.openai_api_key)
+    if provider == "anthropic":
+        return bool(settings.anthropic_api_key)
+    return bool(settings.openai_api_key or settings.anthropic_api_key)
+
+
+def _notion_credentials_ready(settings: Settings) -> bool:
+    if settings.notion_provider.lower() == "mock":
+        return True
+    return bool(settings.notion_token)
+
+
+def _repository_credentials_ready(settings: Settings) -> bool:
+    provider = settings.repository_provider.lower()
+    if provider == "memory":
+        return True
+    if provider == "supabase":
+        return bool(settings.supabase_url and settings.supabase_service_role_key)
+    return False
