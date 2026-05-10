@@ -26,13 +26,11 @@ Already implemented:
 - In-memory repository by default and optional Supabase repository.
 - Supabase schema in `supabase/schema.sql`.
 - Backend tests, docs, contracts, runbooks, fixture guide, and planning docs.
+- Stage 0 trigger/mode detection API, project APIs, S1 context loading, versioned `GDDDocument` registration, HIL-0 question/resolution APIs, and DELTA diff scaffold.
 
 Still missing for the final prototype:
 
-- Stage 0 trigger/mode detection API that matches Task 1 exactly.
-- S1 context-loader ownership of GDD file handling, structural parse, actionability filter, HIL-0, version registration, and DELTA diff.
-- Versioned GDD knowledge-base model: `Project -> GDDDocument -> Run`.
-- Session memory and long-term project memory.
+- Long-term project memory for corrections and reusable per-game context.
 - Real AgentClient with structured JSON contracts from Task 2.
 - Real Notion sync with Sync-A/B/C semantics from Task 3.
 - Risk dashboard, retry policy, kill switch, and learning loop from Task 4.

@@ -7,7 +7,10 @@ from app.domain.models import (
     AgentRun,
     Epic,
     Feature,
+    GDDDocument,
     GDDSection,
+    HIL0Resolution,
+    HIL0Question,
     Project,
     QATask,
     ReviewDecision,
@@ -26,6 +29,12 @@ class WorkflowRepository(ABC):
     def upsert_project(self, project: Project) -> Project: ...
 
     @abstractmethod
+    def get_project(self, project_id: str) -> Project | None: ...
+
+    @abstractmethod
+    def list_projects(self) -> list[Project]: ...
+
+    @abstractmethod
     def create_run(self, run: Run) -> Run: ...
 
     @abstractmethod
@@ -38,10 +47,37 @@ class WorkflowRepository(ABC):
     def get_run(self, run_id: str) -> Run | None: ...
 
     @abstractmethod
+    def create_gdd_document(self, document: GDDDocument) -> GDDDocument: ...
+
+    @abstractmethod
+    def get_gdd_document(self, document_id: str) -> GDDDocument | None: ...
+
+    @abstractmethod
+    def list_gdd_documents(self, project_id: str) -> list[GDDDocument]: ...
+
+    @abstractmethod
+    def get_latest_gdd_document(self, project_id: str) -> GDDDocument | None: ...
+
+    @abstractmethod
+    def next_gdd_version_id(self, project_id: str) -> str: ...
+
+    @abstractmethod
     def add_sections(self, sections: list[GDDSection]) -> list[GDDSection]: ...
 
     @abstractmethod
     def list_sections(self, run_id: str) -> list[GDDSection]: ...
+
+    @abstractmethod
+    def add_hil0_questions(self, questions: list[HIL0Question]) -> list[HIL0Question]: ...
+
+    @abstractmethod
+    def list_hil0_questions(self, run_id: str) -> list[HIL0Question]: ...
+
+    @abstractmethod
+    def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution: ...
+
+    @abstractmethod
+    def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]: ...
 
     @abstractmethod
     def set_features(self, run_id: str, features: list[Feature]) -> list[Feature]: ...
@@ -105,7 +141,10 @@ class InMemoryWorkflowRepository(WorkflowRepository):
     def __init__(self) -> None:
         self.projects: dict[str, Project] = {}
         self.runs: dict[str, Run] = {}
+        self.gdd_documents: dict[str, GDDDocument] = {}
         self.sections: dict[str, list[GDDSection]] = {}
+        self.hil0_questions: dict[str, list[HIL0Question]] = {}
+        self.hil0_resolutions: dict[str, list[HIL0Resolution]] = {}
         self.features: dict[str, list[Feature]] = {}
         self.epics: dict[str, list[Epic]] = {}
         self.stories: dict[str, list[Story]] = {}
@@ -119,6 +158,12 @@ class InMemoryWorkflowRepository(WorkflowRepository):
     def upsert_project(self, project: Project) -> Project:
         self.projects[project.id] = project
         return project
+
+    def get_project(self, project_id: str) -> Project | None:
+        return self.projects.get(project_id)
+
+    def list_projects(self) -> list[Project]:
+        return sorted(self.projects.values(), key=lambda project: project.created_at, reverse=True)
 
     def create_run(self, run: Run) -> Run:
         self.runs[run.id] = run
@@ -134,6 +179,30 @@ class InMemoryWorkflowRepository(WorkflowRepository):
     def get_run(self, run_id: str) -> Run | None:
         return self.runs.get(run_id)
 
+    def create_gdd_document(self, document: GDDDocument) -> GDDDocument:
+        self.gdd_documents[document.id] = document
+        return document
+
+    def get_gdd_document(self, document_id: str) -> GDDDocument | None:
+        return self.gdd_documents.get(document_id)
+
+    def list_gdd_documents(self, project_id: str) -> list[GDDDocument]:
+        documents = [
+            document
+            for document in self.gdd_documents.values()
+            if document.project_id == project_id
+        ]
+        return sorted(documents, key=lambda document: _version_number(document.version_id), reverse=True)
+
+    def get_latest_gdd_document(self, project_id: str) -> GDDDocument | None:
+        documents = self.list_gdd_documents(project_id)
+        return documents[0] if documents else None
+
+    def next_gdd_version_id(self, project_id: str) -> str:
+        documents = self.list_gdd_documents(project_id)
+        next_number = max((_version_number(document.version_id) for document in documents), default=0) + 1
+        return f"v{next_number}"
+
     def add_sections(self, sections: list[GDDSection]) -> list[GDDSection]:
         if not sections:
             return sections
@@ -142,6 +211,25 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     def list_sections(self, run_id: str) -> list[GDDSection]:
         return self.sections.get(run_id, [])
+
+    def add_hil0_questions(self, questions: list[HIL0Question]) -> list[HIL0Question]:
+        if questions:
+            self.hil0_questions[questions[0].run_id] = questions
+        return questions
+
+    def list_hil0_questions(self, run_id: str) -> list[HIL0Question]:
+        return self.hil0_questions.get(run_id, [])
+
+    def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution:
+        self.hil0_resolutions.setdefault(resolution.run_id, []).append(resolution)
+        for question in self.hil0_questions.get(resolution.run_id, []):
+            if question.id == resolution.question_id:
+                question.status = "RESOLVED"
+                question.resolved_action = resolution.action
+        return resolution
+
+    def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]:
+        return self.hil0_resolutions.get(run_id, [])
 
     def set_features(self, run_id: str, features: list[Feature]) -> list[Feature]:
         self.features[run_id] = features
@@ -239,3 +327,8 @@ class InMemoryWorkflowRepository(WorkflowRepository):
             if item.id == decision.target_id or public_id == decision.target_id:
                 item.review_status = decision.decision
 
+
+def _version_number(version_id: str) -> int:
+    if version_id.startswith("v") and version_id[1:].isdigit():
+        return int(version_id[1:])
+    return 0

@@ -16,7 +16,7 @@ The backend must remain mock-first for the local demo while evolving toward the 
 - FastAPI app, versioned routes, domain models, repository abstraction, mock pipeline, validators, mock Notion sync, Snake Escape fixture, Supabase schema, and tests exist.
 - `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, tasks, test cases, validation issues, coverage, and sync events.
 - `RunMode` already models `NEW_GAME` and `DELTA`.
-- Current implementation is a synchronous MVP; it does not yet implement S0 project-selection mode detection, S1 GDD version registration, HIL queues, real AI, real Notion, risk dashboard, or DELTA diff.
+- Current implementation is a synchronous MVP with S0 project-selection mode detection, S1 GDD version registration, HIL-0 clarification queue, and DELTA diff scaffold. Real AI, real Notion, later HIL queues, risk dashboard, and full DELTA behavior are still pending.
 
 ## Stage-Based Plan
 

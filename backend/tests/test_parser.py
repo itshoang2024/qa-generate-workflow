@@ -6,7 +6,7 @@ from app.services.gdd_parser import parse_docx_gdd
 
 
 def test_parser_extracts_snake_headings_tables_and_notes() -> None:
-    gdd_path = Path(__file__).resolve().parents[3] / "GDD Sample_Snake Escape.docx"
+    gdd_path = Path(__file__).resolve().parents[2] / "data" / "GDD_Sample_Snake_Escape.docx"
     if not gdd_path.exists():
         pytest.skip("Root-level Snake Escape GDD is not available.")
 
@@ -21,4 +21,3 @@ def test_parser_extracts_snake_headings_tables_and_notes() -> None:
     technical = next(section for section in parsed.sections if section.section_id == "§13")
     assert technical.actionable is False
     assert technical.actionability_reason == "external_dependency"
-

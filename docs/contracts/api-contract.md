@@ -52,17 +52,26 @@ The envelope is implemented in `backend/app/domain/responses.py`.
 
 ## Endpoints
 
-Current MVP endpoints:
+Current implemented endpoints:
 
 | Method | Path | Mutates state | Purpose |
 |---|---|---:|---|
 | `GET` | `/health` | No | Report app and provider mode. |
+| `POST` | `/projects` | Yes | Create a game project. |
+| `GET` | `/projects` | No | List game projects for the S0 dropdown. |
+| `GET` | `/projects/{project_id}` | No | Get one project. |
+| `GET` | `/projects/{project_id}/gdd-documents` | No | List registered GDD versions for one game project. |
 | `POST` | `/demo-runs` | Yes | Run the Snake Escape pipeline end to end. |
 | `GET` | `/runs` | No | List stored runs. |
+| `POST` | `/runs/trigger` | Yes | Accept GDD file reference + project selection, choose `NEW_GAME` or `DELTA`, create `run_id`, initialize session memory. |
 | `GET` | `/runs/{run_id}` | No | Get one run. |
+| `POST` | `/runs/{run_id}/context` | Yes | Load/register/parse GDD, run actionability filter, create HIL-0 questions, and optionally run DELTA diff. |
 | `GET` | `/runs/{run_id}/timeline` | No | Get `StageEvent[]`. |
 | `GET` | `/runs/{run_id}/coverage` | No | Get `Run.coverage_report`. |
 | `GET` | `/runs/{run_id}/sections` | No | Get parsed `GDDSection[]`. |
+| `GET` | `/runs/{run_id}/hil-0/questions` | No | List HIL-0 clarification questions for the run. |
+| `GET` | `/runs/{run_id}/hil-0/resolutions` | No | List HIL-0 decisions already made for the run. |
+| `POST` | `/runs/{run_id}/hil-0/resolutions` | Yes | Resolve one HIL-0 question with provide-artifact, proceed-with-flag, or skip-section. |
 | `GET` | `/runs/{run_id}/features` | No | Get `Feature[]`. |
 | `GET` | `/runs/{run_id}/tasks` | No | Get `QATask[]`. |
 | `GET` | `/runs/{run_id}/test-cases` | No | Get `TestCase[]`. |
@@ -71,18 +80,12 @@ Current MVP endpoints:
 | `POST` | `/review-decisions` | Yes | Store a review decision and update in-memory target status when applicable. |
 | `POST` | `/runs/{run_id}/sync-replay` | Yes | Mark failed sync events as replayed. |
 
-## Planned Source-Of-Truth Endpoints
+## Remaining Planned Source-Of-Truth Endpoints
 
-These endpoints are not fully implemented yet. They represent the target API needed by Task 1-4.
+These endpoints are not fully implemented yet. They represent the remaining target API needed by Task 1-4.
 
 | Method | Path | Stage | Purpose |
 |---|---|---|---|
-| `POST` | `/projects` | Setup | Create a game project. |
-| `GET` | `/projects` | Setup | List game projects for the S0 dropdown. |
-| `GET` | `/projects/{project_id}` | Setup | Get one project. |
-| `POST` | `/runs/trigger` | S0 | Accept GDD upload reference + project selection, choose `NEW_GAME` or `DELTA`, create `run_id`, initialize session memory. |
-| `POST` | `/runs/{run_id}/context` | S1 | Load/register/parse GDD, run actionability filter, create HIL-0 questions, and optionally run DELTA diff. |
-| `GET` | `/projects/{project_id}/gdd-documents` | S1 | List registered GDD versions for one game project. |
 | `GET` | `/runs/{run_id}/epics` | S4/HIL-1 | Inspect generated/approved epics. |
 | `GET` | `/runs/{run_id}/stories` | S4 | Inspect generated stories. |
 | `GET` | `/runs/{run_id}/agent-runs` | Agents | Inspect agent input/output snapshots. |

@@ -8,8 +8,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 
 | Phase | Done / Total | Status |
 |---|---|---|
-| S0 Trigger + Mode Detection | 1 / 6 | Plan/tasks aligned; request model + handler not started. |
-| S1 Context Loader | 0 / 11 | Parser exists in MVP; `GDDDocument`, HIL-0 API, DELTA diff not started. |
+| S0 Trigger + Mode Detection | 6 / 6 | Request model, rule-based mode detection, run/session init, and demo compatibility are implemented. |
+| S1 Context Loader | 11 / 11 | GDD loading/versioning, Run source metadata, HIL-0 questions/resolutions, and DELTA scaffold are implemented. |
 | S2 Agent A | 0 / 4 | Mock works; AgentClient interface not extracted. |
 | S3 Validation A + Router A | 0 / 3 | Subset of validators exists; router lanes not exposed. |
 | HIL-1 | 0 / 3 | Generic `ReviewDecision` exists; queue endpoints missing. |
@@ -37,71 +37,66 @@ Order within this slice:
 
 Do not start `Phase S2`+ until this slice is green: Agent A/B/C real adapters and Sync-A/B/C all consume artifacts that S1 (not S0) is supposed to produce.
 
-## Open Phase 0 Items From Root Plan
+## Phase 0 Items From Root Plan
 
-Two Phase 0 items in root `TASKS.md` are still open and orthogonal to the S0/S1 slice:
-
-- Normalize default GDD path so a clean shell can `POST /api/v1/demo-runs` without setting `SNAKE_GDD_PATH`.
-- Decide `.env` handling — currently `config.py` does not auto-load `.env`; `/api/v1/health` should reflect the active providers explicitly.
-
-These can be picked up in parallel since they touch only `config.py`, `health` endpoint, and runbooks.
+All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backend/.env` after process env, `/api/v1/health` reflects the active provider, and default GDD path selection uses the canonical repo sample `data/GDD_Sample_Snake_Escape.docx`.
 
 ## Phase S0 - Trigger + Mode Detection
 
 - [x] Task: Revise backend plan/tasks so S0 only owns trigger, mode detection, run creation, and session initialization.
   Verify: `rg -n "S0 does not|Input: GDD upload|mode=DELTA|mode=NEW_GAME|session memory" backend/PLAN.md backend/TASKS.md`.
 
-- [ ] Task: Add S0 request model for GDD upload reference plus project selection.
+- [x] Task: Add S0 request model for GDD upload reference plus project selection.
   Verify: Request can represent either existing `project_id` or new project name, plus `gdd_file`.
 
-- [ ] Task: Implement rule-based mode detection.
+- [x] Task: Implement rule-based mode detection.
   Verify: Existing project selection produces `mode=DELTA`; new project creation produces `mode=NEW_GAME`.
 
-- [ ] Task: Create run ID and initialize session memory.
+- [x] Task: Create run ID and initialize session memory.
   Verify: S0 response includes `{run_id, project_id, gdd_file, mode}` and session memory exists for the run.
 
-- [ ] Task: Keep S0 free of parser/storage/versioning side effects.
+- [x] Task: Keep S0 free of parser/storage/versioning side effects.
   Verify: S0 test asserts no GDD sections and no `GDDDocument` record are created before S1.
 
-- [ ] Task: Preserve `/api/v1/demo-runs`.
+- [x] Task: Preserve `/api/v1/demo-runs`.
   Verify: Existing demo run API still creates a completed Snake Escape run with a complete timeline in mock mode.
 
 ## Phase S1 - Context Loader
 
-- [ ] Task: Load raw GDD file handed off by S0.
+- [x] Task: Load raw GDD file handed off by S0.
   Verify: S1 receives `gdd_file`, reads the file, and reports a clear error for missing files.
 
-- [ ] Task: Add `GDDDocument` domain model.
+- [x] Task: Add `GDDDocument` domain model.
   Verify: Model includes `project_id`, `version_id`, optional `description`, `description_status`, `parent_document_id`, file metadata, and `sha256`.
 
-- [ ] Task: Extend `Run` with GDD document and source version metadata after S1 registration.
+- [x] Task: Extend `Run` with GDD document and source version metadata after S1 registration.
   Verify: Run detail includes `gdd_document_id`, `source_version_id`, and source metadata after S1 completes.
 
-- [ ] Task: Add repository methods for project get/list.
+- [x] Task: Add repository methods for project get/list.
   Verify: Memory and Supabase repositories can create, fetch, and list projects.
 
-- [ ] Task: Add repository methods for GDD document create/get/list/latest/next version.
+- [x] Task: Add repository methods for GDD document create/get/list/latest/next version.
   Verify: Tests show the first document for a project is `v1` and the second is `v2`.
 
-- [ ] Task: Add Supabase `gdd_documents` schema.
+- [x] Task: Add Supabase `gdd_documents` schema.
   Verify: `supabase/schema.sql` creates `gdd_documents`, unique `(project_id, version_id)`, and indexes for project/document lookup.
 
-- [ ] Task: Add upload/runtime storage settings.
+- [x] Task: Add upload/runtime storage settings.
   Verify: Config exposes `UPLOAD_DIR` and `MAX_UPLOAD_BYTES`, uploaded files go under `backend/.runtime/uploads/`, and runtime uploads are git-ignored.
 
-- [ ] Task: Add `python-multipart` for FastAPI upload handling when route implementation needs multipart.
+- [x] Task: Add `python-multipart` for FastAPI upload handling when route implementation needs multipart.
   Verify: `pip install -r backend/requirements.txt` installs upload dependencies in `qa-generator`.
 
-- [ ] Task: Add S1 structural DOCX parse.
+- [x] Task: Add S1 structural DOCX parse.
   Verify: Parser tests assert headings, tables, special blocks, and stable section order.
 
-- [ ] Task: Add QA-actionability filter.
+- [x] Task: Add QA-actionability filter.
   Verify: Tests show metadata/external-dependency sections are excluded and behavior/UI/data sections are actionable.
 
-- [ ] Task: Add HIL-0 preflight issue model/API.
+- [x] Task: Add HIL-0 preflight issue model/API.
   Verify: API tests can list one batch of clarification questions and resolve with provide-artifact, proceed-with-flag, or skip.
 
-- [ ] Task: Add S1.4 DELTA diff scaffold.
+- [x] Task: Add S1.4 DELTA diff scaffold.
   Verify: DELTA mode loads previous GDD version and emits `NEW`, `MODIFIED`, `UNCHANGED`, `REMOVED` buckets or a placeholder with stable shape.
 
 ## Phase S2 - Agent A

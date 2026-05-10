@@ -30,7 +30,7 @@ The root source-of-truth design files are:
 | GDD parser | DOCX parser in `backend/app/services/gdd_parser.py`. |
 | Validation layer | Deterministic validators in `backend/app/services/validators.py`. |
 | Notion sync | Mock payload events in `backend/app/services/notion_sync.py`. |
-| Storage | In-memory by default; optional Supabase via `REPOSITORY_PROVIDER=supabase`. |
+| Storage | In-memory by default; optional Supabase via `REPOSITORY_PROVIDER=supabase` in `backend/.env`. |
 | Frontend | Not implemented; expected to consume `/api/v1` only. |
 
 ## Target Stage Boundaries
@@ -98,12 +98,12 @@ Target artifact flow differs before and around the current demo path:
 
 ## Data Sources
 
-- `data/GDD_Sample_Snake Escape.docx`: tracked sample GDD artifact.
+- `data/GDD_Sample_Snake_Escape.docx`: repo-local sample GDD artifact preferred by default config.
 - `data/snake_escape_fixture.json`: deterministic mock agent output.
-- `.env.example`: expected environment variables.
+- `backend/.env.example`: expected backend environment variables.
 - `supabase/schema.sql`: optional cloud persistence schema.
 
-Note: `app/config.py` reads environment variables from the process. It does not load `.env` files by itself.
+Note: `app/config.py` reads process environment variables first, then falls back to `backend/.env`. Restart the backend after changing `backend/.env` because settings and repository dependencies are cached in-process.
 
 ## Public Interfaces
 
@@ -122,7 +122,7 @@ Note: `app/config.py` reads environment variables from the process. It does not 
 - Notion sync is mock-only.
 - AI provider selection is documented as mock-first; real provider adapters are not implemented.
 - In-memory storage is process-local and resets when the server restarts.
-- S0/S1 are not yet split according to Task 1; current demo performs project/run creation and parsing inside one synchronous pipeline method.
+- S0/S1 are split in the backend service and public API; `/demo-runs` remains a synchronous wrapper for the stable mock demo.
 - Risk events, correction memory, and kill-switch behavior are not implemented.
 
 ## Change Impact Notes

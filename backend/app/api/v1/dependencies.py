@@ -22,5 +22,6 @@ def pipeline_dependency() -> PipelineService:
         repository=repository_dependency(),
         fixture_path=settings.fixture_path,
         snake_gdd_path=settings.snake_gdd_path,
+        upload_dir=settings.upload_dir,
+        max_upload_bytes=settings.max_upload_bytes,
     )
-

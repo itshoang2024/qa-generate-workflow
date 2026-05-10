@@ -1,7 +1,7 @@
 create table if not exists projects (
   id text primary key,
   name text not null,
-  source_document text not null,
+  source_document text not null default '',
   created_at timestamptz not null default now()
 );
 
@@ -11,11 +11,44 @@ create table if not exists runs (
   mode text not null,
   status text not null,
   current_stage text not null,
+  session_memory jsonb not null default '{}'::jsonb,
+  gdd_document_id text,
+  source_version_id text,
+  source_metadata jsonb not null default '{}'::jsonb,
+  delta_report jsonb,
   coverage_report jsonb not null default '{}'::jsonb,
   timeline jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   finished_at timestamptz
+);
+
+alter table projects
+  alter column source_document set default '';
+
+alter table runs
+  add column if not exists session_memory jsonb not null default '{}'::jsonb,
+  add column if not exists gdd_document_id text,
+  add column if not exists source_version_id text,
+  add column if not exists source_metadata jsonb not null default '{}'::jsonb,
+  add column if not exists delta_report jsonb;
+
+create table if not exists gdd_documents (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  run_id text references runs(id) on delete set null,
+  version_id text not null,
+  description text,
+  description_status text not null default 'PENDING',
+  parent_document_id text references gdd_documents(id),
+  file_name text not null,
+  file_path text not null,
+  content_type text not null,
+  origin text not null default 'local_reference',
+  size_bytes integer not null,
+  sha256 text not null,
+  created_at timestamptz not null default now(),
+  unique(project_id, version_id)
 );
 
 create table if not exists gdd_sections (
@@ -31,6 +64,30 @@ create table if not exists gdd_sections (
   actionable boolean not null default true,
   actionability_reason text,
   unique(run_id, section_id)
+);
+
+create table if not exists hil0_questions (
+  id text primary key,
+  run_id text not null references runs(id) on delete cascade,
+  section_id text not null,
+  title text not null,
+  reason text not null,
+  question text not null,
+  allowed_actions jsonb not null default '[]'::jsonb,
+  status text not null default 'OPEN',
+  resolved_action text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists hil0_resolutions (
+  id text primary key,
+  run_id text not null references runs(id) on delete cascade,
+  question_id text not null references hil0_questions(id) on delete cascade,
+  action text not null,
+  reviewer text not null,
+  response text,
+  artifact_ref text,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists features (
@@ -172,9 +229,16 @@ create table if not exists sync_events (
 );
 
 create index if not exists idx_runs_project_id on runs(project_id);
+create index if not exists idx_gdd_documents_project_version
+  on gdd_documents(project_id, version_id);
+create index if not exists idx_gdd_documents_parent_document_id
+  on gdd_documents(parent_document_id);
 create index if not exists idx_sections_run_id on gdd_sections(run_id);
+create index if not exists idx_hil0_questions_run_id on hil0_questions(run_id);
+create index if not exists idx_hil0_resolutions_run_id on hil0_resolutions(run_id);
 create index if not exists idx_features_run_id on features(run_id);
 create index if not exists idx_tasks_run_id on qa_tasks(run_id);
 create index if not exists idx_test_cases_run_id on test_cases(run_id);
 create index if not exists idx_sync_events_run_id_status on sync_events(run_id, status);
 
+notify pgrst, 'reload schema';

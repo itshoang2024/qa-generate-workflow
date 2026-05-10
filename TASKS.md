@@ -6,8 +6,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 
 | Phase | Done / Total | Notes |
 |---|---|---|
-| Phase 0 - Repo And Docs | 3 / 5 | GDD path + `.env` handling still open; not blocking. |
-| Phase 1 - Backend Stage Completion | 0 / 15 | MVP pipeline runs but S0/S1 split + Project/GDDDocument APIs not started. |
+| Phase 0 - Repo And Docs | 5 / 5 | Repo docs, backend `.env`, and default GDD path behavior are aligned. |
+| Phase 1 - Backend Stage Completion | 10 / 15 | S0/S1 split + Project/GDDDocument APIs implemented; later inspection/provider/lane endpoints still open. |
 | Phase 2 - Real AI / Notion / Risk | 0 / 11 | Blocked on Phase 1 AgentClient + NotionSyncClient interfaces. |
 | Phase 3 - Frontend | 0 / 8 | `frontend/` not scaffolded. |
 | Phase 4 - Verification & Submission | 0 / 6 | Final pass; depends on Phase 1-3. |
@@ -42,42 +42,42 @@ The corresponding open tasks below are the first 9 items of Phase 1 (S0 request 
 - [x] Task: Audit and revise docs against the four root source-of-truth solution files.
   Verify: `rg -n "source of truth|S0 does not parse|Sync-A|structured JSON|risk" PLAN.md backend/PLAN.md docs AGENTS.md README.md`.
 
-- [ ] Task: Normalize GDD path behavior so default local runs use a tracked or clearly documented sample file path.
+- [x] Task: Normalize GDD path behavior so default local runs use a tracked or clearly documented sample file path.
   Verify: `POST /api/v1/demo-runs` completes from a clean shell using documented commands.
 
-- [ ] Task: Decide and implement `.env` handling: either explicit dotenv loading or shell-only env usage documented in every runbook.
+- [x] Task: Decide and implement `.env` handling: either explicit dotenv loading or shell-only env usage documented in every runbook.
   Verify: Provider mode and GDD path behavior are predictable from `/api/v1/health`.
 
 ## Phase 1 - Backend Completion By Source-Of-Truth Stages
 
-- [ ] Task: Implement S0 trigger API for GDD upload reference plus project selection.
+- [x] Task: Implement S0 trigger API for GDD upload reference plus project selection.
   Verify: New project selection returns `mode=NEW_GAME`; existing project selection returns `mode=DELTA`.
 
-- [ ] Task: Initialize run and session memory in S0.
+- [x] Task: Initialize run and session memory in S0.
   Verify: S0 response includes `{run_id, project_id, gdd_file, mode}` and a run timeline event without parsing the GDD.
 
-- [ ] Task: Add project APIs for game creation, listing, and detail.
+- [x] Task: Add project APIs for game creation, listing, and detail.
   Verify: `POST /api/v1/projects`, `GET /api/v1/projects`, and `GET /api/v1/projects/{project_id}` return enveloped responses.
 
-- [ ] Task: Add S1 GDD raw loading and runtime file handling.
+- [x] Task: Add S1 GDD raw loading and runtime file handling.
   Verify: Context loader receives the `gdd_file` from S0 and can load DOCX content for parsing.
 
-- [ ] Task: Add `GDDDocument` knowledge-base model and Supabase `gdd_documents` table in S1.
+- [x] Task: Add `GDDDocument` knowledge-base model and Supabase `gdd_documents` table in S1.
   Verify: Schema includes `gdd_documents` with unique `(project_id, version_id)`.
 
-- [ ] Task: Add GDD document repository methods for create, get, list, latest, and next version.
+- [x] Task: Add GDD document repository methods for create, get, list, latest, and next version.
   Verify: Tests show two S1 loads for one project produce `version_id` values `v1` and `v2`.
 
-- [ ] Task: Store optional GDD version `description` and `description_status`.
+- [x] Task: Store optional GDD version `description` and `description_status`.
   Verify: New documents default to `description=null` and `description_status=PENDING`; user-provided descriptions set `description_status=USER_PROVIDED`.
 
-- [ ] Task: Add S1 structural parse, QA-actionability filter, HIL-0 questions, and DELTA diff stubs.
+- [x] Task: Add S1 structural parse, QA-actionability filter, HIL-0 questions, and DELTA diff stubs.
   Verify: Parser/actionability tests pass and DELTA mode creates a `delta_report` placeholder without calling AI.
 
-- [ ] Task: Add `GET /api/v1/projects/{project_id}/gdd-documents`.
+- [x] Task: Add `GET /api/v1/projects/{project_id}/gdd-documents`.
   Verify: Load two documents, call endpoint, and see both versions in latest-first order.
 
-- [ ] Task: Preserve `POST /api/v1/demo-runs` as the stable mock demo path.
+- [x] Task: Preserve `POST /api/v1/demo-runs` as the stable mock demo path.
   Verify: Existing API and pipeline tests for `/demo-runs` still pass unchanged.
 
 - [ ] Task: Add `GET /api/v1/runs/{run_id}/epics`.

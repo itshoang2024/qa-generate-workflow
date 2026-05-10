@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -80,6 +80,18 @@ class SyncStatus(StrEnum):
     REPLAYED = "REPLAYED"
 
 
+class GDDDescriptionStatus(StrEnum):
+    PENDING = "PENDING"
+    USER_PROVIDED = "USER_PROVIDED"
+    AI_GENERATED = "AI_GENERATED"
+
+
+class HIL0Action(StrEnum):
+    PROVIDE_ARTIFACT = "provide_artifact"
+    PROCEED_WITH_FLAG = "proceed_with_flag"
+    SKIP_SECTION = "skip_section"
+
+
 class TestCategory(StrEnum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
@@ -96,9 +108,26 @@ class TestType(StrEnum):
 
 
 class Project(BaseModel):
-    id: str
+    id: str = Field(default_factory=lambda: f"project_{uuid4().hex[:12]}")
     name: str
-    source_document: str
+    source_document: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class GDDDocument(BaseModel):
+    id: str = Field(default_factory=lambda: f"gdd_{uuid4().hex[:12]}")
+    project_id: str
+    run_id: str | None = None
+    version_id: str
+    description: str | None = None
+    description_status: GDDDescriptionStatus = GDDDescriptionStatus.PENDING
+    parent_document_id: str | None = None
+    file_name: str
+    file_path: str
+    content_type: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    origin: str = "local_reference"
+    size_bytes: int
+    sha256: str
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -115,6 +144,11 @@ class Run(BaseModel):
     mode: RunMode
     status: RunStatus = RunStatus.CREATED
     current_stage: PipelineStage = PipelineStage.S0_TRIGGER
+    session_memory: dict[str, Any] = Field(default_factory=dict)
+    gdd_document_id: str | None = None
+    source_version_id: str | None = None
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
+    delta_report: dict[str, Any] | None = None
     coverage_report: dict[str, Any] = Field(default_factory=dict)
     timeline: list[StageEvent] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
@@ -134,6 +168,25 @@ class GDDSection(BaseModel):
     flags: list[str] = Field(default_factory=list)
     actionable: bool = True
     actionability_reason: str | None = None
+
+
+class HIL0Question(BaseModel):
+    id: str = Field(default_factory=lambda: f"hil0_{uuid4().hex[:12]}")
+    run_id: str
+    section_id: str
+    title: str
+    reason: str
+    question: str
+    allowed_actions: list[HIL0Action] = Field(
+        default_factory=lambda: [
+            HIL0Action.PROVIDE_ARTIFACT,
+            HIL0Action.PROCEED_WITH_FLAG,
+            HIL0Action.SKIP_SECTION,
+        ]
+    )
+    status: str = "OPEN"
+    resolved_action: HIL0Action | None = None
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class Feature(BaseModel):
@@ -238,6 +291,17 @@ class ReviewDecision(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class HIL0Resolution(BaseModel):
+    id: str = Field(default_factory=lambda: f"hil0r_{uuid4().hex[:12]}")
+    run_id: str
+    question_id: str
+    action: HIL0Action
+    reviewer: str = "demo_user"
+    response: str | None = None
+    artifact_ref: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class AgentRun(BaseModel):
     id: str = Field(default_factory=lambda: f"agent_{uuid4().hex[:12]}")
     run_id: str
@@ -271,6 +335,45 @@ class DemoRunRequest(BaseModel):
     auto_approve: bool = True
 
 
+class ProjectCreateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(min_length=1)
+    project_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("project_id", "id"),
+    )
+    source_document: str | None = None
+
+
+class S0TriggerRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    project_id: str | None = None
+    project_name: str | None = None
+    gdd_file: str = Field(validation_alias=AliasChoices("gdd_file", "gdd_file_ref"))
+
+    @model_validator(mode="after")
+    def validate_project_selection(self) -> "S0TriggerRequest":
+        if bool(self.project_id) == bool(self.project_name):
+            raise ValueError("Provide exactly one of project_id or project_name.")
+        return self
+
+
+class S1ContextRequest(BaseModel):
+    description: str | None = None
+    content_type: str | None = None
+    origin: str = "local_reference"
+
+
+class HIL0ResolutionRequest(BaseModel):
+    question_id: str
+    action: HIL0Action
+    reviewer: str = "demo_user"
+    response: str | None = None
+    artifact_ref: str | None = None
+
+
 class ReviewDecisionRequest(BaseModel):
     run_id: str
     target_type: str
@@ -279,4 +382,3 @@ class ReviewDecisionRequest(BaseModel):
     reviewer: str = "demo_user"
     comment: str | None = None
     patch: dict[str, Any] | None = None
-

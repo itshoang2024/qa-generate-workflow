@@ -4,7 +4,7 @@
 
 Use this runbook to start the backend locally, run the Snake Escape demo pipeline, and inspect generated QA workflow artifacts.
 
-This runbook covers the current MVP. The target workflow in the root solution files splits S0 trigger/mode detection from S1 GDD context loading; that split is not fully implemented yet.
+This runbook covers the current MVP. The backend now exposes S0 trigger/mode detection separately from S1 GDD context loading, while `/demo-runs` remains the one-call stable mock demo path.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ python -m pip install -r backend\requirements.txt
 
 ## Environment
 
-Default demo mode does not require `.env`:
+Default demo mode does not require `backend/.env`:
 
 ```env
 AI_PROVIDER=mock
@@ -37,18 +37,20 @@ NOTION_PROVIDER=mock
 REPOSITORY_PROVIDER=memory
 ```
 
+For local overrides, copy `backend/.env.example` to `backend/.env`. The backend loads `backend/.env` automatically on startup. Restart `uvicorn` after changing it because settings and repository dependencies are cached while the process is running.
+
 Important path note:
 
-- `app/config.py` reads environment variables from the process.
-- It does not auto-load `.env`.
-- If `SNAKE_GDD_PATH` is unset, the backend falls back to the parent workspace file `..\GDD Sample_Snake Escape.docx`.
-- If you set `SNAKE_GDD_PATH`, use a valid path from the process working directory or an absolute path.
-- The tracked copy in this repository is `data/GDD_Sample_Snake Escape.docx`.
+- `app/config.py` reads process environment variables first.
+- If a key is not present in the process environment, it reads `backend/.env`.
+- If `SNAKE_GDD_PATH` is unset, the backend uses `data/GDD_Sample_Snake_Escape.docx`.
+- If you set `SNAKE_GDD_PATH`, use an absolute path or a path relative to the project root such as `data/GDD_Sample_Snake_Escape.docx`.
+- The repo data sample is `data/GDD_Sample_Snake_Escape.docx`. If this file is missing, the API returns `GDD file not found` and the path should be fixed explicitly.
 
 Example PowerShell override:
 
 ```powershell
-$env:SNAKE_GDD_PATH = "D:\Code\SUNS-RISER\qa-generate-workflow\data\GDD_Sample_Snake Escape.docx"
+$env:SNAKE_GDD_PATH = "D:\Code\SUNS-RISER\qa-generate-workflow\data\GDD_Sample_Snake_Escape.docx"
 ```
 
 ## Start The Server
@@ -98,7 +100,7 @@ Expected response:
 - `data.coverage_report.task_count` is `11`.
 - `data.coverage_report.test_case_count` is `44`.
 
-Current limitation: this demo executes the whole mock pipeline in one request. It does not yet expose the target S0 output `{run_id, project_id, gdd_file, mode}` as a separate trigger step.
+Current limitation: this demo executes the whole mock pipeline in one request. For staged testing, use `/api/v1/runs/trigger` followed by `/api/v1/runs/{run_id}/context`.
 
 ## Inspect The Run
 
@@ -128,7 +130,7 @@ python -m ruff check .
 Expected test result:
 
 ```text
-6 passed
+15 passed
 ```
 
 ## Common Failures
@@ -139,7 +141,7 @@ Expected test result:
 | `Only the 'snake_escape' preset is supported` | Request body uses another preset. | Use `preset: "snake_escape"`. |
 | Port 8000 already in use | Another local server is running. | Start uvicorn with `--port 8001` and use that Swagger URL. |
 | Runs disappear after restart | Default repository is in-memory. | Use Supabase mode if persistence is needed. |
-| `.env` changes do nothing | `.env` is not auto-loaded by code. | Set variables in the shell before starting uvicorn, or add explicit dotenv loading in code. |
+| `backend/.env` changes do nothing | Server was not restarted, or the same variable is set in the shell. | Restart `uvicorn`; unset the shell variable if you want the file value to win. |
 
 ## Stop The Server
 

@@ -82,7 +82,7 @@ Then inspect:
 
 ## Environment
 
-Copy `.env.example` to `.env` if you want local overrides.
+Copy `backend/.env.example` to `backend/.env` if you want local overrides. The backend loads `backend/.env` automatically when it starts. Restart `uvicorn` after changing this file because settings and repository dependencies are cached during the process lifetime.
 
 Default mode:
 
@@ -100,7 +100,7 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-Run `supabase/schema.sql` in the Supabase SQL editor before switching the repository provider.
+Run `supabase/schema.sql` in the Supabase SQL editor before switching the repository provider. Confirm the active provider with `GET /api/v1/health`; it should return `"repository_provider": "supabase"` when Supabase mode is active.
 
 ## Test
 

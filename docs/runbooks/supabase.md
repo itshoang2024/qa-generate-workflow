@@ -4,7 +4,7 @@
 
 Use this runbook to enable cloud persistence through Supabase. The default local demo uses in-memory storage and does not require this setup.
 
-This runbook describes the current MVP schema. The target knowledge-base design also needs future tables such as `gdd_documents`, `session_memory`, `project_memory`, `risk_events`, and `notion_page_mappings`.
+This runbook describes the current MVP schema. Future risk and sync work will add tables such as `project_memory`, `risk_events`, and `notion_page_mappings`.
 
 ## Safety Notes
 
@@ -16,11 +16,14 @@ This runbook describes the current MVP schema. The target knowledge-base design 
 ## Apply The Schema
 
 1. Open the Supabase project SQL editor.
-2. Paste and run `supabase/schema.sql`.
+2. Paste and run `supabase/schema.sql`. The script is safe to re-run against an existing prototype project; it includes additive `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements for schema upgrades.
 3. Confirm the following tables exist:
    - `projects`
    - `runs`
+   - `gdd_documents`
    - `gdd_sections`
+   - `hil0_questions`
+   - `hil0_resolutions`
    - `features`
    - `epics`
    - `stories`
@@ -31,27 +34,44 @@ This runbook describes the current MVP schema. The target knowledge-base design 
    - `agent_runs`
    - `sync_events`
 
-Future source-of-truth tables are not implemented in the current schema yet. Add them only when implementing the matching S1, risk, and Notion Sync-A/B/C behavior.
-
 ## Configure The Backend
 
-Set environment variables before starting the server:
+Copy the backend env example, then fill in the Supabase values:
 
 ```powershell
 cd D:\Code\SUNS-RISER\qa-generate-workflow
+Copy-Item backend\.env.example backend\.env
+```
+
+Set these values in `backend\.env`:
+
+```env
+REPOSITORY_PROVIDER=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+Start the server:
+
+```powershell
 conda activate qa-generator
-$env:REPOSITORY_PROVIDER = "supabase"
-$env:SUPABASE_URL = "https://your-project.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY = "your-service-role-key"
 cd backend
 uvicorn app.main:app --reload
 ```
 
 Optional GDD path:
 
-```powershell
-$env:SNAKE_GDD_PATH = "D:\Code\SUNS-RISER\qa-generate-workflow\data\GDD_Sample_Snake Escape.docx"
+```env
+SNAKE_GDD_PATH=data/GDD_Sample_Snake_Escape.docx
 ```
+
+Confirm the backend loaded Supabase mode:
+
+```http
+GET /api/v1/health
+```
+
+The response should include `"repository_provider": "supabase"`. Restart `uvicorn` after editing `backend\.env`; settings and repository dependencies are cached for the running process.
 
 ## Smoke Test
 
@@ -98,7 +118,8 @@ These methods replace all rows of that type for the run. Do not use them for par
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `Supabase storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY` | Missing env vars. | Set both variables in the same shell that starts uvicorn. |
+| `Supabase storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY` | Missing values in `backend/.env` or the server was not restarted. | Fill both values, restart `uvicorn`, then check `/api/v1/health`. |
+| `Could not find the 'delta_report' column of 'runs' in the schema cache` or `PGRST204` | Supabase table schema is older than the backend models, or PostgREST cache has not reloaded. | Re-run `supabase/schema.sql`; it adds missing columns and sends `notify pgrst, 'reload schema';`, then retry the request. |
 | `property/table does not exist` or HTTP 400 from Supabase | Schema was not applied or table names changed. | Re-run `supabase/schema.sql` in a test project. |
 | Insert fails on `external_id` uniqueness | Reusing stable fixture external IDs in a table with existing rows. | Use a clean test project or inspect existing rows before rerunning. |
 | API works in memory but fails in Supabase | Provider difference or schema mismatch. | Compare `docs/contracts/storage-contract.md` against `supabase/schema.sql`. |

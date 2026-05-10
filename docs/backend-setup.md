@@ -8,7 +8,7 @@ The backend has three layers:
 - Pipeline services in `app/services`
 - Storage adapters in `app/repositories`
 
-The default repository is in-memory so the prototype can demo without Supabase credentials. Supabase Cloud can be enabled later with `REPOSITORY_PROVIDER=supabase`.
+The default repository is in-memory so the prototype can demo without Supabase credentials. Supabase Cloud can be enabled later with `REPOSITORY_PROVIDER=supabase` in `backend/.env`.
 
 ## Conda Environment
 
@@ -32,7 +32,7 @@ python -m pip install -r backend\requirements.txt
 `POST /api/v1/demo-runs` executes the Phase 1 MVP synchronously:
 
 1. Create a run for the Snake Escape project.
-2. Parse the root-level `GDD Sample_Snake Escape.docx`.
+2. Parse the configured Snake Escape GDD. By default, config uses `data/GDD_Sample_Snake_Escape.docx`.
 3. Classify sections as actionable or skipped.
 4. Use mock Agent A to create features.
 5. Validate source traceability and confidence.
@@ -57,4 +57,4 @@ The implemented demo path is intentionally compact. Future backend work must fol
 
 The schema stores pipeline objects directly in normalized tables with JSONB for arrays and snapshots. `external_id` is unique for Notion-like idempotency on epics, stories, tasks, and test cases.
 
-Use service role credentials only on the backend. Do not expose them to the Phase 2 frontend.
+Use service role credentials only in `backend/.env` or the backend process environment. Do not expose them to the Phase 2 frontend. Restart the backend after changing `backend/.env`, then verify the active repository provider with `GET /api/v1/health`.

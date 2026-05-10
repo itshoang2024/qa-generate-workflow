@@ -6,7 +6,10 @@ from app.domain.models import (
     AgentRun,
     Epic,
     Feature,
+    GDDDocument,
     GDDSection,
+    HIL0Question,
+    HIL0Resolution,
     Project,
     QATask,
     ReviewDecision,
@@ -38,6 +41,14 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         self._upsert("projects", project)
         return project
 
+    def get_project(self, project_id: str) -> Project | None:
+        rows = self.client.table("projects").select("*").eq("id", project_id).execute().data
+        return Project.model_validate(rows[0]) if rows else None
+
+    def list_projects(self) -> list[Project]:
+        rows = self.client.table("projects").select("*").order("created_at", desc=True).execute().data
+        return [Project.model_validate(row) for row in rows]
+
     def create_run(self, run: Run) -> Run:
         self._insert("runs", run)
         return run
@@ -55,12 +66,62 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         rows = self.client.table("runs").select("*").eq("id", run_id).execute().data
         return Run.model_validate(rows[0]) if rows else None
 
+    def create_gdd_document(self, document: GDDDocument) -> GDDDocument:
+        self._insert("gdd_documents", document)
+        return document
+
+    def get_gdd_document(self, document_id: str) -> GDDDocument | None:
+        rows = self.client.table("gdd_documents").select("*").eq("id", document_id).execute().data
+        return GDDDocument.model_validate(rows[0]) if rows else None
+
+    def list_gdd_documents(self, project_id: str) -> list[GDDDocument]:
+        rows = (
+            self.client.table("gdd_documents")
+            .select("*")
+            .eq("project_id", project_id)
+            .execute()
+            .data
+        )
+        documents = [GDDDocument.model_validate(row) for row in rows]
+        return sorted(documents, key=lambda document: _version_number(document.version_id), reverse=True)
+
+    def get_latest_gdd_document(self, project_id: str) -> GDDDocument | None:
+        documents = self.list_gdd_documents(project_id)
+        return documents[0] if documents else None
+
+    def next_gdd_version_id(self, project_id: str) -> str:
+        documents = self.list_gdd_documents(project_id)
+        next_number = max((_version_number(document.version_id) for document in documents), default=0) + 1
+        return f"v{next_number}"
+
     def add_sections(self, sections: list[GDDSection]) -> list[GDDSection]:
         self._replace_run_rows("gdd_sections", sections)
         return sections
 
     def list_sections(self, run_id: str) -> list[GDDSection]:
         return self._list_run_rows("gdd_sections", run_id, GDDSection)
+
+    def add_hil0_questions(self, questions: list[HIL0Question]) -> list[HIL0Question]:
+        if questions:
+            self.client.table("hil0_questions").delete().eq("run_id", questions[0].run_id).execute()
+        self._bulk_insert("hil0_questions", questions)
+        return questions
+
+    def list_hil0_questions(self, run_id: str) -> list[HIL0Question]:
+        return self._list_run_rows("hil0_questions", run_id, HIL0Question)
+
+    def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution:
+        self._insert("hil0_resolutions", resolution)
+        self.client.table("hil0_questions").update(
+            {
+                "status": "RESOLVED",
+                "resolved_action": resolution.action.value,
+            }
+        ).eq("id", resolution.question_id).execute()
+        return resolution
+
+    def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]:
+        return self._list_run_rows("hil0_resolutions", run_id, HIL0Resolution)
 
     def set_features(self, run_id: str, features: list[Feature]) -> list[Feature]:
         self._replace_run_rows("features", features, run_id)
@@ -165,3 +226,8 @@ class SupabaseWorkflowRepository(WorkflowRepository):
     def _dump(self, model: Any) -> dict[str, Any]:
         return model.model_dump(mode="json")
 
+
+def _version_number(version_id: str) -> int:
+    if version_id.startswith("v") and version_id[1:].isdigit():
+        return int(version_id[1:])
+    return 0
