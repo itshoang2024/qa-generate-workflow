@@ -29,7 +29,12 @@ class AgentClient(ABC):
     ) -> dict[str, object]: ...
 
     @abstractmethod
-    def plan_qa_tasks(self, run_id: str) -> dict[str, list[Any]]: ...
+    def plan_qa_tasks(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, Any] | None = None,
+    ) -> dict[str, list[Any]]: ...
 
     @abstractmethod
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]: ...

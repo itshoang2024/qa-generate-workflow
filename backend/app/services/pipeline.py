@@ -198,7 +198,17 @@ class PipelineService:
             if agent_a_result.exhausted and not features:
                 raise ValueError("Agent A failed schema validation after bounded retries.")
 
-            agent_b_output = self.agent_client.plan_qa_tasks(run.id)
+            hil1_context = self._build_hil1_context(
+                features,
+                auto_approve=request.auto_approve,
+            )
+            run.session_memory = {**run.session_memory, "hil_1": hil1_context}
+            run = self.repository.update_run(run)
+
+            agent_b_output = self.agent_client.plan_qa_tasks(
+                run.id,
+                hil_context=hil1_context,
+            )
             epics = agent_b_output["epics"]
             stories = agent_b_output["stories"]
             tasks = agent_b_output["tasks"]
@@ -210,7 +220,9 @@ class PipelineService:
                     run_id=run.id,
                     agent_name="Agent B - QA Planner",
                     stage=PipelineStage.S4_AGENT_B,
-                    input_snapshot={"feature_count": len(features)},
+                    input_snapshot={
+                        "hil_1": self._hil1_agent_input_snapshot(hil1_context),
+                    },
                     output_snapshot={
                         "epic_count": len(epics),
                         "story_count": len(stories),
@@ -507,6 +519,89 @@ class PipelineService:
 
     def _agent_provider(self, operation: str) -> str:
         return self.agent_client.provider_for(operation)
+
+    def _build_hil1_context(
+        self,
+        features: list[Any],
+        *,
+        auto_approve: bool,
+    ) -> dict[str, object]:
+        approved_statuses = {ReviewStatus.AUTO_APPROVED, ReviewStatus.APPROVED}
+        excluded_statuses = {ReviewStatus.BLOCKED, ReviewStatus.REJECTED}
+        queue_statuses = {ReviewStatus.NEEDS_REVIEW, ReviewStatus.BLOCKED}
+        approved_features = [
+            feature
+            for feature in features
+            if (
+                feature.review_status not in excluded_statuses
+                if auto_approve
+                else feature.review_status in approved_statuses
+            )
+        ]
+        approved_feature_ids = [feature.feature_id for feature in approved_features]
+        review_queue_feature_ids = [
+            feature.feature_id for feature in features if feature.review_status in queue_statuses
+        ]
+        held_feature_ids = [
+            feature.feature_id
+            for feature in features
+            if feature.feature_id not in set(approved_feature_ids)
+        ]
+        return {
+            "source": "HIL-1",
+            "approval_mode": "demo_auto_approve" if auto_approve else "router_status",
+            "approved_feature_ids": approved_feature_ids,
+            "held_feature_ids": held_feature_ids,
+            "review_queue_feature_ids": review_queue_feature_ids,
+            "approved_features": [
+                self._hil1_feature_snapshot(feature) for feature in approved_features
+            ],
+            "epic_structure": self._hil1_epic_structure(approved_features),
+        }
+
+    def _hil1_feature_snapshot(self, feature: Any) -> dict[str, object]:
+        return {
+            "feature_id": feature.feature_id,
+            "name": feature.name,
+            "summary": feature.summary,
+            "feature_type": feature.feature_type.value,
+            "source_sections": feature.source_sections,
+            "confidence": feature.confidence,
+            "assignee": feature.assignee,
+            "review_status": feature.review_status.value,
+            "lane": feature.lane,
+            "delta_status": feature.delta_status.value if feature.delta_status else None,
+        }
+
+    def _hil1_epic_structure(self, features: list[Any]) -> dict[str, object]:
+        grouped: dict[str, list[Any]] = {}
+        for feature in features:
+            grouped.setdefault(feature.feature_type.value, []).append(feature)
+        return {
+            "source": "feature_type_grouping",
+            "epics": [
+                {
+                    "epic_id": f"HIL1-{_safe_id(feature_type).upper().replace('_', '-')}",
+                    "title": f"{feature_type.replace('_', ' ').title()} Scope",
+                    "feature_ids": [feature.feature_id for feature in group],
+                }
+                for feature_type, group in grouped.items()
+            ],
+        }
+
+    def _hil1_agent_input_snapshot(self, hil1_context: dict[str, object]) -> dict[str, object]:
+        epic_structure = hil1_context.get("epic_structure", {})
+        epic_candidates = (
+            epic_structure.get("epics", [])
+            if isinstance(epic_structure, dict)
+            else []
+        )
+        return {
+            "approved_feature_ids": hil1_context["approved_feature_ids"],
+            "held_feature_ids": hil1_context["held_feature_ids"],
+            "review_queue_feature_ids": hil1_context["review_queue_feature_ids"],
+            "epic_candidate_count": len(epic_candidates),
+        }
 
     def _risk_summary(self, risk_events: list[Any]) -> dict[str, object]:
         return {

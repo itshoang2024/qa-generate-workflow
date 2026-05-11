@@ -168,7 +168,12 @@ class SequencedAgentClient(AgentClient):
             "ambiguities": [],
         }
 
-    def plan_qa_tasks(self, run_id: str) -> dict[str, list[Any]]:
+    def plan_qa_tasks(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, Any] | None = None,
+    ) -> dict[str, list[Any]]:
         return {"epics": [], "stories": [], "tasks": []}
 
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[DomainTestCase]:

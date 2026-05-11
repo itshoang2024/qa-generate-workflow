@@ -12,7 +12,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | S1 Context Loader | 12 / 12 | GDD loading/versioning, Run source metadata, HIL-0 questions/resolutions, DELTA scaffold, parser actionability shipped. |
 | S2 Agent A | 4 / 4 | `AgentClient`, schema-validated Agent A output, fixture-backed mock default, and `AI_PROVIDER` factory with OpenAI Agent A adapter shipped. |
 | S3 Validation A + Router A | 3 / 3 | Schema/source/confidence/coverage validation, Router A lanes, and bounded Agent A retry/rerun with stable HIL escalation shipped. |
-| HIL-1 | 2 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; `GET /api/v1/runs/{run_id}/review-queues/HIL-1` lists pending items grouped by reviewer/feature/epic. Approved-features-in-session-memory persistence still open (today lane state lives on the artifact itself). |
+| HIL-1 | 3 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; HIL-1 queues list pending items; approved feature IDs + epic candidates are snapshotted in session memory and passed to Agent B. |
 | S4 Agent B | 1 / 4 | Mock Agent B is behind the shared `AgentClient`. Task 2 structured contract for the real adapter, rule-based assignee enforcement post-LLM, and DELTA task behavior (skip/update/new/archive) still open. |
 | S5 Validation B + Router B + HIL-2 | 2 / 3 | Validators (schema, traceability, dedup, assignee, confidence) + lane assignment + HIL-2 queue shipped. Explicit HIL-2 decision API surfaces (edit request, assignee override) still open beyond the generic `POST /review-decisions`. |
 | S5b Notion Sync-A/B | 3 / 4 | `NotionSyncClient` interface + mock implementation shipped; Sync-A/B separated with mock page-id mappings. Real schema preflight / retry / dead-letter still open. |
@@ -132,8 +132,8 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Extend review decisions for feature and epic targets.
   Verify: `POST /api/v1/review-decisions` accepts `feature`, `epic`, `story`, `task`, `test_case`; `InMemoryWorkflowRepository._apply_review_status` cascades epic decisions to features + stories. Covered by `test_review_decisions_endpoint_returns_hil_decisions`, `test_review_decision_approval_updates_lane_and_removes_item_from_queue`.
 
-- [ ] Task: Store approved feature list and epic structure in session memory.
-  Verify: Agent B consumes approved/corrected HIL-1 output, not raw Agent A output. (Today lane/`review_status` lives on the artifact rows; once a real adapter is plugged in, `pipeline.run_demo()` should snapshot the approved subset into `Run.session_memory` before calling Agent B.)
+- [x] Task: Store approved feature list and epic structure in session memory.
+  Verify: `pipeline.run_demo()` writes `Run.session_memory["hil_1"]` with approved feature IDs, held/review-queue feature IDs, approved feature snapshots, and deterministic epic candidates before Agent B. Agent B receives that context through `plan_qa_tasks(..., hil_context=...)`, and `MockAgentClient.plan_qa_tasks()` filters by `approved_feature_ids` when provided. Covered by `test_demo_pipeline_snapshots_hil1_context_for_agent_b` and `test_mock_agent_b_consumes_hil1_approved_feature_ids`.
 
 - [x] Task: Add review listing endpoints if required by frontend queues.
   Verify: `GET /api/v1/runs/{run_id}/review-queues/HIL-1` returns features + epics in BATCH/BLOCK lanes grouped by reviewer/feature/epic. Covered by `test_review_queue_endpoint_groups_items_by_reviewer_feature_and_epic`.
@@ -224,7 +224,7 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 ## Final Backend Verification
 
 - [x] Task: Run the backend test suite.
-  Verify: `conda run -n qa-generator pytest` passes from `backend/` with 44 tests.
+  Verify: `conda run -n qa-generator pytest` passes from `backend/` with 46 tests.
 
 - [x] Task: Run backend linting.
   Verify: `conda run -n qa-generator python -m ruff check .` passes from `backend/`.

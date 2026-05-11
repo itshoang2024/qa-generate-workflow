@@ -23,6 +23,7 @@ Already implemented:
 - `AgentClient` abstract interface at `app/services/agents/__init__.py` with `MockAgentClient` reading `data/snake_escape_fixture.json`; Agent A also has a Task 2 structured JSON contract and an OpenAI adapter behind `AI_PROVIDER=openai`/`real`.
 - Deterministic validators (`validate_features`, `validate_tasks`, `validate_test_cases`) for source traceability, confidence, assignee sanity, duplicate candidates, and test-case category coverage; plus `validate_*_with_routing` wrappers that assign `AUTO` / `BATCH` / `BLOCK` lanes per the Task 1 thresholds.
 - S3 Agent A retry/rerun policy: schema failures, source traceability failures, and uncovered-section reruns are bounded to 3 attempts, logged in AgentRun/session memory, and escalated with `agent_a_retry_exhausted` after max attempts.
+- HIL-1 session snapshot: approved feature IDs, held/review-queue feature IDs, approved feature details, and deterministic epic candidates are stored in `Run.session_memory["hil_1"]` and passed to Agent B as `hil_context`.
 - `NotionSyncClient` abstract interface with mock Sync-A/B/C events, `external_id` idempotency shape, mock page-id relation mapping, and `replay_failed_sync_events` repository hook.
 - Router lanes exposed on `Feature`, `QATask`, `TestCase` as computed `lane` fields plus `review_status` on every artifact.
 - HIL-0..HIL-3 review queues via `GET /api/v1/runs/{run_id}/review-queues/{tier}` grouped by reviewer / feature / epic; review-decision cascade (approving an epic propagates to its features and stories).

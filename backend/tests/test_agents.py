@@ -105,6 +105,22 @@ def test_build_agent_client_returns_openai_agent_a_with_mock_fallback(tmp_path: 
     assert client.provider_for("plan_qa_tasks") == "mock"
 
 
+def test_mock_agent_b_consumes_hil1_approved_feature_ids() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    client = MockAgentClient(fixture_path)
+
+    output = client.plan_qa_tasks(
+        "run_1",
+        hil_context={"approved_feature_ids": ["F-001"]},
+    )
+
+    assert len(output["epics"]) == 1
+    assert output["epics"][0].feature_ids == ["F-001"]
+    assert {story.feature_id for story in output["stories"]} == {"F-001"}
+    assert {task.feature_id for task in output["tasks"]} == {"F-001"}
+    assert len(output["tasks"]) == 2
+
+
 def test_mock_notion_sync_client_implements_notion_contract() -> None:
     client = MockNotionSyncClient()
 

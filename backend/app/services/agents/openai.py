@@ -72,8 +72,13 @@ class OpenAIAgentClient(AgentClient):
             ],
         }
 
-    def plan_qa_tasks(self, run_id: str) -> dict[str, list[Any]]:
-        return self.fallback.plan_qa_tasks(run_id)
+    def plan_qa_tasks(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, Any] | None = None,
+    ) -> dict[str, list[Any]]:
+        return self.fallback.plan_qa_tasks(run_id, hil_context=hil_context)
 
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
         return self.fallback.generate_test_cases(run_id, tasks)

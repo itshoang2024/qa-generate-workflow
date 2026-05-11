@@ -48,6 +48,35 @@ def test_demo_pipeline_generates_complete_execution_plan() -> None:
     assert repository.list_validation_issues(run.id)
 
 
+def test_demo_pipeline_snapshots_hil1_context_for_agent_b() -> None:
+    gdd_path = _snake_gdd_path()
+    if not gdd_path.exists():
+        pytest.skip("Root-level Snake Escape GDD is not available.")
+
+    repository = InMemoryWorkflowRepository()
+    service = _pipeline_service(repository, gdd_path)
+
+    run = service.run_demo(DemoRunRequest())
+    stored_run = repository.get_run(run.id)
+    agent_b_run = next(
+        agent_run
+        for agent_run in repository.list_agent_runs(run.id)
+        if agent_run.stage == PipelineStage.S4_AGENT_B
+    )
+
+    assert stored_run is not None
+    hil1_context = stored_run.session_memory["hil_1"]
+    assert len(hil1_context["approved_feature_ids"]) == 8
+    assert set(hil1_context["review_queue_feature_ids"]) == {"F-004", "F-005"}
+    assert hil1_context["epic_structure"]["epics"]
+    assert agent_b_run.input_snapshot["hil_1"]["approved_feature_ids"] == hil1_context[
+        "approved_feature_ids"
+    ]
+    assert agent_b_run.input_snapshot["hil_1"]["epic_candidate_count"] == len(
+        hil1_context["epic_structure"]["epics"]
+    )
+
+
 def test_s0_trigger_creates_run_without_loading_context() -> None:
     gdd_path = _snake_gdd_path()
     if not gdd_path.exists():

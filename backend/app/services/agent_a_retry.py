@@ -237,7 +237,10 @@ def _exhausted_result(
     features = output.get("features", [])
     if isinstance(features, list):
         blocked_feature_ids = {
-            issue.target_id for issue in issues if issue.target_type == "feature"
+            issue.target_id
+            for issue in issues
+            if issue.target_type == "feature"
+            and issue.code in {"missing_source_section", "hallucination_suspect"}
         }
         for feature in features:
             if isinstance(feature, Feature) and feature.feature_id in blocked_feature_ids:

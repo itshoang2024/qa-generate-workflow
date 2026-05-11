@@ -72,22 +72,45 @@ class MockAgentClient(AgentClient):
             ],
         }
 
-    def plan_qa_tasks(self, run_id: str) -> dict[str, list[object]]:
+    def plan_qa_tasks(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, object] | None = None,
+    ) -> dict[str, list[object]]:
         fixture = self._load_fixture()
+        approved_feature_ids = _approved_feature_ids(hil_context)
         epics: list[Epic] = []
         stories: list[Story] = []
         tasks: list[QATask] = []
 
         for epic_data in fixture["epics"]:
+            epic_feature_ids = [
+                feature_id
+                for feature_id in epic_data["feature_ids"]
+                if approved_feature_ids is None or feature_id in approved_feature_ids
+            ]
+            if not epic_feature_ids:
+                continue
             epics.append(
                 Epic(
                     id=f"epic_{uuid4().hex[:12]}",
                     run_id=run_id,
                     review_status=ReviewStatus.AUTO_APPROVED,
-                    **{key: value for key, value in epic_data.items() if key != "stories"},
+                    **{
+                        key: value
+                        for key, value in epic_data.items()
+                        if key not in {"stories", "feature_ids"}
+                    },
+                    feature_ids=epic_feature_ids,
                 )
             )
             for story_data in epic_data["stories"]:
+                if (
+                    approved_feature_ids is not None
+                    and story_data["feature_id"] not in approved_feature_ids
+                ):
+                    continue
                 stories.append(
                     Story(
                         id=f"story_{uuid4().hex[:12]}",
@@ -98,6 +121,11 @@ class MockAgentClient(AgentClient):
                     )
                 )
                 for task_data in story_data["tasks"]:
+                    if (
+                        approved_feature_ids is not None
+                        and task_data["feature_id"] not in approved_feature_ids
+                    ):
+                        continue
                     confidence = task_data["confidence"]
                     tasks.append(
                         QATask(
@@ -191,3 +219,12 @@ def _agent_a_ambiguity_payload(item: dict[str, object]) -> dict[str, object]:
         "issue": item.get("issue") or item.get("reason") or "Ambiguous GDD section.",
         "suggested_action": item.get("suggested_action") or "ask_user",
     }
+
+
+def _approved_feature_ids(hil_context: dict[str, object] | None) -> set[str] | None:
+    if hil_context is None:
+        return None
+    raw_ids = hil_context.get("approved_feature_ids")
+    if not isinstance(raw_ids, list):
+        return None
+    return {feature_id for feature_id in raw_ids if isinstance(feature_id, str)}
