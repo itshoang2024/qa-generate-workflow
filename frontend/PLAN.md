@@ -6,6 +6,10 @@ Deliver a Next.js demo app that exposes every Task-1..4 capability already imple
 
 The frontend is the last credibility gap before submission: backend is feature-complete in mock mode (S0..S7 + HIL-0..HIL-3 + Sync-A/B/C + RiskEvent + kill switch + sign-off), but a reviewer currently cannot see it without `curl`.
 
+## Current State (2026-05-12 - Phase 1.8 docs landed, F-1.8 frontend implementation pending)
+
+> **New work surfacing with backend Phase 1.8.** Agent B is being split into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). The dashboard's `<NextStagePanel>` state machine must accommodate three sub-stages where one used to be. Two new inline components land: `<AgentBJobBoard>` (kanban of per-epic/per-story jobs during S4.2/S4.3) and `<EpicReviewPanel>` (full-edit: rename epic title, drag features between epics, merge two epics, split one epic — all before S4.2 starts). See Screen 3.6 below for the detailed plan. No new top-level routes are required; one optional deep-link route `/runs/[run_id]/agent-b` may follow for screenshots.
+
 ## Current State (2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
 
 > **Latest implementation pass:** the dashboard no longer stops after `Load Context`. Backend Phase 1.5 endpoints and frontend Phase F3.5 are wired, so the run dashboard can advance Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off.
@@ -157,6 +161,54 @@ Acceptance:
 - Walkthrough test (manual, captured in screenshots): with mock providers, clicking through the panel without any terminal command takes a NEW_GAME run from `S0_TRIGGER` to `FINAL_COVERAGE` and produces the same Snake Escape counts (8 features / 5 epics / 5 stories / 11 tasks / 44 test cases) as `/demo-runs`.
 - Blocking gate: leaving one feature in `NEEDS_REVIEW` causes the `Run Agent B` button to disable and the inline HIL-1 list to show that item; approving it re-enables the button.
 - The panel re-renders after every mutation invalidation without a hard reload.
+
+### Screen 3.6 — `<AgentBJobBoard>` + `<EpicReviewPanel>` (Phase 1.8)
+
+Surfaces: inline on `/runs/[run_id]` during Agent B substages. Optional deep-link route `/runs/[run_id]/agent-b` for full-page focus mode (low priority; only build if a screenshot needs it).
+
+**State machine extensions in `<NextStagePanel>`:**
+
+The table from Screen 3.5 is replaced for the Agent B block:
+
+| `run.current_stage` | Blocker | Primary action | Body component |
+|---|---|---|---|
+| `S3_VALIDATION_A` | HIL-1 queue > 0 | If yes: inline HIL-1 approve list. If no: `Run Agent B (Epics)` → `useRunAgentBEpics` | — |
+| `S4_1_AGENT_B_EPICS` | — | Render `<EpicReviewPanel>` with `Continue to Stories` primary button → `useRunAgentBStories` | `<EpicReviewPanel>` (full edit) |
+| `S4_2_AGENT_B_STORIES` (running) | Per-epic jobs in `RUNNING` | Disabled `Generating stories…` with progress count | `<AgentBJobBoard scope="epic">` (live poll) |
+| `S4_2_AGENT_B_STORIES` (partial fail) | Per-epic jobs in `FAILED` / `TIMEOUT` | `Retry failed jobs` (bulk) + per-job `Retry` in board | `<AgentBJobBoard scope="epic">` with failed cards highlighted |
+| `S4_2_AGENT_B_STORIES` (success) | — | `Run Agent B (Tasks)` → `useRunAgentBTasks` | Stories preview tab |
+| `S4_3_AGENT_B_TASKS` (running) | Per-story jobs in `RUNNING` | Disabled `Generating tasks…` with progress | `<AgentBJobBoard scope="story">` |
+| `S4_3_AGENT_B_TASKS` (partial fail) | Failed jobs | `Retry failed jobs` | `<AgentBJobBoard scope="story">` |
+| `S4_3_AGENT_B_TASKS` (success) | HIL-2 queue > 0? | If yes: inline HIL-2 approve. If no: `Run Agent C` | HIL-2 queue inline |
+
+**`<AgentBJobBoard>` behaviour:**
+
+- Reads `GET /api/v1/runs/{run_id}/agent-b-jobs` via `useAgentBJobs(runId)`. Polls every 2s while any job is `QUEUED` or `RUNNING`; stops polling when all terminal.
+- Renders four columns: `Queued`, `Running`, `Done`, `Failed`. Each card shows `scope_type` (epic/story), `scope_id` (epic_id or story_id, monospace), `attempt_count` badge, elapsed time, error code if failed.
+- Per-failed-card actions: `Retry` (calls `useRetryAgentBJob(jobId)`), `View error` (toast or drawer with `error_message` + raw input snapshot for debugging).
+- Top toolbar: `Retry all failed` (fans out per-job mutations sequentially to avoid API burst), `Refresh` (manual invalidate).
+- Done cards are collapsible; clicking expands to show `output_summary` (e.g. "5 stories generated" or "3 tasks generated").
+- Empty state (no jobs yet): `Waiting for Agent B substage to start…` with a spinner.
+
+**`<EpicReviewPanel>` behaviour:**
+
+- Reads `useEpics(runId)` (already exists) + `useFeatures(runId)` (already exists). Renders epics as cards.
+- Each epic card shows: `title` (inline-editable on click), `description` (inline-editable on click), `feature_ids` list as draggable chips, `rationale` (read-only tooltip), epic-level menu (`Merge with…`, `Split this epic…`, `Delete and reassign features`).
+- Drag-and-drop: chip can be dragged from one epic card to another. Drop triggers `useUpdateEpic(epic_id, { feature_ids })` on both source and target epics (transactional via `PATCH` endpoints described in `backend/PLAN.md`).
+- Merge action: opens `<MergeEpicsDialog>` with checkbox list of other epics + title/description form for the merged epic. Calls `useMergeEpics({ source_epic_ids, target_title, target_description })`.
+- Split action: opens `<SplitEpicDialog>` with a multi-row form where Lead specifies new epic titles/descriptions and assigns features to each. Validation: every original feature_id must end up in exactly one new epic. Calls `useSplitEpic({ epic_id, splits })`.
+- Footer: `Continue to Stories` button. Disabled while any pending edit mutation is in flight. Calls `useRunAgentBStories` → backend reads the (possibly edited) epic state for S4.2 fan-out.
+- Read-only fallback: if `run.current_stage != S4_1_AGENT_B_EPICS`, panel renders but edit affordances are hidden and only `View only — epics are locked once S4.2 starts` banner is shown.
+
+**Acceptance:**
+
+- A NEW_GAME run with 25 features can advance from S3_VALIDATION_A to S5_VALIDATION_B_SYNC entirely through `<NextStagePanel>` + `<AgentBJobBoard>` + `<EpicReviewPanel>` without any terminal command, even when one B2 or B3 job times out (verified by injecting a failing fake job and manually retrying it).
+- Renaming an epic + dragging two features between epics persists via `PATCH /epics/{id}` and the resulting story fan-out reflects the edits.
+- Merging two epics into one updates `feature_ids` correctly and Sync-A1 events show the merged epic (not the two originals).
+- Splitting one epic into two requires every feature to be assigned; submit is disabled until covered.
+- During S4.2 fan-out with 5 epics, the job board shows 5 cards. Stopping a backend job mid-stream and triggering `Retry` advances the board.
+- The Epics tab on the dashboard expands stories under each epic as Sync-A2 events arrive (streaming progressive render).
+- `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass after Screen 3.6 lands.
 
 ### Screen 4 — HIL queues (tiers 0/1/2/3)
 

@@ -36,13 +36,20 @@ The only supported Phase 1 pipeline request is:
 | S2 Agent A | Structured-output GDD Analyzer producing feature inventory. | `features`, `coverage_report`, `ambiguities` |
 | S3 Validation A + Router A | Schema, traceability, keyword-overlap, coverage, confidence validation. | validation issues, auto/HIL/block lanes |
 | HIL-1 | QA Lead approves/corrects features and epic grouping. | approved feature list and epic structure |
-| S4 Agent B | Structured-output QA Planner producing Epic -> Story -> Task tree. | epics, stories, tasks |
-| S5 Validation B + Router B + HIL-2 | Cross-agent checks, dedup, assignee sanity, confidence lanes, task review. | approved/blocked task sets |
-| S5b / Sync-A/B | Task 3 refines Notion sync into Sync-A (Epic/Story after HIL-1) and Sync-B (Task after HIL-2 or auto). | sync events, page-id mappings |
+| S4.1 Agent B1 Epic Planner (Phase 1.8) | Single structured-output call sinh epic skeleton: `epic_id`, `title`, `description`, `feature_ids`, `rationale`, `external_id`. No stories or tasks. | `epics` |
+| Sync-A1 | Idempotent Notion upsert of epics keyed on `external_id`. Returns `epic_page_id` mapping. | epic SyncEvent[] |
+| HIL-1 epic edit (optional, soft gate) | Lead's `<EpicReviewPanel>` may rename epics, drag features, merge two epics, or split one. Triggered between S4.1 and S4.2; auto-passes when Lead clicks `Continue to Stories` without edits. | mutated epic state |
+| S4.2 Agent B2 Story Planner (Phase 1.8) | Fan-out per epic. Each fan-out is one `AgentBJob{scope=epic}` with bounded concurrency (default 3). Per call: structured-output produces stories for that epic with `acceptance_criteria`. | stories per epic |
+| Sync-A2 | Per-epic Notion upsert of stories keyed on `external_id`. Returns `story_page_id` mapping. | story SyncEvent[] (per epic) |
+| S4.3 Agent B3 Task Planner (Phase 1.8) | Fan-out per story. Each fan-out is one `AgentBJob{scope=story}` with bounded concurrency (default 5). Per call: structured-output produces tasks for that story with assignee (rule-lookup), priority, estimate, source_sections, external_id, confidence. | tasks per story |
+| S5 Validation B + Router B + HIL-2 | Phase 1.8 splits validators: V-B1 (post S4.1, feature coverage), V-B2 (post each S4.2 fan-out, story coverage per epic), V-B3 (post S4.3, full plan: schema, traceability, mandatory cross-story / cross-epic dedup, assignee sanity, count guardrails). | approved/blocked task sets |
+| Sync-B | Task upsert keyed on `external_id` after HIL-2 / Router B auto-approval. | task SyncEvent[] |
 | S6 Agent C | Per-approved-task test case generation; does not wait for every task. | test cases |
 | S7 Validation C + HIL-3 | Schema, traceability, category coverage, repeatability, and assignee review. | approved/blocked test cases |
-| S7b / Sync-C | Test case sync after HIL-3 or auto. | test-case sync events |
+| Sync-C | Test case sync after HIL-3 or auto. | test-case sync events |
 | Final | Coverage, risk dashboard, Slack/email notification, QA Lead sign-off. | report and sign-off state |
+
+Legacy `S4_AGENT_B` and bundled Sync-A (epics+stories together) remain in the pipeline service for `/demo-runs` smoke-test compatibility. Real provider work and stepped UI use S4.1/S4.2/S4.3 and Sync-A1/Sync-A2 instead.
 
 ## Target Rule-Based Vs AI Boundary
 
@@ -86,9 +93,10 @@ Each stage appends a `StageEvent` to `Run.timeline`.
 |---|---|---|---|
 | Parsed GDD section | `GDDSection` | parser | `add_sections()` |
 | Feature | `Feature` | mock Agent A | `set_features()` |
-| Epic | `Epic` | mock Agent B | `set_epics()` |
-| Story | `Story` | mock Agent B | `set_stories()` |
-| QA task | `QATask` | mock Agent B | `set_tasks()` |
+| Epic | `Epic` | mock Agent B (legacy) / Agent B1 (Phase 1.8) | `set_epics()` |
+| Story | `Story` | mock Agent B (legacy) / Agent B2 fan-out per epic (Phase 1.8) | `set_stories()` (Phase 1.8: incremental per epic) |
+| QA task | `QATask` | mock Agent B (legacy) / Agent B3 fan-out per story (Phase 1.8) | `set_tasks()` (Phase 1.8: incremental per story) |
+| Agent B job (Phase 1.8) | `AgentBJob` | pipeline fan-out orchestrator | `add_agent_b_jobs()` / `update_agent_b_job()` |
 | Test case | `TestCase` | mock Agent C | `set_test_cases()` |
 | Validation issue | `ValidationIssue` | validators | `add_validation_issues()` |
 | Risk event | `RiskEvent` | risk event mapper | `add_risk_events()` |
@@ -105,8 +113,12 @@ Each stage appends a `StageEvent` to `Run.timeline`.
 | `story_id` | `S-001` | stable within fixture |
 | `task_id` | `T-001` | stable within fixture |
 | `test_case_id` | `TC-0001` | generated per run from tasks |
-| `external_id` | `snake-escape-F-001-T-01` or task-derived TC ID | stable idempotency key |
+| `external_id` (epic) | `snake-escape-E-CORE-GAMEPLAY` | stable idempotency key for Sync-A1 |
+| `external_id` (story, Phase 1.8) | `snake-escape-E-CORE-GAMEPLAY-S-005` | stable idempotency key for Sync-A2 |
+| `external_id` (task) | `snake-escape-F-001-T-01` | stable idempotency key for Sync-B; seq counted per `(project_id, feature_id)`, NOT per story, so S4.3 fan-out retry is collision-safe |
+| `external_id` (test case) | `snake-escape-F-001-T-01-TC-01` | derived from task external_id |
 | `section_id` | `§2.3`, `§12.8` | parser-derived from GDD headings |
+| `agent_b_job.id` (Phase 1.8) | `abjob_<12 hex chars>` | generated per fan-out job |
 
 Changing any stable fixture ID affects tests, sync payloads, frontend expectations, and docs.
 
@@ -159,7 +171,20 @@ Current deterministic mappings:
 | `test_case_missing_source_section` | `S1` | Possible test-case hallucination / broken traceability. |
 | `uncovered_actionable_section` | `S2` | Scope drift. |
 | `invalid_assignee` | `S2` | Assignee mismatch. |
-| `duplicate_task_candidate` | `S2` | Duplicate task candidate. |
+| `duplicate_task_candidate` | `S2` | Duplicate task candidate (within bundled mode). |
+
+Phase 1.8 additions (target):
+
+| Validation issue code | Risk severity | Meaning |
+|---|---|---|
+| `missing_b1_feature_coverage` | `S2` | Agent B1 dropped one or more approved features from the epic plan. |
+| `extra_b1_feature_coverage` | `S2` | Agent B1 placed a feature in too many epics (>3) without cross-cutting flag. |
+| `missing_b2_story_for_feature` | `S2` | Agent B2 did not produce a story for an approved feature in an epic. |
+| `b2_story_count_out_of_range` | `S3` | Story count guardrail breach (informational). |
+| `duplicate_task_cross_story` | `S2` | Hierarchical-mode dedup: two tasks under different stories share >0.85 similar titles. |
+| `duplicate_task_cross_epic` | `S2` | Same as above but across different epics; often signals missed cross-cutting feature. |
+| `agent_b_substage_timeout` | `S2` | One or more B2/B3 fan-out jobs timed out. Pipeline does not auto-retry; manual recovery via `/agent-b/jobs/{id}/retry`. |
+| `agent_b_partial_fanout_failure` | `S2` | More than threshold (default 30%) of fan-out jobs failed after auto-retry; stage paused awaiting Lead. |
 
 `Run.session_memory.kill_switch` stores current-run counters. When S1 risk count reaches the configured threshold, the pipeline records `kill_switch_tripped`, marks the run `FAILED`, and stops before Agent C.
 
@@ -169,11 +194,14 @@ Task 3 is authoritative for real Notion sync:
 
 - Notion is destination only; internal pipeline state is source of truth.
 - Upsert by `external_id`, never by title or description.
-- Sync-A: Epic + Story after HIL-1.
-- Sync-B: Task after HIL-2 or Router B auto-approval.
-- Sync-C: Test Case after HIL-3 or Router C auto-approval.
-- Sync failures do not block downstream pipeline generation.
+- **Phase 1.8 sync split:**
+  - Sync-A1: Epic upsert after S4.1 + V-B1 pass.
+  - Sync-A2: Story upsert per epic, streaming after each S4.2 fan-out job completes + V-B2 pass for that epic.
+  - Sync-B: Task upsert after S4.3 + V-B3 + HIL-2 or Router B auto-approval.
+  - Sync-C: Test Case upsert after HIL-3 or Router C auto-approval.
+- Sync failures do not block downstream pipeline generation, with one exception: Sync-A1 failure blocks S4.2 because story relation requires `epic_page_id`. Replay from pipeline state once Notion is reachable.
 - Real sync must support schema preflight, throttling around Notion rate limits, retry, dead-letter queue, replay, and manual-edit conflict detection.
+- `payload.sync_phase` field values are now: `Sync-A` (legacy bundled, for `/demo-runs` back-compat), `Sync-A1`, `Sync-A2`, `Sync-B`, `Sync-C`.
 
 ## Coverage Report Shape
 

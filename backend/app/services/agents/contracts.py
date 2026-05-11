@@ -375,6 +375,8 @@ Hard rules:
    For NEW features, create normal tasks. For REMOVED features, create archive
    confirmation tasks.
 8. Task titles must be action-oriented and at most 100 characters.
+9. Cover every feature and epic_grouping item in the input. If validation_feedback
+   names missing feature_ids or epic_ids, repair those exact omissions.
 """
 
 
@@ -570,6 +572,8 @@ def build_agent_b_input(hil_context: dict[str, Any] | None = None) -> dict[str, 
     if context.get("mode") == RunMode.DELTA.value:
         payload["delta_report"] = context.get("delta_report") or {}
         payload["existing_tasks"] = context.get("existing_tasks") or []
+    if context.get("validation_feedback"):
+        payload["validation_feedback"] = context["validation_feedback"]
     return payload
 
 
@@ -637,3 +641,335 @@ def _task_status_for_delta(delta_status: TaskDeltaStatus | None) -> str:
     if delta_status == TaskDeltaStatus.ARCHIVE:
         return "Archive Pending Lead Review"
     return "Ready for Test Cases"
+
+
+# ===========================================================================
+# Phase 1.8 — Hierarchical Agent B contracts (B1 / B2 / B3).
+#
+# These mirror the prompts + JSON schemas defined in Task-2-Agent-prompts-JSON.md
+# under "Agent B1", "Agent B2", "Agent B3". The legacy bundled Agent B schema
+# above (AGENT_B_RESPONSE_SCHEMA / AgentBOutput) stays untouched for mock
+# fixture + /demo-runs back-compat.
+#
+# Scaffolding only — input/output builders and Pydantic validators below have
+# TODO bodies. Fill them in when implementing the Phase 1.8 pipeline split.
+# ===========================================================================
+
+AGENT_B1_EPIC_ID_PATTERN = r"^E-[A-Z0-9-]+$"
+AGENT_B2_STORY_ID_PATTERN = AGENT_B_STORY_ID_PATTERN  # reuse existing
+AGENT_B3_TASK_ID_PATTERN = AGENT_B_TASK_ID_PATTERN  # reuse existing
+
+
+# ---- Agent B1 — Epic Planner ---------------------------------------------
+
+
+class AgentB1EpicOutput(BaseModel):
+    """One epic produced by Agent B1. No stories or tasks yet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    epic_id: str = Field(pattern=AGENT_B1_EPIC_ID_PATTERN)
+    title: str = Field(max_length=80)
+    description: str = Field(max_length=240)
+    feature_ids: list[str] = Field(min_length=1)
+    rationale: str = Field(max_length=200)
+    external_id: str = Field(min_length=1)
+    delta_status: DeltaStatus | None = None
+
+
+class AgentB1Output(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    epics: list[AgentB1EpicOutput] = Field(min_length=1)
+
+
+AGENT_B1_SYSTEM_PROMPT = """You are QA-Planner-B1, an AI agent that groups approved
+game features into QA Epic skeletons. Your output drives a downstream Story
+planner — you must NOT generate stories or tasks.
+
+Hard rules:
+1. Return only JSON matching the supplied schema.
+2. Every approved feature_id MUST appear in exactly one epic. Exception:
+   features with cross_cutting_flag=true MAY appear in up to 3 epics.
+3. Every epic_candidates[i] is a suggestion — you MAY merge or split, but
+   you MUST include rationale.
+4. epic_id MUST match ^E-[A-Z0-9-]+$.
+5. external_id MUST follow <project_id>-E-<epic_short>.
+6. Never invent feature_ids. Only cite feature_ids from approved_features.
+7. In DELTA mode, set delta_status per epic; in NEW_GAME mode set null.
+"""
+
+
+AGENT_B1_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "epics": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "epic_id": {"type": "string", "pattern": AGENT_B1_EPIC_ID_PATTERN},
+                    "title": {"type": "string", "maxLength": 80},
+                    "description": {"type": "string", "maxLength": 240},
+                    "feature_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                    "rationale": {"type": "string", "maxLength": 200},
+                    "external_id": {"type": "string", "minLength": 1},
+                    "delta_status": {
+                        "type": ["string", "null"],
+                        "enum": [status.value for status in DeltaStatus] + [None],
+                    },
+                },
+                "required": [
+                    "epic_id",
+                    "title",
+                    "description",
+                    "feature_ids",
+                    "rationale",
+                    "external_id",
+                    "delta_status",
+                ],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["epics"],
+    "additionalProperties": False,
+}
+
+
+def build_agent_b1_input(hil_context: dict[str, Any]) -> dict[str, Any]:
+    """Compose the input payload for Agent B1.
+
+    TODO(phase-1.8): implement. Should read approved_features, epic_candidates,
+    project_id, mode, kb_rules from hil_context (set up by PipelineService
+    `_build_hil1_context` + epic structure derivation). Trim empty/None fields
+    to keep payload under ~8KB for a 25-feature run.
+    """
+    raise NotImplementedError("Phase 1.8: build_agent_b1_input() pending implementation.")
+
+
+# ---- Agent B2 — Story Planner (fan-out per epic) -------------------------
+
+
+class AgentB2StoryOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    story_id: str = Field(pattern=AGENT_B2_STORY_ID_PATTERN)
+    title: str = Field(max_length=140)
+    description: str = Field(max_length=300)
+    feature_id: str = Field(min_length=1)
+    acceptance_criteria: list[str] = Field(min_length=1)
+    external_id: str = Field(min_length=1)
+
+
+class AgentB2Output(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    epic_id: str = Field(min_length=1)
+    stories: list[AgentB2StoryOutput] = Field(min_length=1)
+
+
+AGENT_B2_SYSTEM_PROMPT = """You are QA-Planner-B2, an AI agent that breaks ONE
+QA Epic into User Stories. You will be called once per epic; do not assume
+knowledge of other epics.
+
+Hard rules:
+1. Return only JSON matching the supplied schema.
+2. Every feature in `features` MUST be covered by at least one story
+   (story.feature_id == feature.feature_id).
+3. story.feature_id MUST come from features[i].feature_id. Never invent.
+4. story.title MUST follow Player-perspective + QA verifies format.
+5. acceptance_criteria MUST be grounded in source_sections_text.
+6. story_id MUST be S-<NNN> starting from story_seq_offset.
+7. external_id MUST follow <epic.external_id>-S-<seq>.
+8. Aim for N..2N stories where N is the feature count of this epic.
+"""
+
+
+AGENT_B2_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "epic_id": {"type": "string"},
+        "stories": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "story_id": {"type": "string", "pattern": AGENT_B2_STORY_ID_PATTERN},
+                    "title": {"type": "string", "maxLength": 140},
+                    "description": {"type": "string", "maxLength": 300},
+                    "feature_id": {"type": "string"},
+                    "acceptance_criteria": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 200},
+                        "minItems": 1,
+                    },
+                    "external_id": {"type": "string", "minLength": 1},
+                },
+                "required": [
+                    "story_id",
+                    "title",
+                    "description",
+                    "feature_id",
+                    "acceptance_criteria",
+                    "external_id",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["epic_id", "stories"],
+    "additionalProperties": False,
+}
+
+
+def build_agent_b2_input(
+    *,
+    epic: dict[str, Any],
+    features: list[dict[str, Any]],
+    source_text: dict[str, str],
+    story_seq_offset: int,
+    project_id: str,
+    mode: str,
+) -> dict[str, Any]:
+    """Compose the input payload for one Agent B2 fan-out call.
+
+    TODO(phase-1.8): implement. Each fan-out call gets ONE epic + its feature
+    subset + verbatim source text for grounding. Keep payload < ~6KB.
+    """
+    raise NotImplementedError("Phase 1.8: build_agent_b2_input() pending implementation.")
+
+
+# ---- Agent B3 — Task Planner (fan-out per story) -------------------------
+
+
+class AgentB3TaskOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str = Field(pattern=AGENT_B3_TASK_ID_PATTERN)
+    feature_id: str = Field(min_length=1)
+    title: str = Field(max_length=AGENT_B_TASK_TITLE_MAX_LENGTH)
+    description: str = Field(max_length=600)
+    assignee: str = Field(min_length=1)
+    priority: Priority
+    priority_justification: str = Field(min_length=1)
+    estimate: Estimate
+    source_sections: list[str] = Field(min_length=1)
+    external_id: str = Field(min_length=1)
+    delta_status: TaskDeltaStatus | None = None
+    confidence: float = Field(ge=0, le=1)
+
+
+class AgentB3Output(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    story_id: str = Field(min_length=1)
+    tasks: list[AgentB3TaskOutput] = Field(min_length=1)
+
+
+AGENT_B3_SYSTEM_PROMPT = """You are QA-Planner-B3, an AI agent that breaks ONE
+User Story into testable QA tasks. You will be called once per story; do not
+assume knowledge of other stories.
+
+Hard rules:
+1. Return only JSON matching the supplied schema.
+2. Every task.feature_id MUST equal story.feature_id.
+3. Every task.source_sections MUST be a non-empty subset of feature.source_sections.
+4. assignee MUST be looked up from kb_rules.assignee_mapping by feature.feature_type.
+   Do NOT freelance assignees.
+5. priority MUST come with priority_justification citing source or risk.
+6. Descriptions MUST be grounded in source_sections_text / feature.key_behaviors.
+   Forbidden phrases: "typical conditions", "appropriate setup", "valid state".
+7. external_id MUST follow <project_id>-<feature_id>-T-<seq> starting at
+   task_seq_offset.
+8. In DELTA mode, prefer reusing existing_tasks[i].external_id when behavior
+   matches.
+9. Generate 1-4 tasks per story aligned with story.acceptance_criteria.
+"""
+
+
+AGENT_B3_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "story_id": {"type": "string"},
+        "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "pattern": AGENT_B3_TASK_ID_PATTERN},
+                    "feature_id": {"type": "string"},
+                    "title": {
+                        "type": "string",
+                        "maxLength": AGENT_B_TASK_TITLE_MAX_LENGTH,
+                    },
+                    "description": {"type": "string", "maxLength": 600},
+                    "assignee": {"type": "string", "enum": sorted(QA_MEMBERS)},
+                    "priority": {
+                        "type": "string",
+                        "enum": [priority.value for priority in Priority],
+                    },
+                    "priority_justification": {"type": "string", "minLength": 1},
+                    "estimate": {
+                        "type": "string",
+                        "enum": [estimate.value for estimate in Estimate],
+                    },
+                    "source_sections": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                    "external_id": {"type": "string", "minLength": 1},
+                    "delta_status": {
+                        "type": ["string", "null"],
+                        "enum": [status.value for status in TaskDeltaStatus] + [None],
+                    },
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                },
+                "required": [
+                    "task_id",
+                    "feature_id",
+                    "title",
+                    "description",
+                    "assignee",
+                    "priority",
+                    "priority_justification",
+                    "estimate",
+                    "source_sections",
+                    "external_id",
+                    "delta_status",
+                    "confidence",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["story_id", "tasks"],
+    "additionalProperties": False,
+}
+
+
+def build_agent_b3_input(
+    *,
+    story: dict[str, Any],
+    feature: dict[str, Any],
+    source_text: dict[str, str],
+    task_seq_offset: int,
+    project_id: str,
+    mode: str,
+    past_corrections: list[dict[str, Any]] | None = None,
+    existing_tasks: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Compose the input payload for one Agent B3 fan-out call.
+
+    TODO(phase-1.8): implement. Each fan-out call gets ONE story + its feature +
+    verbatim source text. past_corrections injects long-term memory.
+    """
+    raise NotImplementedError("Phase 1.8: build_agent_b3_input() pending implementation.")

@@ -223,6 +223,30 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const HIL0_REASON_META: Record<string, { label: string; className: string }> = {
+  thin_section:        { label: "thin section",    className: "bg-amber-500/15 text-amber-400" },
+  flagged_note:        { label: "flagged note",    className: "bg-indigo-500/15 text-indigo-400" },
+  external_dependency: { label: "external dep",    className: "bg-violet-500/15 text-violet-400" },
+  container:           { label: "container",        className: "bg-slate-500/15 text-slate-400" },
+};
+
+function ReasonBadge({ reason }: { reason: string }) {
+  const meta = HIL0_REASON_META[reason] ?? {
+    label: reason.replace(/_/g, " "),
+    className: "bg-slate-500/15 text-slate-400",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+        meta.className,
+      )}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 function AttemptOutcomeBadge({ outcome }: { outcome: string }) {
   const map: Record<string, string> = {
     validation_retry: "bg-amber-500/15 text-amber-400",
@@ -502,13 +526,18 @@ function AgentRunsPanel({ runId }: { runId: string }) {
   const { data, isPending, isError } = useAgentRuns(runId);
   const runs = (data ?? []) as AgentRun[];
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Track whether we've already fired the one-time auto-expand so that a
+  // user-initiated collapse (which sets expandedId back to null) does not
+  // immediately re-expand the panel on the next render.
+  const autoExpandedRef = useRef(false);
 
   const anyRetryExhausted = runs.some((r) => (r.output_snapshot as AgentOutput)?.retry_exhausted);
 
-  // Auto-expand the first agent with retry_exhausted on initial load
-  if (!isPending && runs.length > 0 && expandedId === null) {
+  // Auto-expand the first retry-exhausted agent — fires at most once per mount.
+  if (!isPending && runs.length > 0 && expandedId === null && !autoExpandedRef.current) {
     const flagged = runs.find((r) => (r.output_snapshot as AgentOutput)?.retry_exhausted);
     if (flagged) {
+      autoExpandedRef.current = true;
       setExpandedId(flagged.id);
     }
   }
@@ -1713,6 +1742,7 @@ function NextStagePanel({ run }: { run: Run }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <IdChip>{question.section_id}</IdChip>
+                  <ReasonBadge reason={question.reason} />
                   <span className="text-[13px] font-medium text-slate-100">
                     {question.title}
                   </span>

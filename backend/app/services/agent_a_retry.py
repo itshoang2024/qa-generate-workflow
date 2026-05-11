@@ -126,7 +126,12 @@ def run_agent_a_with_retries(
         if attempt == max_attempts:
             return _exhausted_result(run_id, output, issues, attempts)
 
-        uncovered_targets = _uncovered_section_targets(retryable_issues)
+        has_traceability_failure = any(
+            issue.code == "missing_source_section" for issue in retryable_issues
+        )
+        uncovered_targets = [] if has_traceability_failure else _uncovered_section_targets(
+            retryable_issues
+        )
         validation_feedback = _feedback_from_issues(retryable_issues)
         target_section_ids = uncovered_targets or None
         merge_base_output = output if uncovered_targets else None
@@ -174,14 +179,35 @@ def _merge_agent_a_outputs(
     retry_output: dict[str, object],
     sections: list[GDDSection],
 ) -> dict[str, object]:
-    merged_features = {
-        feature.feature_id: feature
-        for feature in _features_from_output(base_output) + _features_from_output(retry_output)
+    # Index base features first, then overlay retry features on top.
+    # For features present in BOTH outputs (same feature_id), we keep the
+    # retry version's metadata (which may have been improved) but take the
+    # UNION of source_sections.  This prevents a retry attempt from silently
+    # dropping section references that the base had already discovered,
+    # which would shift coverage holes to different sections on each attempt.
+    base_by_id: dict[str, Feature] = {
+        f.feature_id: f for f in _features_from_output(base_output)
     }
+    retry_by_id: dict[str, Feature] = {
+        f.feature_id: f for f in _features_from_output(retry_output)
+    }
+
+    merged: dict[str, Feature] = {**base_by_id}
+    for fid, retry_feat in retry_by_id.items():
+        if fid in base_by_id:
+            # Union source_sections so neither attempt loses its coverage.
+            unioned = sorted(
+                set(base_by_id[fid].source_sections) | set(retry_feat.source_sections)
+            )
+            merged[fid] = retry_feat.model_copy(update={"source_sections": unioned})
+        else:
+            merged[fid] = retry_feat
+
+    merged_list = list(merged.values())
     return {
         **retry_output,
-        "features": list(merged_features.values()),
-        "coverage_report": _coverage_report(list(merged_features.values()), sections),
+        "features": merged_list,
+        "coverage_report": _coverage_report(merged_list, sections),
         "ambiguities": _merge_ambiguities(base_output, retry_output),
     }
 

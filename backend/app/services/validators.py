@@ -5,11 +5,14 @@ from difflib import SequenceMatcher
 
 from app.domain.models import (
     FEATURE_BATCH_CONFIDENCE_THRESHOLD,
+    DeltaStatus,
+    Epic,
     Feature,
     GDDSection,
     PipelineStage,
     QATask,
     ReviewStatus,
+    Story,
     TestCase,
     TestCategory,
     derive_router_lane,
@@ -179,6 +182,79 @@ def validate_tasks(
     return issues
 
 
+def validate_agent_b_plan_coverage(
+    run_id: str,
+    *,
+    epics: list[Epic],
+    stories: list[Story],
+    tasks: list[QATask],
+    hil1_context: dict[str, object],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    required_feature_ids = _required_agent_b_feature_ids(hil1_context)
+    covered_feature_ids = {
+        feature_id
+        for feature_id in {
+            *(story.feature_id for story in stories),
+            *(task.feature_id for task in tasks),
+        }
+        if feature_id in required_feature_ids
+    }
+
+    for feature_id in sorted(required_feature_ids - covered_feature_ids):
+        issues.append(
+            _issue(
+                run_id,
+                "feature",
+                feature_id,
+                ValidationSeverity.S1_CRITICAL,
+                "missing_agent_b_feature_coverage",
+                (
+                    "Agent B plan does not include a story or task for approved "
+                    f"HIL-1 feature {feature_id}."
+                ),
+                PipelineStage.S5_VALIDATION_B_SYNC,
+            )
+        )
+
+    generated_feature_ids = {
+        feature_id
+        for generated_feature_ids in _generated_feature_ids_by_epic(
+            epics,
+            stories,
+            tasks,
+        ).values()
+        for feature_id in generated_feature_ids
+    }
+    for candidate in _hil1_epic_candidates(hil1_context):
+        candidate_feature_ids = {
+            feature_id
+            for feature_id in candidate["feature_ids"]
+            if feature_id in required_feature_ids
+        }
+        if not candidate_feature_ids:
+            continue
+        if candidate_feature_ids & generated_feature_ids:
+            continue
+        issues.append(
+            _issue(
+                run_id,
+                "epic",
+                candidate["epic_id"],
+                ValidationSeverity.S1_CRITICAL,
+                "missing_agent_b_epic_coverage",
+                (
+                    "Agent B plan does not represent HIL-1 epic candidate "
+                    f"{candidate['title']} with features: "
+                    f"{', '.join(sorted(candidate_feature_ids))}."
+                ),
+                PipelineStage.S5_VALIDATION_B_SYNC,
+            )
+        )
+
+    return issues
+
+
 def validate_tasks_with_routing(
     run_id: str,
     tasks: list[QATask],
@@ -194,6 +270,66 @@ def validate_tasks_with_routing(
         )
         _apply_routing_status(task, lane)
     return issues
+
+
+def _required_agent_b_feature_ids(hil1_context: dict[str, object]) -> set[str]:
+    raw_approved_ids = hil1_context.get("approved_feature_ids", [])
+    approved_id_items = raw_approved_ids if isinstance(raw_approved_ids, list) else []
+    raw_features = hil1_context.get("approved_features", [])
+    feature_items = raw_features if isinstance(raw_features, list) else []
+    approved_ids = {
+        feature_id
+        for feature_id in approved_id_items
+        if isinstance(feature_id, str)
+    }
+    unchanged_ids = {
+        feature["feature_id"]
+        for feature in feature_items
+        if isinstance(feature, dict)
+        and isinstance(feature.get("feature_id"), str)
+        and feature.get("delta_status") == DeltaStatus.UNCHANGED.value
+    }
+    return approved_ids - unchanged_ids
+
+
+def _hil1_epic_candidates(hil1_context: dict[str, object]) -> list[dict[str, object]]:
+    epic_structure = hil1_context.get("epic_structure", {})
+    raw_epics = epic_structure.get("epics", []) if isinstance(epic_structure, dict) else []
+    candidates: list[dict[str, object]] = []
+    for raw_epic in raw_epics:
+        if not isinstance(raw_epic, dict):
+            continue
+        raw_feature_ids = raw_epic.get("feature_ids", [])
+        feature_ids = [
+            feature_id for feature_id in raw_feature_ids if isinstance(feature_id, str)
+        ] if isinstance(raw_feature_ids, list) else []
+        epic_id = raw_epic.get("epic_id")
+        title = raw_epic.get("title")
+        if isinstance(epic_id, str) and isinstance(title, str) and feature_ids:
+            candidates.append(
+                {
+                    "epic_id": epic_id,
+                    "title": title,
+                    "feature_ids": feature_ids,
+                }
+            )
+    return candidates
+
+
+def _generated_feature_ids_by_epic(
+    epics: list[Epic],
+    stories: list[Story],
+    tasks: list[QATask],
+) -> dict[str, set[str]]:
+    generated_by_epic = {
+        epic.epic_id: {feature_id for feature_id in epic.feature_ids}
+        for epic in epics
+    }
+    for story in stories:
+        generated_by_epic.setdefault(story.epic_id, set()).add(story.feature_id)
+    for task in tasks:
+        generated_by_epic.setdefault(task.epic_id, set()).add(task.feature_id)
+    return generated_by_epic
 
 
 def validate_test_cases(

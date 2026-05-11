@@ -8,7 +8,9 @@ fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api.v1.dependencies import repository_dependency, settings_dependency  # noqa: E402
+from app.api.v1 import routes  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.pipeline import PipelineConflictError  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -210,6 +212,28 @@ def test_agent_b_endpoint_blocks_on_unresolved_hil1() -> None:
     assert phases.count("Sync-B") == 9
 
 
+def test_agent_b_endpoint_returns_structured_coverage_exhausted_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingPipeline:
+        def run_agent_b(self, run_id: str) -> object:
+            raise PipelineConflictError(
+                "agent_b_coverage_exhausted",
+                "Agent B plan is missing approved HIL-1 feature or epic coverage.",
+                {"run_id": run_id, "attempt_count": 3},
+            )
+
+    monkeypatch.setattr(routes, "pipeline_dependency", lambda: FailingPipeline())
+    client = TestClient(app)
+
+    response = client.post("/api/v1/runs/run_partial/agent-b")
+
+    assert response.status_code == 409
+    error = response.json()["error"]
+    assert error["code"] == "agent_b_coverage_exhausted"
+    assert error["details"]["attempt_count"] == 3
+
+
 def test_agent_c_endpoint_rejects_wrong_stage_after_context() -> None:
     client = TestClient(app)
     run_id = _trigger_and_load_context(client)
@@ -379,6 +403,99 @@ def test_review_decision_approval_updates_lane_and_removes_item_from_queue() -> 
         for item in group["items"]
     }
     assert "T-007" not in queued_ids
+
+
+def test_hil2_task_decision_endpoint_applies_structured_actions() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    approved = client.post(
+        f"/api/v1/runs/{run_id}/hil-2/tasks/T-007/decision",
+        json={
+            "action": "approve",
+            "reviewer": "Minh",
+            "comment": "UI task is valid.",
+        },
+    )
+
+    assert approved.status_code == 200
+    approved_data = approved.json()["data"]
+    assert approved_data["decision"]["decision"] == "APPROVED"
+    assert approved_data["task"]["review_status"] == "APPROVED"
+
+    edit_request = client.post(
+        f"/api/v1/runs/{run_id}/hil-2/tasks/T-007/decision",
+        json={
+            "action": "request_edit",
+            "reviewer": "QA Lead",
+            "comment": "Clarify booster overlay entry conditions before sync.",
+            "patch": {"description": "Requested rewrite: clarify first-introduction conditions."},
+        },
+    )
+
+    assert edit_request.status_code == 200
+    edit_data = edit_request.json()["data"]
+    assert edit_data["decision"]["decision"] == "BLOCKED"
+    assert edit_data["decision"]["patch"]["requested_changes"] == {
+        "description": "Requested rewrite: clarify first-introduction conditions."
+    }
+    assert edit_data["task"]["review_status"] == "BLOCKED"
+    assert edit_data["task"]["description"] != "Requested rewrite: clarify first-introduction conditions."
+
+    override = client.post(
+        f"/api/v1/runs/{run_id}/hil-2/tasks/T-007/decision",
+        json={
+            "action": "override_assignee",
+            "reviewer": "QA Lead",
+            "assignee": "Quan",
+            "comment": "Backend telemetry owns this review now.",
+        },
+    )
+
+    assert override.status_code == 200
+    override_task = override.json()["data"]["task"]
+    assert override_task["assignee"] == "Quan"
+    assert override_task["review_status"] == "NEEDS_REVIEW"
+
+    queue = client.get(f"/api/v1/runs/{run_id}/review-queues/HIL-2").json()["data"]
+    reviewers = {
+        group["reviewer"]
+        for group in queue["groups"]
+        for item in group["items"]
+        if item["target_id"] == "T-007"
+    }
+    assert reviewers == {"Quan"}
+
+    rejected = client.post(
+        f"/api/v1/runs/{run_id}/hil-2/tasks/T-007/decision",
+        json={
+            "action": "reject",
+            "reviewer": "Quan",
+            "comment": "Out of scope for the current GDD.",
+        },
+    )
+
+    assert rejected.status_code == 200
+    assert rejected.json()["data"]["task"]["review_status"] == "REJECTED"
+
+
+def test_hil2_task_decision_endpoint_rejects_unknown_assignee_override() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/hil-2/tasks/T-007/decision",
+        json={
+            "action": "override_assignee",
+            "reviewer": "QA Lead",
+            "assignee": "Not A Roster Member",
+        },
+    )
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "invalid_assignee_override"
+    assert error["details"]["assignee"] == "Not A Roster Member"
 
 
 def test_sign_off_endpoint_updates_run_and_coverage_report() -> None:

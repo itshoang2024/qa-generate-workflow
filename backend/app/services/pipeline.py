@@ -29,6 +29,7 @@ from app.domain.models import (
 )
 from app.repositories.workflow_repository import WorkflowRepository
 from app.services.agent_a_retry import run_agent_a_with_retries
+from app.services.agent_b_retry import run_agent_b_with_retries
 from app.services.agents import AgentClient
 from app.services.agents.mock import MockAgentClient
 from app.services.gdd_parser import parse_docx_gdd
@@ -286,16 +287,15 @@ class PipelineService:
         run.session_memory = {**run.session_memory, "hil_1": hil1_context}
         run = self.repository.update_run(run)
 
-        agent_b_output = self.agent_client.plan_qa_tasks(
-            run.id,
-            hil_context=hil1_context,
+        agent_b_result = run_agent_b_with_retries(
+            agent_client=self.agent_client,
+            run_id=run.id,
+            hil1_context=hil1_context,
         )
+        agent_b_output = agent_b_result.output
         epics = agent_b_output["epics"]
         stories = agent_b_output["stories"]
         tasks = agent_b_output["tasks"]
-        self.repository.set_epics(run.id, epics)
-        self.repository.set_stories(run.id, stories)
-        self.repository.set_tasks(run.id, tasks)
         self.repository.add_agent_run(
             AgentRun(
                 run_id=run.id,
@@ -308,18 +308,59 @@ class PipelineService:
                     "epic_count": len(epics),
                     "story_count": len(stories),
                     "task_count": len(tasks),
+                    "attempt_count": agent_b_result.attempt_count,
+                    "retry_exhausted": agent_b_result.exhausted,
+                    "attempts": agent_b_result.attempt_log(),
                     "auto_approve": auto_approve,
                 },
                 provider=self._agent_provider("plan_qa_tasks"),
             )
         )
+        run.session_memory = {
+            **run.session_memory,
+            "agent_b_validation": {
+                "attempt_count": agent_b_result.attempt_count,
+                "retry_exhausted": agent_b_result.exhausted,
+                "attempts": agent_b_result.attempt_log(),
+            },
+        }
+        run = self.repository.update_run(run)
+        if agent_b_result.exhausted:
+            self.repository.add_validation_issues(agent_b_result.coverage_issues)
+            self._record_risk_events(agent_b_result.coverage_issues)
+            raise PipelineConflictError(
+                "agent_b_coverage_exhausted",
+                "Agent B plan is missing approved HIL-1 feature or epic coverage.",
+                {
+                    "run_id": run.id,
+                    "attempt_count": agent_b_result.attempt_count,
+                    "issues": [
+                        {
+                            "code": issue.code,
+                            "target_type": issue.target_type,
+                            "target_id": issue.target_id,
+                            "message": issue.message,
+                        }
+                        for issue in agent_b_result.coverage_issues
+                    ],
+                },
+            )
+        self.repository.set_epics(run.id, epics)
+        self.repository.set_stories(run.id, stories)
+        self.repository.set_tasks(run.id, tasks)
         run = self._stage(
             run,
             PipelineStage.S4_AGENT_B,
-            f"Generated {len(epics)} epics, {len(stories)} stories, and {len(tasks)} tasks.",
+            (
+                f"Generated {len(epics)} epics, {len(stories)} stories, and "
+                f"{len(tasks)} tasks after {agent_b_result.attempt_count} attempt(s)."
+            ),
         )
 
-        task_issues = validate_tasks_with_routing(run.id, tasks, features, sections)
+        task_issues = [
+            *agent_b_result.coverage_issues,
+            *validate_tasks_with_routing(run.id, tasks, features, sections),
+        ]
         self.repository.set_tasks(run.id, tasks)
         self.repository.add_validation_issues(task_issues)
         self._record_risk_events(task_issues)
@@ -821,6 +862,25 @@ class PipelineService:
                         title=section.title,
                         reason="thin_section",
                         question="Section has limited detail. Proceed with a confidence flag?",
+                        allowed_actions=[
+                            HIL0Action.PROVIDE_ARTIFACT,
+                            HIL0Action.PROCEED_WITH_FLAG,
+                            HIL0Action.SKIP_SECTION,
+                        ],
+                    )
+                )
+            if section.actionability_reason == "external_dependency":
+                questions.append(
+                    HIL0Question(
+                        id=f"hil0_{run_key}_{_safe_id(section.section_id)}_{len(questions) + 1}",
+                        run_id=run_id,
+                        section_id=section.section_id,
+                        title=section.title,
+                        reason="external_dependency",
+                        question=(
+                            "Section references an external document and was excluded from AI analysis. "
+                            "Confirm coverage is handled externally, or provide the artifact."
+                        ),
                         allowed_actions=[
                             HIL0Action.PROVIDE_ARTIFACT,
                             HIL0Action.PROCEED_WITH_FLAG,

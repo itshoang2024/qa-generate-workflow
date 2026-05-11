@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, TypeVar
 
+import httpx
+
 from app.domain.models import (
     AgentRun,
     Epic,
@@ -26,6 +28,19 @@ from app.repositories.workflow_repository import WorkflowRepository
 
 ModelT = TypeVar("ModelT")
 QA_TASK_OPTIONAL_COMPAT_COLUMNS = {"priority_justification", "delta_status"}
+QA_TASK_PATCH_FIELDS = {
+    "title",
+    "description",
+    "assignee",
+    "priority",
+    "priority_justification",
+    "estimate",
+    "source_sections",
+    "status",
+    "confidence",
+    "dedup_flag",
+    "cross_cutting_flag",
+}
 
 
 class SupabaseWorkflowRepository(WorkflowRepository):
@@ -37,7 +52,7 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         except ImportError as exc:
             raise RuntimeError("Install the 'supabase' package to use Supabase storage.") from exc
 
-        self.client = create_client(url, service_role_key)
+        self.client = create_client(url, service_role_key, _build_supabase_client_options())
 
     def upsert_project(self, project: Project) -> Project:
         self._upsert("projects", project)
@@ -295,13 +310,30 @@ class SupabaseWorkflowRepository(WorkflowRepository):
 
         mapping = {
             "feature": ("features", "feature_id"),
-            "task": ("qa_tasks", "task_id"),
             "test_case": ("test_cases", "test_case_id"),
             "story": ("stories", "story_id"),
         }
+        if decision.target_type == "task":
+            self._update_task_from_decision(decision)
+            return
+
         if decision.target_type in mapping:
             table, public_id_field = mapping[decision.target_type]
             self._update_review_status(table, public_id_field, decision.target_id, decision)
+
+    def _update_task_from_decision(self, decision: ReviewDecision) -> None:
+        payload = {
+            "review_status": decision.decision.value,
+            **_task_patch_from_decision(decision),
+        }
+        self.client.table("qa_tasks").update(payload).eq("run_id", decision.run_id).eq(
+            "task_id",
+            decision.target_id,
+        ).execute()
+        self.client.table("qa_tasks").update(payload).eq("run_id", decision.run_id).eq(
+            "id",
+            decision.target_id,
+        ).execute()
 
     def _update_review_status(
         self,
@@ -343,4 +375,31 @@ def _without_optional_task_columns(row: dict[str, Any]) -> dict[str, Any]:
         key: value
         for key, value in row.items()
         if key not in QA_TASK_OPTIONAL_COMPAT_COLUMNS
+    }
+
+
+def _build_supabase_client_options() -> Any:
+    from supabase import ClientOptions
+
+    return ClientOptions(
+        httpx_client=httpx.Client(
+            timeout=httpx.Timeout(120),
+            follow_redirects=True,
+            http2=False,
+        )
+    )
+
+
+def _task_patch_from_decision(decision: ReviewDecision) -> dict[str, Any]:
+    if not decision.patch:
+        return {}
+
+    raw_patch = decision.patch.get("task", decision.patch)
+    if not isinstance(raw_patch, dict):
+        return {}
+
+    return {
+        key: value
+        for key, value in raw_patch.items()
+        if key in QA_TASK_PATCH_FIELDS and value is not None
     }

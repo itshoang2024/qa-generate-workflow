@@ -17,6 +17,7 @@ from app.services.agents.contracts import (
     AGENT_B_RESPONSE_SCHEMA,
     AgentBOutput,
     AgentAOutput,
+    build_agent_b_input,
 )
 from app.services.agents.factory import build_agent_client
 from app.services.agents.mock import MockAgentClient
@@ -306,6 +307,36 @@ def test_openai_agent_b_uses_structured_contract_and_normalized_assignee() -> No
     assert output["tasks"][0].priority_justification == "Core gameplay loop."
 
 
+def test_build_agent_b_input_includes_validation_feedback_for_retry() -> None:
+    payload = build_agent_b_input(
+        {
+            "project_id": "snake-escape",
+            "approved_feature_ids": ["F-001", "F-002"],
+            "approved_features": [_approved_feature("F-001", "gameplay_logic", None)],
+            "epic_structure": {
+                "epics": [
+                    {
+                        "epic_id": "HIL1-GAMEPLAY-LOGIC",
+                        "title": "Gameplay Logic Scope",
+                        "feature_ids": ["F-001"],
+                    }
+                ]
+            },
+            "validation_feedback": [
+                {
+                    "code": "missing_agent_b_feature_coverage",
+                    "target_type": "feature",
+                    "target_id": "F-002",
+                    "message": "Agent B omitted F-002.",
+                }
+            ],
+        }
+    )
+
+    assert payload["validation_feedback"][0]["target_id"] == "F-002"
+    assert payload["epic_grouping"][0]["epic_id"] == "HIL1-GAMEPLAY-LOGIC"
+
+
 def test_openai_agent_b_falls_back_to_mock_after_transient_502() -> None:
     fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
     fallback = MockAgentClient(fixture_path)
@@ -325,6 +356,23 @@ def test_openai_agent_b_falls_back_to_mock_after_transient_502() -> None:
 
     assert len(output["tasks"]) == 2
     assert client.provider_for("plan_qa_tasks") == "mock_after_openai_transient_error"
+
+
+def test_openai_agent_a_falls_back_to_mock_after_read_timeout() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    client = OpenAIAgentClient(
+        api_key="sk-test",
+        model="gpt-test",
+        fallback=MockAgentClient(fixture_path),
+        http_client=_TimeoutOpenAIHTTPClient(),
+        retry_count=0,
+        retry_sleep_seconds=0,
+    )
+
+    output = client.analyze_gdd("run_1", _agent_a_sections())
+
+    assert len(output["features"]) == 8
+    assert client.provider_for("analyze_gdd") == "mock_after_openai_network_error"
 
 
 def test_mock_notion_sync_client_implements_notion_contract() -> None:
@@ -454,3 +502,9 @@ class _FailingOpenAIHTTPClient:
 
     def post(self, *args: object, **kwargs: object) -> _FailingOpenAIResponse:
         return _FailingOpenAIResponse(self.status_code)
+
+
+class _TimeoutOpenAIHTTPClient:
+    def post(self, *args: object, **kwargs: object) -> None:
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        raise httpx.ReadTimeout("The read operation timed out", request=request)

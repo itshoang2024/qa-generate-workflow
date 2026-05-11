@@ -39,11 +39,13 @@ The root source-of-truth design files are:
 |---|---|
 | S0 | Trigger + mode detection only. Input is GDD upload plus project selection. Existing project means `DELTA`; new project means `NEW_GAME`; create `run_id`; initialize session memory. |
 | S1 | Context loader. Owns raw GDD loading, GDD version registration, structural parse, actionability filter, HIL-0, and DELTA diff. |
-| S2/S4/S6 | AI agents. Must use structured JSON contracts and source-grounding rules from Task 2. |
-| S3/S5/S7 | Deterministic validation and routers. Must enforce schema, traceability, confidence, dedup, assignee, and coverage rules. |
-| HIL | Human review gates: HIL-0 clarification, HIL-1 feature/epic review, HIL-2 task review, HIL-3 test-case review. |
-| Notion sync | Destination-only sync with Sync-A/B/C, idempotent `external_id`, replay, rate limit handling, and page-id relation mapping. |
-| Risk | Stores flags for hallucination, scope drift, JSON format failure, duplicates, bad assignee, Notion sync failure, and incomplete GDD. |
+| S2 / S6 | Agent A (GDD Analyzer) and Agent C (Test Case Generator). Must use structured JSON contracts and source-grounding rules from Task 2. |
+| S4.1 / S4.2 / S4.3 | Agent B hierarchical decomposition (Phase 1.8). S4.1 is Agent B1 Epic Planner (single call, ~3-5KB input). S4.2 is Agent B2 Story Planner, fan-out per epic with bounded concurrency. S4.3 is Agent B3 Task Planner, fan-out per story. Legacy bundled `S4_AGENT_B` stays for `/demo-runs` smoke compatibility. |
+| S3 / S5 / S7 | Deterministic validation and routers. Must enforce schema, traceability, confidence, dedup, assignee, and coverage rules. S5 splits into per-substage validators V-B1 (post S4.1), V-B2 (post each S4.2 fan-out), V-B3 (full plan after S4.3) plus mandatory cross-story / cross-epic dedup. |
+| HIL | Human review gates: HIL-0 clarification, HIL-1 feature/epic review (with optional Lead edit at `<EpicReviewPanel>` between S4.1 and S4.2), HIL-2 task review, HIL-3 test-case review. |
+| Notion sync | Destination-only sync. Phase 1.8 splits Sync-A into Sync-A1 (epics post S4.1) + Sync-A2 (stories post each S4.2 fan-out). Sync-B (tasks post HIL-2) and Sync-C (test cases post HIL-3) remain. All idempotent via `external_id`. |
+| Risk | Stores flags for hallucination, scope drift, JSON format failure, duplicates, bad assignee, Notion sync failure, incomplete GDD, plus Phase 1.8 additions: Agent B sub-stage timeout / partial fan-out failure (7a) and cross-epic / cross-story task duplication (7b). |
+| Agent B Job | Phase 1.8 `AgentBJob` artifact tracks per-fan-out job state (`scope_type` ∈ {epic, story}, `scope_id`, `status` ∈ {queued, running, success, failed, timeout}, `attempt_count`, error fields). Persisted in repository so UI's `<AgentBJobBoard>` can poll and manual retry can target individual jobs. |
 
 ## Module Boundaries
 
@@ -115,15 +117,14 @@ Note: `app/config.py` reads process environment variables first, then falls back
 
 ## Current Limitations
 
-- The pipeline is synchronous and executes inside the request cycle.
-- Only `preset="snake_escape"` is supported.
-- `RunMode.DELTA` exists in the model but no delta diff path is implemented.
-- `auto_approve` is accepted by `DemoRunRequest` but currently does not branch behavior.
-- Notion sync is mock-only.
-- AI provider selection is documented as mock-first; real provider adapters are not implemented.
-- In-memory storage is process-local and resets when the server restarts.
-- S0/S1 are split in the backend service and public API; `/demo-runs` remains a synchronous wrapper for the stable mock demo.
-- Risk events, correction memory, and kill-switch behavior are not implemented.
+- The pipeline is synchronous and executes inside the request cycle. Phase 1.8 introduces fan-out concurrency for S4.2 / S4.3 using `asyncio.gather` bounded by `Semaphore`, still inside the same FastAPI request lifecycle (no external job queue yet).
+- Only `preset="snake_escape"` is supported by `/demo-runs`.
+- `RunMode.DELTA` is modelled and DELTA section diff scaffold exists in S1; downstream DELTA behavior in B1/B2/B3 + Sync-A1/A2 follows Phase 1.8 implementation.
+- Notion sync is mock-only. Real Notion adapter pending.
+- AI provider selection supports `mock` (default) and `openai` for Agent A and bundled Agent B; Phase 1.8 introduces `openai` Agent B1/B2/B3 with streaming. Agent C real adapter still pending.
+- In-memory storage is process-local and resets when the server restarts. Supabase persistence remains optional.
+- S0/S1 are split in the backend service and public API; `/demo-runs` remains a synchronous wrapper for the stable mock demo and uses the legacy bundled S4 path for back-compat.
+- Phase 1.8 docs are landed; backend + frontend implementation pending.
 
 ## Change Impact Notes
 

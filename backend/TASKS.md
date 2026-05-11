@@ -4,7 +4,7 @@ This checklist tracks backend work against the source-of-truth solution files. E
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-11)
+## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 docs pass landed, implementation pending)
 
 | Phase | Done / Total | Status |
 |---|---|---|
@@ -14,8 +14,9 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | S2 Agent A | 4 / 4 | `AgentClient`, schema-validated Agent A output, fixture-backed mock default, and `AI_PROVIDER` factory with OpenAI Agent A adapter shipped. |
 | S3 Validation A + Router A | 3 / 3 | Schema/source/confidence/coverage validation, Router A lanes, and bounded Agent A retry/rerun with stable HIL escalation shipped. |
 | HIL-1 | 3 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; HIL-1 queues list pending items; approved feature IDs + epic candidates are snapshotted in session memory and passed to Agent B. |
-| S4 Agent B | 4 / 4 | Agent B now has a Task 2 structured contract, OpenAI adapter path, rule-based assignee normalization, and DELTA skip/update/new/archive behavior in the mock. |
-| S5 Validation B + Router B + HIL-2 | 2 / 3 | Validators (schema, traceability, dedup, assignee, confidence) + lane assignment + HIL-2 queue shipped. Explicit HIL-2 decision API surfaces (edit request, assignee override) still open beyond the generic `POST /review-decisions`. |
+| S4 Agent B (legacy bundled) | 6 / 6 | Agent B has the Task 2 contract/OpenAI path, assignee normalization, DELTA behavior, and coverage-feedback retry for partial real-provider output. |
+| **Phase 1.8 — Agent B Hierarchical Decomposition** | **0 / 18 implementation** | Domain stages + AgentBJob model + 3 AgentClient methods + 3 pipeline sub-stages + new endpoints + validators + Sync-A1/A2 split + latency mitigations. Docs landed at root level; backend implementation pending. |
+| S5 Validation B + Router B + HIL-2 | 6 / 6 | Validators, lanes, HIL-2 decisions, approved-feature coverage, HIL-1 epic coverage, and Sync-A/B blocking on exhausted coverage retry shipped. |
 | S5b Notion Sync-A/B | 3 / 4 | `NotionSyncClient` interface + mock implementation shipped; Sync-A/B separated with mock page-id mappings. Real schema preflight / retry / dead-letter still open. |
 | S6 Agent C | 1 / 3 | Mock Agent C is behind the shared `AgentClient` and generates 4 cases per task. Real adapter and "concrete test data + repeatability" rules still open. |
 | S7 Validation C + HIL-3 | 1 / 2 | Category coverage + source traceability + low-confidence validators ship; HIL-3 queue exists. Forbidden-vague-phrase and one-assertion-expected-result validators still open. |
@@ -25,7 +26,15 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 
 ## Next Implementation Slice - Remaining Backend Polish
 
-Backend is now feature-complete for the stepped mock-mode homework narrative. Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A (with structured-output OpenAI adapter + bounded retry/repair), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
+Backend is feature-complete for the stepped mock-mode homework narrative. The real-provider S4/S5 guardrail from `run_1cefe76fe58c` is fixed: Agent B now retries with coverage feedback and blocks Sync-A/B if approved HIL-1 features or epic candidates remain uncovered.
+
+Recently completed:
+
+1. **Agent B coverage validator** - compare Agent B epics/stories/tasks to `session_memory.hil_1.approved_feature_ids` and `session_memory.hil_1.epic_structure`.
+2. **Agent B retry loop** - retry with validation feedback that names missing feature IDs / epic candidates, bounded like Agent A retry.
+3. **Sync safety** - do not persist/sync a partial plan when coverage remains incomplete; return `agent_b_coverage_exhausted` with validation/risk evidence.
+
+Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A/B (with structured-output OpenAI adapter + bounded validation retry where needed), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
 
 The reviewer-facing stage UI is now wired. Backend work that can run in parallel with frontend polish:
 
@@ -35,7 +44,7 @@ The reviewer-facing stage UI is now wired. Backend work that can run in parallel
 4. **Forbidden-vague-phrase / one-assertion / repeatability validators** in `validate_test_cases`.
 5. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
 
-Pick (3) if the homework grader wants to see real Notion working; pick (5)+(6)+(7) if you want demo realism without external dependencies; otherwise skip directly to the frontend and treat the rest as Phase 4 polish.
+Pick real Notion if the homework grader needs external-provider proof; pick correction memory and validator polish for demo realism without external dependencies; otherwise keep those items as Phase 4 polish.
 
 ## Phase 0 Items From Root Plan
 
@@ -172,6 +181,102 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Add DELTA task behavior.
   Verify: Mock Agent A maps S1 `delta_report.buckets` to feature `delta_status`; Mock Agent B skips `UNCHANGED`, marks `MODIFIED` as `UPDATE_RETEST`, marks `NEW` as `NEW`, and creates `ARCHIVE` confirmation tasks for `REMOVED`. Covered by `test_mock_agent_a_maps_delta_report_buckets_to_feature_statuses` and `test_mock_agent_b_applies_delta_task_behavior`.
 
+- [x] Task: Add Agent B validation-feedback input for missing approved-feature and epic coverage.
+  Verify: `build_agent_b_input()` can include retry feedback listing missing feature IDs, missing HIL-1 epic candidate IDs/titles, and explicit coverage rules without breaking the strict Agent B response schema.
+
+- [x] Task: Add bounded Agent B retry for coverage gaps before persistence/sync.
+  Verify: A fake AgentClient returns a gameplay-only partial plan on attempt 1 and a complete multi-epic plan on attempt 2; `/agent-b` records both attempts and completes with one final artifact set.
+
+## Phase 1.8 - Agent B Hierarchical Decomposition (planning, not implemented)
+
+This phase implements the design in `backend/PLAN.md` "Phase 1.8" section. Mock parity is non-negotiable: `/demo-runs` must keep 8/5/5/11/44 counts through the legacy `MockAgentClient.plan_qa_tasks()` bundled path. Real provider takes the new fan-out path.
+
+### Domain + repository foundation
+
+- [ ] Task: Add `S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS` to `PipelineStage` enum. Keep `S4_AGENT_B` for the legacy bundled path; treat it as an alias when comparing stages.
+  Verify: `rg -n "S4_1_AGENT_B_EPICS|S4_2_AGENT_B_STORIES|S4_3_AGENT_B_TASKS" app/domain/models.py`; `pytest tests/test_pipeline.py` for `/demo-runs` still passes with bundled stage labels in its timeline.
+
+- [ ] Task: Add `AgentBJob`, `AgentBScope`, `AgentBJobStatus` Pydantic models in `app/domain/models.py`. Mirror with a Supabase `agent_b_jobs` table in `supabase/schema.sql`.
+  Verify: `tests/test_supabase_schema.py` asserts the table exists; an in-memory repo test creates 5 jobs and lists them by run.
+
+- [ ] Task: Add repository methods `add_agent_b_jobs`, `update_agent_b_job`, `list_agent_b_jobs(run_id)`, `get_agent_b_job(job_id)` on `WorkflowRepository`. Implement in `InMemoryWorkflowRepository` and `SupabaseWorkflowRepository`.
+  Verify: `tests/test_repositories.py` covers create/update/list parity between memory and Supabase.
+
+- [ ] Task: Add task `external_id` seq allocator keyed on `(project_id, feature_id)` in the repository. The allocator must be transactional in Supabase (use `INSERT ... ON CONFLICT` against a `task_external_id_seq` table) and lock-protected in memory.
+  Verify: Concurrent allocation test issues 10 concurrent requests for the same feature_id and asserts seq is 1..10 with no duplicates.
+
+### AgentClient surface
+
+- [ ] Task: Add abstract methods `plan_epics`, `plan_stories`, `plan_tasks` to `AgentClient` ABC in `app/services/agents/__init__.py`. Keep existing methods intact.
+  Verify: `python -c "from app.services.agents import AgentClient; import inspect; print([m for m in dir(AgentClient) if not m.startswith('_')])"` lists the new method names.
+
+- [ ] Task: Implement `MockAgentClient.plan_epics/plan_stories/plan_tasks` by slicing `data/snake_escape_fixture.json`. `plan_qa_tasks()` (legacy bundled) keeps returning the full 5/5/11 bundle for `/demo-runs`. New methods deliver epic/story/task subsets that compose into the same totals when called per epic / per story.
+  Verify: A new pytest scenario calls `MockAgentClient` in three-stage fan-out mode (loop over epics calling `plan_stories`, loop over stories calling `plan_tasks`) and asserts the merged plan equals the bundled `plan_qa_tasks()` plan.
+
+- [ ] Task: Implement `OpenAIAgentClient.plan_epics`, `plan_stories`, `plan_tasks` with B1/B2/B3 system prompts + JSON schemas from `Task-2-Agent-prompts-JSON.md`. Add new contract dataclasses `AgentB1Output`, `AgentB2Output`, `AgentB3Output`, `AGENT_B1_RESPONSE_SCHEMA`, etc. in `app/services/agents/contracts.py`.
+  Verify: A schema-level test asserts each new schema validates the sample outputs from Task 2 and rejects malformed ones.
+
+- [ ] Task: Add input builders `build_agent_b1_input`, `build_agent_b2_input(epic, features, sections)`, `build_agent_b3_input(story, feature, sections, ...)`. Each trims empty/None fields and caps summary at 200 chars.
+  Verify: For a 25-feature Snake Escape run, `len(json.dumps(build_agent_b1_input(...)))` is < 8KB; `len(json.dumps(build_agent_b2_input(epic, features, ...)))` is < 6KB per call.
+
+### Pipeline orchestration
+
+- [ ] Task: Add `_stage_s4_1_epics(run)` to `PipelineService`. Calls `plan_epics`, persists `Epic[]`, runs `validate_agent_b1_epic_coverage`, calls `_sync_a1_epics`, advances stage. Idempotent if called twice at same stage (returns same epics).
+  Verify: Unit test runs S4.1 twice and asserts a single epic set persisted with one `AgentRun` snapshot.
+
+- [ ] Task: Add `_stage_s4_2_stories(run)` to `PipelineService`. For each epic, spawn an `AgentBJob` and call `plan_stories` under `asyncio.Semaphore(AGENT_B2_PARALLELISM)`. Persist stories per epic, run `validate_agent_b2_story_coverage`, call `_sync_a2_stories(epic, stories)`. Advance stage only after all jobs reach terminal state.
+  Verify: A fake AgentClient that returns success for 4 epics and timeout for 1 leaves the run at `S4_2_AGENT_B_STORIES` with `status=PARTIAL` (stored in `Run.session_memory.s4_2_status`) and 1 `AgentBJob` in `FAILED` state. After manually retrying the failed job, the run advances to `S4_3_AGENT_B_TASKS` precondition.
+
+- [ ] Task: Add `_stage_s4_3_tasks(run)` to `PipelineService`. Same fan-out pattern with `Semaphore(AGENT_B3_PARALLELISM)`. After all jobs terminal, run `validate_agent_b3_full_plan` (schema + traceability + cross-story dedup + assignee + cross-epic dedup) and advance to `S5_VALIDATION_B_SYNC`.
+  Verify: `pytest` scenario where 2/20 stories return duplicate task titles emits `duplicate_task_cross_story` validation issues and routes those tasks to BLOCK lane.
+
+- [ ] Task: Keep legacy `_stage_s4_agent_b()` for `/demo-runs`. Update it to call the three new sub-stage helpers sequentially with `auto_approve=True`, so demo counts and timeline stage labels remain identical (still emitting `S4_AGENT_B` event in addition to the three sub-stage events for back-compat).
+  Verify: `pytest tests/test_pipeline.py::test_demo_pipeline_generates_complete_execution_plan` still asserts 8/5/5/11/44.
+
+### Validation B split
+
+- [ ] Task: Add `validate_agent_b1_epic_coverage(run_id, epics, hil1_context)` in `app/services/validators.py`. Emit `missing_b1_feature_coverage`, `extra_b1_feature_coverage`, `unknown_b1_feature_reference`.
+  Verify: Unit test feeds 3 approved features with 1 epic missing 1 of them and asserts `missing_b1_feature_coverage` issue is emitted.
+
+- [ ] Task: Add `validate_agent_b2_story_coverage(run_id, epic, stories, features)`. Emit `missing_b2_story_for_feature`, `b2_story_count_out_of_range`.
+  Verify: Unit test feeds an epic with 5 features and 1 story; asserts 4 `missing_b2_story_for_feature` issues.
+
+- [ ] Task: Replace `validate_tasks_with_routing` call in legacy `_stage_s4_agent_b` and the new `_stage_s4_3_tasks` with `validate_agent_b3_full_plan`. Add `duplicate_task_cross_story` and `duplicate_task_cross_epic` codes plus the existing task validation codes.
+  Verify: Regression test asserts that for the bundled mock plan, no `duplicate_task_cross_story` issues appear; for an injected fan-out plan with deliberately duplicated titles, the issues are emitted and the duplicate tasks are routed to BLOCK.
+
+### Notion Sync split
+
+- [ ] Task: Split `_sync_a_epics_stories` into `_sync_a1_epics(epics)` and `_sync_a2_stories(epic, stories)`. Emit sync events with `payload.sync_phase = "Sync-A1"` and `"Sync-A2"` respectively. `MockNotionSyncClient` should expose two new methods `upsert_epics_batch` (Sync-A1) and `upsert_stories_for_epic(epic, stories)` (Sync-A2) and keep its existing `upsert_epic` / `upsert_story` for the legacy bundled path.
+  Verify: Stepped `/agent-b/epics` + `/agent-b/stories` produces 5 Sync-A1 events + 5 Sync-A2 events; legacy `/demo-runs` produces 10 Sync-A events (5 epics + 5 stories, all phase `Sync-A` for back-compat) unchanged.
+
+### New API endpoints
+
+- [ ] Task: Add `POST /api/v1/runs/{run_id}/agent-b/epics`, `/agent-b/stories`, `/agent-b/tasks`. Each enforces stage precondition + HIL gate where applicable (HIL-1 only blocks `/epics`). Each returns the produced artifacts inside the standard envelope.
+  Verify: API test walks NEW_GAME run from S0 → S1 → HIL-0 → Agent A → HIL-1 → `/agent-b/epics` → `/agent-b/stories` → `/agent-b/tasks` → HIL-2 → `/agent-c` → HIL-3 → `/finalize` and asserts the same final counts as `/demo-runs`.
+
+- [ ] Task: Add `GET /api/v1/runs/{run_id}/agent-b-jobs` returning `AgentBJob[]` ordered by `started_at`.
+  Verify: API test runs `/agent-b/stories` against a fake client that fails 1/5 epic, then asserts the endpoint returns 5 jobs with 4 SUCCESS + 1 FAILED.
+
+- [ ] Task: Add `POST /api/v1/runs/{run_id}/agent-b/jobs/{job_id}/retry`. Retries only the named job. Stage advance happens once all jobs terminal.
+  Verify: After the failure scenario above, retry the failed job (with a now-passing fake client) and assert the run advances to `S4_2_AGENT_B_STORIES`.
+
+- [ ] Task: Add `PATCH /api/v1/runs/{run_id}/epics/{epic_id}` accepting `{title?, description?, feature_ids?}`. Reject if `current_stage != S4_1_AGENT_B_EPICS`. Apply edit + record `EpicEdit` audit row.
+  Verify: API test edits an epic title and asserts the patched epic is returned by `GET /epics`.
+
+- [ ] Task: Add `POST /api/v1/runs/{run_id}/epics/merge` and `/epics/split` endpoints. Merge body: `{source_epic_ids: [...], target_title, target_description}`. Split body: `{epic_id, splits: [{title, description, feature_ids}, ...]}`. Validate feature_ids exhaustively cover the source epic(s).
+  Verify: API test merges two mock epics into one and asserts feature_ids unioned correctly; split test divides one epic's features into two new epics and asserts no feature is lost.
+
+### Settings + latency mitigations
+
+- [ ] Task: Add settings `AI_MODEL_AGENT_B1` (default `gpt-4o`), `AI_MODEL_AGENT_B2` (default `gpt-4o-mini`), `AI_MODEL_AGENT_B3` (default `gpt-4o-mini`), `AGENT_B2_PARALLELISM` (default 3), `AGENT_B3_PARALLELISM` (default 5), `OPENAI_TIMEOUT_READ_SECONDS` (default 120).
+  Verify: `/api/v1/health` reports the new settings; missing API key still blocks real provider.
+
+- [ ] Task: Switch `OpenAIAgentClient._post_response` to streaming consumption (`stream=true` in request, accumulate `text.delta` events). Total wall-time no longer triggers `ReadTimeout` unless inter-token gap exceeds configured threshold.
+  Verify: Integration smoke test using `httpx_mock` simulates a 200s stream and asserts the client accumulates the full payload without raising `ReadTimeout`.
+
+- [ ] Task: Log per-call timing + token usage into `AgentRun.output_snapshot.timing` (and `AgentBJob.output_summary.timing`).
+  Verify: After a real-provider run, the snapshot includes `wall_time_ms`, `input_tokens`, `output_tokens` fields for each B1/B2/B3 call.
+
 ## Phase S5 - Validation B + Router B + HIL-2
 
 - [x] Task: Validate schema, traceability, cross-agent references, dedup, assignee sanity, confidence, and task count guardrails.
@@ -180,8 +285,17 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Add Router B lanes.
   Verify: `validate_tasks_with_routing` + `QATask.lane` computed field. AUTO at confidence ≥0.85 with no dedup/cross-cutting; BATCH at [0.65, 0.85); BLOCK on dedup/cross-cutting or <0.65. Covered by `test_validate_tasks_with_routing_blocks_duplicate_candidates`, `test_demo_run_api_produces_enveloped_response`.
 
-- [ ] Task: Add HIL-2 decisions for task approval, edit request, rejection, and assignee override.
-  Verify: Generic `POST /api/v1/review-decisions` already accepts task targets and triggers cascade. Dedicated edit-request / assignee-override surfaces with structured `patch` semantics still open.
+- [x] Task: Add HIL-2 decisions for task approval, edit request, rejection, and assignee override.
+  Verify: `POST /api/v1/runs/{run_id}/hil-2/tasks/{task_id}/decision` supports `approve`, `request_edit`, `reject`, and `override_assignee`; assignee overrides validate against the seeded QA roster, apply a controlled task patch, and move batch-lane items to the new reviewer. Covered by `test_hil2_task_decision_endpoint_applies_structured_actions` and `test_hil2_task_decision_endpoint_rejects_unknown_assignee_override`.
+
+- [x] Task: Add Agent B approved-feature coverage validation.
+  Verify: If HIL-1 approved `F-002`, `F-020`, and `F-021` but Agent B tasks reference only `F-002`, Validation B emits `missing_agent_b_feature_coverage` for the omitted feature IDs.
+
+- [x] Task: Add Agent B HIL-1 epic coverage validation.
+  Verify: If `session_memory.hil_1.epic_structure` has gameplay, UI, economy, and backend candidates but Agent B returns only `Gameplay Logic Scope`, Validation B emits `missing_agent_b_epic_coverage` for the omitted candidates.
+
+- [x] Task: Block Sync-A/B on exhausted Agent B coverage retry.
+  Verify: A regression test using the `run_1cefe76fe58c` failure shape returns `agent_b_coverage_exhausted`, records validation/risk evidence, leaves the run before `S5_VALIDATION_B_SYNC`, and creates no Sync-A/B events.
 
 ## Phase S5b - Notion Sync-A/B
 

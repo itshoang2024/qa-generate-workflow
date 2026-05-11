@@ -24,6 +24,20 @@ from app.domain.models import (
     utc_now,
 )
 
+QA_TASK_PATCH_FIELDS = {
+    "title",
+    "description",
+    "assignee",
+    "priority",
+    "priority_justification",
+    "estimate",
+    "source_sections",
+    "status",
+    "confidence",
+    "dedup_flag",
+    "cross_cutting_flag",
+}
+
 
 class WorkflowRepository(ABC):
     @abstractmethod
@@ -357,10 +371,13 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
         collections: dict[str, tuple[list[Any], str]] = {
             "feature": (self.features.get(decision.run_id, []), "feature_id"),
-            "task": (self.tasks.get(decision.run_id, []), "task_id"),
             "test_case": (self.test_cases.get(decision.run_id, []), "test_case_id"),
             "story": (self.stories.get(decision.run_id, []), "story_id"),
         }
+        if decision.target_type == "task":
+            _apply_task_decision(self.tasks.get(decision.run_id, []), decision)
+            return
+
         collection = collections.get(decision.target_type)
         if collection is None:
             return
@@ -384,3 +401,33 @@ def _apply_to_collection(
             item.review_status = decision
             return item
     return None
+
+
+def _apply_task_decision(collection: list[QATask], decision: ReviewDecision) -> QATask | None:
+    patch = _task_patch_from_decision(decision)
+    for index, task in enumerate(collection):
+        if task.id == decision.target_id or task.task_id == decision.target_id:
+            payload = {
+                **task.model_dump(mode="python"),
+                **patch,
+                "review_status": decision.decision,
+            }
+            updated = QATask.model_validate(payload)
+            collection[index] = updated
+            return updated
+    return None
+
+
+def _task_patch_from_decision(decision: ReviewDecision) -> dict[str, Any]:
+    if not decision.patch:
+        return {}
+
+    raw_patch = decision.patch.get("task", decision.patch)
+    if not isinstance(raw_patch, dict):
+        return {}
+
+    return {
+        key: value
+        for key, value in raw_patch.items()
+        if key in QA_TASK_PATCH_FIELDS and value is not None
+    }

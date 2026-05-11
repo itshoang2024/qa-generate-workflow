@@ -35,6 +35,21 @@ RISK_RULES = {
         "Duplicate task candidate detected by title similarity.",
         "QA Lead should merge, approve, or reject the duplicate candidate.",
     ),
+    "missing_agent_b_feature_coverage": (
+        RiskSeverity.S1,
+        "Scope gap: Agent B omitted an approved HIL-1 feature from the QA plan.",
+        "Rerun Agent B with coverage feedback or manually add the missing feature plan.",
+    ),
+    "missing_agent_b_epic_coverage": (
+        RiskSeverity.S1,
+        "Scope gap: Agent B omitted a HIL-1 epic candidate from the QA plan.",
+        "Rerun Agent B with the HIL-1 epic grouping or manually split the QA plan.",
+    ),
+    "agent_b_coverage_exhausted": (
+        RiskSeverity.S1,
+        "Agent B coverage retry was exhausted before Sync-A/B.",
+        "Block downstream sync until the QA plan covers all approved HIL-1 scope.",
+    ),
 }
 
 KILL_SWITCH_S1_THRESHOLD = 3

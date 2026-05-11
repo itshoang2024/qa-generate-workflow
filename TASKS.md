@@ -2,13 +2,15 @@
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
+## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 docs pass, awaiting implementation)
 
 | Phase | Done / Total | Notes |
 |---|---|---|
 | Phase 0 - Repo And Docs | 5 / 5 | Repo docs, backend `.env`, and default GDD path behavior are aligned. |
 | Phase 1 - Backend Stage Completion | 16 / 16 | S0/S1 split, Project/GDDDocument APIs, inspection endpoints, `/providers/status`, and router-lane fields all shipped and test-covered. |
 | Phase 1.5 - Stage Orchestration Endpoints | 7 / 7 | Per-stage endpoints, blocking HIL gates, bulk HIL-0 resolution, and regression tests shipped. |
+| Phase 1.6 - Agent B Coverage Guard | 5 / 5 | Real Agent B cannot persist/sync a partial plan that omits approved HIL-1 features or epic candidates. |
+| **Phase 1.8 - Agent B Hierarchical Decomposition** | **9 / 9 docs, 0 / N implementation** | **Docs pass complete (2026-05-12); implementation pending.** Splits Agent B into B1 epic / B2 stories / B3 tasks with fan-out, EpicReviewPanel full-edit, AgentBJobBoard, Sync-A1/A2 split. Unblocks `run_fc5f488fe767` real-provider timeout. |
 | Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B adapters shipped. Real Agent C, real Notion adapter, Notion schema preflight/rate limit/dead-letter still open. |
 | Phase 3 - Frontend | 10 / 12 | Stage-aware dashboard CTA, stage mutation hooks, inline HIL approval, bulk HIL-0, and offline font build support shipped; deep-link HIL routes and sync/risk pages remain. |
 | Phase 4 - Verification & Submission | 4 / 8 | Backend tests/lint and frontend lint/typecheck/build pass; screenshots, README polish, browser walkthrough capture, and real Notion smoke remain. |
@@ -16,6 +18,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 ## Current Focus - Verification, Deep Links, And Submission Polish
 
 The previous E2E blocker is closed. The backend has per-stage endpoints, the frontend can advance through Agent A/B/C/finalize from `<NextStagePanel>`, HIL-1/2/3 are blocking gates, and HIL-0 bulk resolution prevents the Supabase/http2 disconnect caused by 19 parallel resolution requests.
+
+The real-provider Agent B regression found in `run_1cefe76fe58c` is now covered by a backend guard: Agent B cannot advance to Sync-A/B when it returns only `Gameplay Logic Scope` while approved HIL-1 features / epic candidates remain uncovered.
 
 Remaining implementation and polish should focus on:
 
@@ -127,6 +131,58 @@ These tasks unblock the stepped E2E walkthrough. Each per-stage endpoint advance
 
 - [x] Task: Add bulk HIL-0 resolution endpoint for the dashboard's `Proceed with flag (n)` action.
   Verify: `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk` validates the requested question IDs, rejects duplicates, inserts all resolutions in one repository call, marks the questions resolved, and is covered by `test_hil0_bulk_resolution_resolves_open_questions`.
+
+## Phase 1.8 - Agent B Hierarchical Decomposition
+
+Docs-only pass at this stage. Implementation tasks will be added once docs land; backend/frontend TASKS files own their detailed implementation checklists.
+
+### Docs
+
+- [x] Task: Update `Task-1-AI-workflow-design.md` to split S4 into S4.1 (Agent B1 Epic Planner), S4.2 (Agent B2 Story Planner, fan-out per epic), S4.3 (Agent B3 Task Planner, fan-out per story). Update mục 2 (7-component map), section 4 S4 detail, mục 5 (rule-vs-AI table), mục 6 (failure handling table), mục 7 (flowchart).
+  Verify: `rg -n "S4\.1|S4\.2|S4\.3|EpicReviewPanel" Task-1-AI-workflow-design.md` finds the new sections.
+
+- [x] Task: Update `Task-2-Agent-prompts-JSON.md` to split Agent B into B1/B2/B3 sub-agents with separate prompts and JSON schemas. Keep legacy bundled Agent B at bottom under "Legacy bundled mode" for mock fixture compatibility.
+  Verify: `rg -n "Agent B1|Agent B2|Agent B3|QA-Planner-B[123]" Task-2-Agent-prompts-JSON.md` finds the three sub-agent sections and prompts.
+
+- [x] Task: Update `Task-3-Sync-to-Notion.md` for Sync-A1 (epics post-S4.1) + Sync-A2 (stories post-S4.2 per epic). Update mục 1, mục 4, mục 5 external_id format, mục 10 orchestration flow.
+  Verify: `rg -n "Sync-A1|Sync-A2" Task-3-Sync-to-Notion.md` finds 4+ occurrences.
+
+- [x] Task: Update `Task-4-Risk-Failure-handling.md` adding section 7a (Agent B sub-stage timeout / partial fan-out) and 7b (cross-epic/cross-story task duplication). Update mục 4 cross-story dedup. Update kill switch threshold note. Update summary table.
+  Verify: `rg -n "sub-stage timeout|cross-epic|cross-story|Agent B sub-stage" Task-4-Risk-Failure-handling.md` finds the new sections.
+
+- [x] Task: Update root `PLAN.md` with Phase 1.8 description + diagnosis note for `run_fc5f488fe767`.
+  Verify: `rg -n "Phase 1\.8|hierarchical decomposition|run_fc5f488fe767" PLAN.md`.
+
+- [x] Task: Update root `TASKS.md` (this file) with Phase 1.8 status snapshot and docs checklist (this section).
+  Verify: `rg -n "Phase 1\.8" TASKS.md` shows status row + section header.
+
+- [x] Task: Update `backend/PLAN.md` and `backend/TASKS.md` with detailed Phase 1.8 implementation plan and checklist.
+  Verify: `rg -n "S4_1_AGENT_B_EPICS|AgentBJob|plan_epics|plan_stories|plan_tasks" backend/PLAN.md backend/TASKS.md`.
+
+- [x] Task: Update `frontend/PLAN.md` and `frontend/TASKS.md` with Screen 3.6 (AgentBJobBoard) + EpicReviewPanel (full-edit drag/merge/split) + NextStagePanel state machine updates.
+  Verify: `rg -n "AgentBJobBoard|EpicReviewPanel|S4_1|S4_2|S4_3" frontend/PLAN.md frontend/TASKS.md`.
+
+- [x] Task: Update `docs/architecture.md`, `docs/contracts/pipeline-contract.md`, and `docs/contracts/api-contract.md` for new stages, AgentBJob artifact, new endpoints, new validation/risk codes.
+  Verify: `rg -n "agent-b/epics|agent-b/stories|agent-b/tasks|agent-b-jobs|S4_1_AGENT_B_EPICS" docs/`.
+
+## Phase 1.6 - Agent B Coverage Guard
+
+This bugfix slice prevents real Agent B from silently producing a partial plan like `run_1cefe76fe58c`, where only the gameplay epic was returned and all downstream tasks were assigned to the gameplay owner.
+
+- [x] Task: Add a deterministic Agent B coverage validator.
+  Verify: A unit test feeds approved features across multiple feature types plus a gameplay-only Agent B plan and receives `missing_agent_b_feature_coverage` and `missing_agent_b_epic_coverage` issues.
+
+- [x] Task: Add coverage feedback to the Agent B input/prompt contract.
+  Verify: Retry input includes missing feature IDs, missing epic candidate IDs/titles, and the rule that every approved feature must produce at least one story/task unless explicitly skipped.
+
+- [x] Task: Add bounded Agent B retry on coverage gaps.
+  Verify: A fake AgentClient that returns a partial plan first and a complete plan second produces two AgentRun attempts and completes `/agent-b` without duplicate artifacts.
+
+- [x] Task: Block Sync-A/B when Agent B coverage remains incomplete after retries.
+  Verify: `/api/v1/runs/{run_id}/agent-b` returns a structured `agent_b_coverage_exhausted` error, records validation/risk evidence, and creates no Sync-A/B events for the partial plan.
+
+- [x] Task: Add a regression fixture for the `run_1cefe76fe58c` failure shape.
+  Verify: The gameplay-only `Gameplay Logic Scope` output cannot advance to HIL-2; a complete multi-epic output still passes existing mock-mode counts.
 
 ## Phase 2 - Real AI, Notion, And Risk Handling
 

@@ -13,7 +13,15 @@ The prototype should show how a GDD upload and project selection become a mode-a
 
 Mock mode remains mandatory for a stable local demo. Real AI, real Notion, Supabase persistence, DELTA processing, and LLM-generated GDD version descriptions are target capabilities.
 
-## Current State (last reviewed 2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
+## Current State (last reviewed 2026-05-12 - Phase 1.8 planning for Agent B hierarchical decomposition)
+
+> **New blocker discovered 2026-05-12 (Phase 1.6+ regression):** the Agent B coverage guard works as designed, but with 25 approved features + 6 HIL-1 epic candidates the real OpenAI `/v1/responses` call for Agent B consistently `ReadTimeout` at both 60s and 180s timeouts. Pipeline falls back to the static mock planner, the mock plan covers only the gameplay fixture, the coverage guard then trips `agent_b_coverage_exhausted` and returns 409.
+>
+> Diagnosis evidence (run `run_fc5f488fe767`): `approved_feature_count=25`, `epic_candidate_count=6`, `agent_input_json_chars=18,756`, `request_json_chars=23,517`, `provider=mock_after_openai_network_error`. Root cause is NOT context size starvation, NOT schema invalidity — it is output token volume × strict-JSON constraint search latency for the bundled Epic→Story→Task tree.
+>
+> Fix direction (Phase 1.8 below): decompose S4 into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). Smaller per-call payload, parallelizable, failure-isolable. Skips a separate "mitigations" phase per user direction; latency mitigations (input trim, model swap, streaming) bundled into Phase 1.8 implementation work.
+
+
 
 > **Stage-flow status:** the previous blocker is closed. The backend now exposes per-stage endpoints after S1, the dashboard has a stage-aware CTA, blocking HIL gates are enforced, and the HIL-0 "Proceed with flag" bulk action is one backend request instead of a burst of parallel Supabase writes.
 
@@ -46,7 +54,12 @@ Shipped in the Phase 1.5 / F3.5 pass:
 - **Bulk HIL-0 resolution** via `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk`; the dashboard's "Proceed with flag (n)" button now sends one validated bulk request and avoids Supabase/http2 disconnects caused by parallel request fan-out.
 - **Offline `next/font/google` build support**: Inter and JetBrains Mono remain wired through `next/font/google`, with checked-in mocked Google CSS responses and WOFF2 files; `npm run dev` and `npm run build` use webpack for reliable offline compilation on Windows.
 
+Closed before final walkthrough:
+
+- **Agent B coverage gap in real-provider mode**: run `run_1cefe76fe58c` showed Agent A + HIL-1 approved features across multiple feature types and deterministic epic candidates, but real Agent B returned only one `Gameplay Logic Scope` epic. The backend now validates approved-feature and HIL-1 epic coverage, retries Agent B with feedback, and blocks Sync-A/B on exhausted coverage retry.
+
 Still missing for the final prototype:
+- **Phase 1.8 implementation (planned, documented):** Agent B hierarchical decomposition into B1/B2/B3 with progressive UI; addresses real-provider timeout regression on `run_fc5f488fe767`.
 - Real Agent C adapter using the Task 2 structured JSON contract; Agent A/B are real-provider capable, while Agent C still uses mock fallback.
 - Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
@@ -63,7 +76,7 @@ The final demo must let a reviewer drive the full pipeline from the frontend, on
 4. **HIL-0 (optional gate)** — reviewer resolves a single clarification question via `POST /api/v1/runs/{run_id}/hil-0/resolutions` or resolves the open batch via `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk`. Required only when S1 emitted questions; UI hides the panel otherwise.
 5. **S2 / S3 — Agent A + Validation A** — `POST /api/v1/runs/{run_id}/agent-a` runs Agent A with bounded retry/repair, persists features, runs `validate_features_with_routing`, records risk events. UI: features tab populates; HIL-1 queue size is now visible.
 6. **HIL-1 (blocking gate)** — reviewer approves / rejects features and epic candidates via `POST /api/v1/review-decisions`. Backend refuses Step 7 with `409 hil_gate_blocked` until every `NEEDS_REVIEW` / `BLOCKED` item is cleared.
-7. **S4 / S5 — Agent B + Validation B + Sync-A + Sync-B** — `POST /api/v1/runs/{run_id}/agent-b` produces epics/stories/tasks (using `hil_1` session memory of approved features), validates them, mirrors approved epics/stories via Sync-A and approved tasks via Sync-B to the mock or real Notion adapter, updates the kill switch. UI: epics / stories / tasks tabs populate; Sync-A and Sync-B events appear in the sync log.
+7. **S4 / S5 — Agent B + Validation B + Sync-A + Sync-B** — `POST /api/v1/runs/{run_id}/agent-b` produces epics/stories/tasks (using `hil_1` session memory of approved features), validates coverage of every approved feature / HIL-1 epic candidate, mirrors approved epics/stories via Sync-A and approved tasks via Sync-B to the mock or real Notion adapter, updates the kill switch. UI: epics / stories / tasks tabs populate; Sync-A and Sync-B events appear in the sync log.
 8. **HIL-2 (blocking gate)** — reviewer clears any `NEEDS_REVIEW` tasks via `POST /api/v1/review-decisions`.
 9. **S6 / S7 — Agent C + Validation C + Sync-C** — `POST /api/v1/runs/{run_id}/agent-c` generates the four test-case categories per approved task, validates them, flips approved tasks to `Test Cases Ready`, and syncs test cases via Sync-C.
 10. **HIL-3 (blocking gate)** — reviewer clears any flagged test cases.
@@ -142,6 +155,56 @@ The MVP pipeline originally ran as one synchronous `/demo-runs` batch. This phas
 
 The `auto_approve=True` knob on `/demo-runs` remains the way to bypass HIL gates in tests and CLI smoke runs. Frontend never sends it.
 
+### Phase 1.8 - Agent B Hierarchical Decomposition (planning, not implemented)
+
+This phase decomposes the monolithic Agent B call into three sub-stages so the real OpenAI provider can complete within typical timeout budgets, so the QA Lead gets a progressive UI, and so partial failures are isolable.
+
+**Source-of-truth doc updates (this phase only, ahead of implementation):**
+
+- `Task-1-AI-workflow-design.md` — S4 redefined as S4.1/S4.2/S4.3 with new sub-stage sections; flowchart updated; rule-vs-AI table extended; failure-handling table adds two new rows.
+- `Task-2-Agent-prompts-JSON.md` — Agent B section split into B1 / B2 / B3 with separate prompts and JSON schemas. Legacy bundled Agent B kept at bottom for mock-fixture compatibility.
+- `Task-3-Sync-to-Notion.md` — Sync-A split into Sync-A1 (epics after S4.1) + Sync-A2 (stories after S4.2 per epic); external_id format note updated for retry-stability.
+- `Task-4-Risk-Failure-handling.md` — adds failure mode 7a (sub-stage timeout / partial fan-out) and 7b (cross-epic/cross-story task duplication); kill-switch threshold tuned to tolerate <50% fan-out failure.
+
+**Backend scope (Phase 1.8 implementation, not in scope for this docs pass):**
+
+- New domain stages: `PipelineStage.S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS`. Existing `S4_AGENT_B` kept as alias for the legacy bundled path in `/demo-runs`.
+- New domain model: `AgentBJob{run_id, scope_type: "epic"|"story", scope_id, status, attempt_count, error, started_at, finished_at}` for fan-out progress tracking.
+- `AgentClient` interface gains three methods: `plan_epics(run_id, hil_context)`, `plan_stories(run_id, epic, features, source_text)`, `plan_tasks(run_id, story, feature, source_text)`. Legacy `plan_qa_tasks()` kept on the mock and on a wrapper for `/demo-runs`.
+- New OpenAI adapter methods using B1/B2/B3 system prompts + strict JSON schemas from Task 2.
+- Pipeline split: `_stage_s4_1_epics`, `_stage_s4_2_stories` (async fan-out, bounded concurrency ≤3), `_stage_s4_3_tasks` (async fan-out, bounded concurrency ≤5). Mandatory cross-story / cross-epic dedup pass after S4.3.
+- Sync split: `_sync_a1_epics`, `_sync_a2_stories(epic)`, plus existing `_sync_b_tasks`. Sync-A2 streams per epic.
+- New endpoints: `POST /api/v1/runs/{id}/agent-b/epics`, `/agent-b/stories`, `/agent-b/tasks`. Legacy `POST /agent-b` becomes a wrapper that runs all three sequentially for back-compat (used by `/demo-runs` and CLI smoke tests). New read endpoint `GET /api/v1/runs/{id}/agent-b-jobs` exposes the `AgentBJob[]` board.
+- New endpoints for epic editing: `PATCH /api/v1/runs/{id}/epics/{epic_id}` (title/description/feature_ids), `POST /api/v1/runs/{id}/epics/merge`, `POST /api/v1/runs/{id}/epics/split` for Lead's `<EpicReviewPanel>` actions before S4.2.
+- Validators: split into `validate_agent_b1_epic_coverage`, `validate_agent_b2_story_coverage(epic)`, `validate_agent_b3_task_coverage_and_dedup(full_plan)`.
+- Idempotency strategy: task `external_id` seq counted per `(project_id, feature_id)` (NOT per story) so retrying S4.3 for one story does not collide with sibling stories' tasks.
+- Latency mitigations bundled: input payload trimming (drop empty fields), `AI_MODEL_AGENT_B*` settings with `gpt-4o-mini` default for B2/B3, streaming response handling, separated `(connect, read, write)` httpx timeouts.
+
+**Frontend scope (Phase 1.8 implementation, not in scope for this docs pass):**
+
+- `<NextStagePanel>` state machine extended for `S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS` substages.
+- New inline component `<AgentBJobBoard>` rendering kanban (Queued / Running / Done / Failed) of `AgentBJob[]` with per-job Retry. Polls `/agent-b-jobs` while substage is running.
+- New inline component `<EpicReviewPanel>` for full-edit Lead workflow: rename epic title, drag features between epics, merge two epics, split one epic. Calls `PATCH/POST` endpoints above.
+- Epics tab repurposed as the primary surface between S4.1 and S4.2 (cards with feature chips, expand to show stories after S4.2).
+- Stories tab gains streaming progress indicator (spinner per epic during S4.2 fan-out).
+
+**Acceptance (for Phase 1.8 doc pass — this current task):**
+
+- All four source-of-truth docs describe S4.1/S4.2/S4.3 with their own prompts/schemas/sync events.
+- Root `PLAN.md` and `TASKS.md`, `backend/PLAN.md` and `backend/TASKS.md`, `frontend/PLAN.md` and `frontend/TASKS.md` all include Phase 1.8 sections with checkboxes ready for implementation work.
+- `docs/architecture.md`, `docs/contracts/pipeline-contract.md`, `docs/contracts/api-contract.md` describe target stages, AgentBJob model, new endpoints, and new validation/risk codes.
+- Code is NOT yet modified — implementation work follows in subsequent phases.
+
+### Phase 1.6 - Agent B Coverage Guard (implemented)
+
+This phase closes the real-provider regression found in `run_1cefe76fe58c`, where Agent B produced only one gameplay epic even though HIL-1 approved features across multiple candidate epics.
+
+- Deterministic Agent B coverage validation runs after schema/domain conversion and before any Sync-A/B side effect.
+- Validation compares Agent B output against `Run.session_memory["hil_1"].approved_feature_ids` and `Run.session_memory["hil_1"].epic_structure`.
+- Stable issue codes include `missing_agent_b_feature_coverage`, `missing_agent_b_epic_coverage`, and `agent_b_coverage_exhausted`.
+- Agent B retries with validation feedback that names missing feature IDs / epic IDs, bounded like Agent A retry.
+- Exhausted retries block the stage with `agent_b_coverage_exhausted`, log the AgentRun attempts and risk event, and do not persist/sync the partial Agent B plan.
+
 ### Phase 2 - Real AI And Real Notion
 
 - Add real LLM provider with structured output, low temperature, schema validation, retry/repair policy, and raw output logging.
@@ -215,6 +278,7 @@ The prototype is complete when:
 - S1 registers/loads/parses GDD versions and produces HIL-0 questions and DELTA diff when needed.
 - **The reviewer can complete the full stepped walkthrough from the UI: trigger → Load Context → Agent A → HIL-1 approve → Agent B → HIL-2 approve → Agent C → HIL-3 approve → Finalize → Sign-off, with one button click per stage and no terminal access required.**
 - Skipping a HIL approval produces a clear blocked-state CTA on the dashboard instead of a silent failure.
+- Agent B cannot advance to Sync-A/B with a partial plan: every HIL-1 approved feature / epic candidate is covered or explicitly skipped, and exhausted coverage retries return a clear error.
 - A real AI + real Notion smoke test works when credentials and Notion schema are configured.
 - Frontend shows GDD version metadata, validation issues, review actions, sync events, risk state, and final coverage.
 - Backend tests pass, including new tests for per-stage endpoints + HIL gating.

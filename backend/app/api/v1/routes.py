@@ -7,24 +7,39 @@ from fastapi import APIRouter, HTTPException
 from app.api.v1.dependencies import pipeline_dependency, repository_dependency, settings_dependency
 from app.config import Settings
 from app.domain.models import (
+    AgentBJobRetryRequest,
     DemoRunRequest,
+    EpicMergeRequest,
+    EpicPatchRequest,
+    EpicSplitRequest,
+    HIL2DecisionAction,
+    HIL2TaskDecisionRequest,
     HIL0BulkResolutionRequest,
     HIL0Resolution,
     HIL0ResolutionRequest,
     ProjectCreateRequest,
     ReviewDecision,
     ReviewDecisionRequest,
+    ReviewStatus,
     S0TriggerRequest,
     S1ContextRequest,
     SignOffRequest,
     utc_now,
 )
 from app.domain.responses import envelope
+from app.domain.qa_roster import QA_MEMBERS
 from app.services.agents.factory import SUPPORTED_AI_PROVIDERS
 from app.services.pipeline import PipelineConflictError
 from app.services.review_queues import build_review_queue
 
 router = APIRouter()
+
+HIL2_ACTION_STATUS = {
+    HIL2DecisionAction.APPROVE: ReviewStatus.APPROVED,
+    HIL2DecisionAction.REQUEST_EDIT: ReviewStatus.BLOCKED,
+    HIL2DecisionAction.REJECT: ReviewStatus.REJECTED,
+    HIL2DecisionAction.OVERRIDE_ASSIGNEE: ReviewStatus.NEEDS_REVIEW,
+}
 
 
 @router.get("/health")
@@ -187,6 +202,114 @@ def finalize_run(run_id: str) -> dict[str, object]:
     return envelope(run)
 
 
+# ===========================================================================
+# Phase 1.8 — Hierarchical Agent B endpoints.
+#
+# All eight endpoints below are scaffolding only. Each returns HTTP 501 with
+# a `not_implemented` error envelope until the corresponding PipelineService
+# method (or repository method, for the read endpoint) lands. See
+# backend/PLAN.md "Phase 1.8 - Agent B Hierarchical Decomposition" for the
+# target behavior, and backend/TASKS.md for the implementation checklist.
+#
+# Wiring strategy when implementing:
+#   1. Replace `_phase_1_8_not_implemented(...)` with the real service call.
+#   2. Catch LookupError -> 404, PipelineConflictError -> 409, ValueError -> 422
+#      following the same shape as run_agent_a / run_agent_b above.
+#   3. Drop the corresponding TODO comment.
+# ===========================================================================
+
+
+@router.post("/runs/{run_id}/agent-b/epics")
+def run_agent_b_epics(run_id: str) -> dict[str, object]:
+    """S4.1 — Agent B1 Epic Planner. Advances S3 -> S4.1, runs Sync-A1."""
+    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_epics(run_id).
+    _phase_1_8_not_implemented("/agent-b/epics", "PipelineService.run_agent_b_epics")
+
+
+@router.post("/runs/{run_id}/agent-b/stories")
+def run_agent_b_stories(run_id: str) -> dict[str, object]:
+    """S4.2 — Agent B2 Story Planner, fan-out per epic. Advances S4.1 -> S4.2,
+    runs Sync-A2 per epic."""
+    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_stories(run_id).
+    _phase_1_8_not_implemented("/agent-b/stories", "PipelineService.run_agent_b_stories")
+
+
+@router.post("/runs/{run_id}/agent-b/tasks")
+def run_agent_b_tasks(run_id: str) -> dict[str, object]:
+    """S4.3 — Agent B3 Task Planner, fan-out per story. Advances S4.2 -> S4.3,
+    runs V-B3 (incl. cross-story / cross-epic dedup), then Sync-B."""
+    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_tasks(run_id).
+    _phase_1_8_not_implemented("/agent-b/tasks", "PipelineService.run_agent_b_tasks")
+
+
+@router.post("/runs/{run_id}/agent-b/jobs/{job_id}/retry")
+def retry_agent_b_job(
+    run_id: str,
+    job_id: str,
+    payload: AgentBJobRetryRequest | None = None,
+) -> dict[str, object]:
+    """Retry a single failed/timeout AgentBJob without re-fanning out siblings."""
+    # TODO(phase-1.8): wire to pipeline_dependency().retry_agent_b_job(run_id, job_id, payload).
+    # Body is currently empty; AgentBJobRetryRequest exists for future fields.
+    _ = payload
+    _phase_1_8_not_implemented(
+        f"/agent-b/jobs/{job_id}/retry", "PipelineService.retry_agent_b_job"
+    )
+
+
+@router.get("/runs/{run_id}/agent-b-jobs")
+def list_agent_b_jobs(run_id: str) -> dict[str, object]:
+    """List AgentBJob[] for the run. FE <AgentBJobBoard> polls this every 2s
+    while any job is non-terminal."""
+    # TODO(phase-1.8): wire to repository_dependency().list_agent_b_jobs(run_id).
+    _phase_1_8_not_implemented("/agent-b-jobs", "WorkflowRepository.list_agent_b_jobs")
+
+
+@router.patch("/runs/{run_id}/epics/{epic_id}")
+def patch_epic(run_id: str, epic_id: str, payload: EpicPatchRequest) -> dict[str, object]:
+    """Lead inline-edit on <EpicReviewPanel> before S4.2. Rejected with 409
+    `epic_edit_after_lock` unless current_stage == S4_1_AGENT_B_EPICS."""
+    # TODO(phase-1.8): wire to pipeline_dependency().patch_epic(run_id, epic_id, payload).
+    _ = payload
+    _phase_1_8_not_implemented(
+        f"/epics/{epic_id} (PATCH)", "PipelineService.patch_epic"
+    )
+
+
+@router.post("/runs/{run_id}/epics/merge")
+def merge_epics(run_id: str, payload: EpicMergeRequest) -> dict[str, object]:
+    """Merge >=2 epics into one. Validates feature_id coverage exhaustively."""
+    # TODO(phase-1.8): wire to pipeline_dependency().merge_epics(run_id, payload).
+    _ = payload
+    _phase_1_8_not_implemented("/epics/merge", "PipelineService.merge_epics")
+
+
+@router.post("/runs/{run_id}/epics/split")
+def split_epic(run_id: str, payload: EpicSplitRequest) -> dict[str, object]:
+    """Split one epic into N>=2 new epics. Every original feature_id must
+    appear in exactly one split or 409 `epic_edit_feature_coverage` is raised."""
+    # TODO(phase-1.8): wire to pipeline_dependency().split_epic(run_id, payload).
+    _ = payload
+    _phase_1_8_not_implemented("/epics/split", "PipelineService.split_epic")
+
+
+def _phase_1_8_not_implemented(endpoint_label: str, owner: str) -> None:
+    """Helper: return 501 with the standard envelope so clients see a clear
+    `not_implemented` error code instead of a generic 500."""
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "code": "not_implemented",
+            "message": (
+                f"Endpoint '{endpoint_label}' is part of Phase 1.8 (Agent B "
+                f"hierarchical decomposition) and is not yet implemented. "
+                f"Implement '{owner}' to enable it."
+            ),
+            "details": {"phase": "1.8", "owner": owner},
+        },
+    )
+
+
 @router.get("/runs/{run_id}/timeline")
 def get_timeline(run_id: str) -> dict[str, object]:
     run = _require_run(run_id)
@@ -343,6 +466,34 @@ def create_review_decision(payload: ReviewDecisionRequest) -> dict[str, object]:
     return envelope(decision)
 
 
+@router.post("/runs/{run_id}/hil-2/tasks/{task_id}/decision")
+def create_hil2_task_decision(
+    run_id: str,
+    task_id: str,
+    payload: HIL2TaskDecisionRequest,
+) -> dict[str, object]:
+    _require_run(run_id)
+    _require_task(run_id, task_id)
+    _validate_hil2_task_decision(payload)
+    decision = repository_dependency().add_review_decision(
+        ReviewDecision(
+            run_id=run_id,
+            target_type="task",
+            target_id=task_id,
+            decision=HIL2_ACTION_STATUS[payload.action],
+            reviewer=payload.reviewer,
+            comment=payload.comment,
+            patch=_hil2_decision_patch(payload),
+        )
+    )
+    return envelope(
+        {
+            "decision": decision,
+            "task": _require_task(run_id, task_id),
+        }
+    )
+
+
 @router.post("/runs/{run_id}/sync-replay")
 def replay_sync(run_id: str) -> dict[str, object]:
     _require_run(run_id)
@@ -379,6 +530,57 @@ def _require_project(project_id: str):
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found.")
     return project
+
+
+def _require_task(run_id: str, task_id: str):
+    task = next(
+        (
+            task
+            for task in repository_dependency().list_tasks(run_id)
+            if task.id == task_id or task.task_id == task_id
+        ),
+        None,
+    )
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    return task
+
+
+def _validate_hil2_task_decision(payload: HIL2TaskDecisionRequest) -> None:
+    task_patch = payload.patch.to_task_update() if payload.patch else {}
+    assignee = payload.assignee or task_patch.get("assignee")
+    if assignee is not None and assignee not in QA_MEMBERS:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_assignee_override",
+                "message": "Assignee override must be a seeded QA member.",
+                "details": {
+                    "assignee": assignee,
+                    "allowed_assignees": sorted(QA_MEMBERS),
+                },
+            },
+        )
+
+
+def _hil2_decision_patch(payload: HIL2TaskDecisionRequest) -> dict[str, object]:
+    task_patch = payload.patch.to_task_update() if payload.patch else {}
+    stored_patch: dict[str, object] = {
+        "hil_tier": "HIL-2",
+        "action": payload.action.value,
+    }
+
+    if payload.action == HIL2DecisionAction.REQUEST_EDIT:
+        if task_patch:
+            stored_patch["requested_changes"] = task_patch
+        return stored_patch
+
+    if payload.action == HIL2DecisionAction.OVERRIDE_ASSIGNEE:
+        task_patch = {**task_patch, "assignee": payload.assignee or task_patch["assignee"]}
+
+    if task_patch:
+        stored_patch["task"] = task_patch
+    return stored_patch
 
 
 def _raise_pipeline_conflict(exc: PipelineConflictError) -> None:

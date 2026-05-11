@@ -7,11 +7,14 @@ from app.domain.models import (
     QATask,
     Estimate,
     ReviewStatus,
+    Epic,
+    Story,
     TestCase as DomainTestCase,
     TestCategory as DomainTestCategory,
     TestType as DomainTestType,
 )
 from app.services.validators import (
+    validate_agent_b_plan_coverage,
     validate_features,
     validate_features_with_routing,
     validate_tasks,
@@ -108,6 +111,57 @@ def test_validate_tasks_with_routing_blocks_duplicate_candidates() -> None:
     assert {task.lane for task in tasks} == {"BLOCK"}
 
 
+def test_validate_agent_b_plan_coverage_flags_missing_approved_features_and_epics() -> None:
+    epics = [_epic("HIL1-GAMEPLAY-LOGIC", ["F-001"])]
+    stories = [_story("S-001", "HIL1-GAMEPLAY-LOGIC", "F-001")]
+    tasks = [_task("T-001", "Verify tap", "Ngoc Anh")]
+    hil1_context = {
+        "approved_feature_ids": ["F-001", "F-002", "F-003"],
+        "approved_features": [
+            _approved_feature("F-001", "gameplay_logic"),
+            _approved_feature("F-002", "ui_layout"),
+            _approved_feature("F-003", "economy"),
+        ],
+        "epic_structure": {
+            "epics": [
+                {
+                    "epic_id": "HIL1-GAMEPLAY-LOGIC",
+                    "title": "Gameplay Logic Scope",
+                    "feature_ids": ["F-001"],
+                },
+                {
+                    "epic_id": "HIL1-UI-LAYOUT",
+                    "title": "Ui Layout Scope",
+                    "feature_ids": ["F-002"],
+                },
+                {
+                    "epic_id": "HIL1-ECONOMY",
+                    "title": "Economy Scope",
+                    "feature_ids": ["F-003"],
+                },
+            ]
+        },
+    }
+
+    issues = validate_agent_b_plan_coverage(
+        "run_1",
+        epics=epics,
+        stories=stories,
+        tasks=tasks,
+        hil1_context=hil1_context,
+    )
+
+    assert {
+        (issue.code, issue.target_type, issue.target_id)
+        for issue in issues
+    } >= {
+        ("missing_agent_b_feature_coverage", "feature", "F-002"),
+        ("missing_agent_b_feature_coverage", "feature", "F-003"),
+        ("missing_agent_b_epic_coverage", "epic", "HIL1-UI-LAYOUT"),
+        ("missing_agent_b_epic_coverage", "epic", "HIL1-ECONOMY"),
+    }
+
+
 def test_validate_test_cases_requires_all_categories() -> None:
     sections = [
         GDDSection(id="sec_1", run_id="run_1", section_id="§2.3", title="Tap", level=2),
@@ -167,3 +221,36 @@ def _task(task_id: str, title: str, assignee: str) -> QATask:
         external_id=f"snake-escape-F-001-{task_id}",
         confidence=0.7,
     )
+
+
+def _epic(epic_id: str, feature_ids: list[str]) -> Epic:
+    return Epic(
+        id=f"epic_{epic_id}",
+        run_id="run_1",
+        epic_id=epic_id,
+        title="Gameplay Logic Scope",
+        description="Epic description",
+        feature_ids=feature_ids,
+        external_id=f"snake-escape-{epic_id}",
+    )
+
+
+def _story(story_id: str, epic_id: str, feature_id: str) -> Story:
+    return Story(
+        id=f"story_{story_id}",
+        run_id="run_1",
+        story_id=story_id,
+        epic_id=epic_id,
+        title="Story title",
+        description="Story description",
+        feature_id=feature_id,
+        external_id=f"snake-escape-{epic_id}-{story_id}",
+    )
+
+
+def _approved_feature(feature_id: str, feature_type: str) -> dict[str, object]:
+    return {
+        "feature_id": feature_id,
+        "feature_type": feature_type,
+        "delta_status": None,
+    }

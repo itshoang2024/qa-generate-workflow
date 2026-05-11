@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.repositories.supabase_repository import (
+    _build_supabase_client_options,
     _can_retry_without_optional_task_columns,
     _without_optional_task_columns,
 )
@@ -51,3 +52,15 @@ def test_supabase_task_upsert_can_retry_without_optional_agent_b_columns() -> No
         "task_id": "T-001",
         "title": "Verify clear path",
     }
+
+
+def test_supabase_client_options_disable_http2_transport() -> None:
+    options = _build_supabase_client_options()
+
+    try:
+        assert options.httpx_client is not None
+        transport = options.httpx_client._transport  # noqa: SLF001
+        assert transport._pool._http2 is False  # noqa: SLF001
+    finally:
+        if options.httpx_client is not None:
+            options.httpx_client.close()

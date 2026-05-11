@@ -30,6 +30,12 @@ class PipelineStage(StrEnum):
     S2_AGENT_A = "S2_AGENT_A"
     S3_VALIDATION_A = "S3_VALIDATION_A"
     S4_AGENT_B = "S4_AGENT_B"
+    # Phase 1.8 — hierarchical Agent B sub-stages. Real provider advances through
+    # the three values below; /demo-runs + MockAgentClient.plan_qa_tasks keep
+    # emitting the bundled S4_AGENT_B for back-compat.
+    S4_1_AGENT_B_EPICS = "S4_1_AGENT_B_EPICS"
+    S4_2_AGENT_B_STORIES = "S4_2_AGENT_B_STORIES"
+    S4_3_AGENT_B_TASKS = "S4_3_AGENT_B_TASKS"
     S5_VALIDATION_B_SYNC = "S5_VALIDATION_B_SYNC"
     S6_AGENT_C = "S6_AGENT_C"
     S7_VALIDATION_C_SYNC = "S7_VALIDATION_C_SYNC"
@@ -100,6 +106,20 @@ class SyncStatus(StrEnum):
     REPLAYED = "REPLAYED"
 
 
+# Phase 1.8 — Agent B fan-out job tracking.
+class AgentBScope(StrEnum):
+    EPIC = "epic"
+    STORY = "story"
+
+
+class AgentBJobStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+
+
 class GDDDescriptionStatus(StrEnum):
     PENDING = "PENDING"
     USER_PROVIDED = "USER_PROVIDED"
@@ -110,6 +130,13 @@ class HIL0Action(StrEnum):
     PROVIDE_ARTIFACT = "provide_artifact"
     PROCEED_WITH_FLAG = "proceed_with_flag"
     SKIP_SECTION = "skip_section"
+
+
+class HIL2DecisionAction(StrEnum):
+    APPROVE = "approve"
+    REQUEST_EDIT = "request_edit"
+    REJECT = "reject"
+    OVERRIDE_ASSIGNEE = "override_assignee"
 
 
 class TestCategory(StrEnum):
@@ -436,6 +463,41 @@ class SyncEvent(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class AgentBJob(BaseModel):
+    """Phase 1.8 — per-fan-out job state for Agent B2 (per epic) and B3 (per story).
+
+    Created in QUEUED status when /agent-b/stories or /agent-b/tasks spawns
+    fan-out. Pipeline updates status as the job runs. UI's <AgentBJobBoard>
+    polls GET /runs/{run_id}/agent-b-jobs every 2s while any job is non-terminal.
+    """
+
+    id: str = Field(default_factory=lambda: f"abjob_{uuid4().hex[:12]}")
+    run_id: str
+    scope_type: AgentBScope
+    scope_id: str  # epic_id for AgentBScope.EPIC jobs, story_id for AgentBScope.STORY jobs
+    status: AgentBJobStatus = AgentBJobStatus.QUEUED
+    attempt_count: int = 0
+    error_code: str | None = None
+    error_message: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    output_summary: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in {
+            AgentBJobStatus.SUCCESS,
+            AgentBJobStatus.FAILED,
+            AgentBJobStatus.TIMEOUT,
+        }
+
+    @property
+    def is_retryable(self) -> bool:
+        return self.status in {AgentBJobStatus.FAILED, AgentBJobStatus.TIMEOUT}
+
+
 class DemoRunRequest(BaseModel):
     preset: str = "snake_escape"
     mode: RunMode = RunMode.NEW_GAME
@@ -485,6 +547,48 @@ class HIL0BulkResolutionRequest(BaseModel):
     resolutions: list[HIL0ResolutionRequest] = Field(min_length=1)
 
 
+class HIL2TaskPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1)
+    description: str | None = Field(default=None, min_length=1)
+    assignee: str | None = Field(default=None, min_length=1)
+    priority: Priority | None = None
+    priority_justification: str | None = None
+    estimate: Estimate | None = None
+    source_sections: list[str] | None = None
+    status: str | None = Field(default=None, min_length=1)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    dedup_flag: bool | None = None
+    cross_cutting_flag: bool | None = None
+
+    def to_task_update(self) -> dict[str, Any]:
+        return self.model_dump(mode="json", exclude_none=True)
+
+
+class HIL2TaskDecisionRequest(BaseModel):
+    action: HIL2DecisionAction
+    reviewer: str = "demo_user"
+    comment: str | None = None
+    patch: HIL2TaskPatch | None = None
+    assignee: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_action_payload(self) -> "HIL2TaskDecisionRequest":
+        patch_assignee = self.patch.assignee if self.patch is not None else None
+        if self.assignee and patch_assignee and self.assignee != patch_assignee:
+            raise ValueError("assignee must match patch.assignee when both are provided.")
+        if self.action == HIL2DecisionAction.OVERRIDE_ASSIGNEE and not (
+            self.assignee or patch_assignee
+        ):
+            raise ValueError("override_assignee requires assignee or patch.assignee.")
+        if self.action == HIL2DecisionAction.REQUEST_EDIT and not (
+            self.comment or (self.patch and self.patch.to_task_update())
+        ):
+            raise ValueError("request_edit requires a comment or requested task patch.")
+        return self
+
+
 class ReviewDecisionRequest(BaseModel):
     run_id: str
     target_type: str
@@ -526,3 +630,62 @@ class ReviewQueue(BaseModel):
     group_by: list[str]
     item_count: int
     groups: list[ReviewQueueGroup]
+
+
+# ---------------------------------------------------------------------------
+# Phase 1.8 — EpicReviewPanel request models.
+#
+# These are consumed by PATCH /runs/{run_id}/epics/{epic_id},
+# POST /runs/{run_id}/epics/merge, and POST /runs/{run_id}/epics/split.
+# Backend rejects them unless run.current_stage == S4_1_AGENT_B_EPICS.
+# ---------------------------------------------------------------------------
+
+
+class EpicPatchRequest(BaseModel):
+    """Inline edit to a single epic before S4.2 starts."""
+
+    title: str | None = Field(default=None, max_length=80)
+    description: str | None = Field(default=None, max_length=240)
+    feature_ids: list[str] | None = None
+    rationale: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "EpicPatchRequest":
+        if all(
+            value is None
+            for value in (self.title, self.description, self.feature_ids, self.rationale)
+        ):
+            raise ValueError("EpicPatchRequest requires at least one field to update.")
+        return self
+
+
+class EpicMergeRequest(BaseModel):
+    """Merge two or more epics into a single target epic."""
+
+    source_epic_ids: list[str] = Field(min_length=2)
+    target_title: str = Field(min_length=1, max_length=80)
+    target_description: str = Field(min_length=1, max_length=240)
+    target_rationale: str | None = Field(default=None, max_length=200)
+
+
+class EpicSplitChild(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=240)
+    feature_ids: list[str] = Field(min_length=1)
+    rationale: str | None = Field(default=None, max_length=200)
+
+
+class EpicSplitRequest(BaseModel):
+    """Split one epic into N >= 2 new epics. Every original feature_id must
+    appear in exactly one of `splits[*].feature_ids` (validated server-side)."""
+
+    epic_id: str = Field(min_length=1)
+    splits: list[EpicSplitChild] = Field(min_length=2)
+
+
+class AgentBJobRetryRequest(BaseModel):
+    """Optional body for POST /agent-b/jobs/{id}/retry — currently empty;
+    kept as a model so future fields (force_model, override_prompt) plug in
+    without breaking clients."""
+
+    pass

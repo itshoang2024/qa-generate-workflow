@@ -68,7 +68,30 @@ def parse_docx_gdd(path: Path, run_id: str) -> ParsedGDD:
         section.actionable = actionable
         section.actionability_reason = reason
 
+    _reclassify_containers(sections)
+
     return ParsedGDD(sections=sections)
+
+
+def _reclassify_containers(sections: list[GDDSection]) -> None:
+    """Second-pass: sections marked insufficient_text that own actionable children
+    are structural containers, not thin sections.  Relabel so operators can
+    distinguish "truly empty" from "parent heading with rich subsections".
+    Actionability (False) is preserved — containers have no direct prose to send
+    to agents; their children are already included in the actionable set.
+    """
+    actionable_parent_ids: set[str] = {
+        s.parent_id
+        for s in sections
+        if s.actionable and s.parent_id is not None
+    }
+    for section in sections:
+        if (
+            not section.actionable
+            and section.actionability_reason == "insufficient_text"
+            and section.section_id in actionable_parent_ids
+        ):
+            section.actionability_reason = "container"
 
 
 def classify_actionability(section: GDDSection) -> tuple[bool, str | None]:

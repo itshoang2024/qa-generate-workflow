@@ -87,10 +87,37 @@ class OpenAIAgentClient(AgentClient):
             schema_name="agent_a_output",
             schema=AGENT_A_RESPONSE_SCHEMA,
         )
-        response_payload = self._post_response(request_payload, "OpenAI Agent A")
-        agent_output = AgentAOutput.model_validate(
-            _extract_structured_json(response_payload, "OpenAI Agent A")
-        )
+        try:
+            response_payload = self._post_response(request_payload, "OpenAI Agent A")
+            agent_output = AgentAOutput.model_validate(
+                _extract_structured_json(response_payload, "OpenAI Agent A")
+            )
+        except OpenAIProviderHTTPError as exc:
+            if exc.status_code not in TRANSIENT_STATUS_CODES:
+                raise
+            self._last_provider_by_operation["analyze_gdd"] = "mock_after_openai_transient_error"
+            return self.fallback.analyze_gdd(
+                run_id,
+                sections,
+                mode=mode,
+                delta_report=delta_report,
+                validation_feedback=validation_feedback,
+                target_section_ids=target_section_ids,
+            )
+        except httpx.HTTPError:
+            self._last_provider_by_operation["analyze_gdd"] = "mock_after_openai_network_error"
+            return self.fallback.analyze_gdd(
+                run_id,
+                sections,
+                mode=mode,
+                delta_report=delta_report,
+                validation_feedback=validation_feedback,
+                target_section_ids=target_section_ids,
+            )
+        except (AgentOutputValidationError, ValidationError):
+            self._last_provider_by_operation["analyze_gdd"] = self.provider
+            raise
+
         self._last_provider_by_operation["analyze_gdd"] = self.provider
         return {
             "features": agent_output.to_domain_features(run_id),
