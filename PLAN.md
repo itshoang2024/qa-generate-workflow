@@ -22,7 +22,7 @@ Already implemented:
 - FastAPI backend under `backend/` with `{ data, meta, error }` envelope and exception handlers.
 - Synchronous Snake Escape demo pipeline through `/api/v1/demo-runs` producing 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases, plus validation issues, risk events, Sync-A/B/C events, coverage, and timeline.
 - DOCX parser for the sample GDD with QA-actionability rules (`§13` = `external_dependency`, metadata sections excluded).
-- `AgentClient` abstract interface at `app/services/agents/__init__.py` with `MockAgentClient` reading `data/snake_escape_fixture.json`; Agent A also has a Task 2 structured JSON contract and an OpenAI adapter behind `AI_PROVIDER=openai`/`real`.
+- `AgentClient` abstract interface at `app/services/agents/__init__.py` with `MockAgentClient` reading `data/snake_escape_fixture.json`; Agent A and Agent B have Task 2 structured JSON contracts and OpenAI adapters behind `AI_PROVIDER=openai`/`real`.
 - Deterministic validators (`validate_features`, `validate_tasks`, `validate_test_cases`) for source traceability, confidence, assignee sanity, duplicate candidates, and test-case category coverage; plus `validate_*_with_routing` wrappers that assign `AUTO` / `BATCH` / `BLOCK` lanes per the Task 1 thresholds.
 - S3 Agent A retry/rerun policy: schema failures, source traceability failures, and uncovered-section reruns are bounded to 3 attempts, logged in AgentRun/session memory, and escalated with `agent_a_retry_exhausted` after max attempts.
 - HIL-1 session snapshot: approved feature IDs, held/review-queue feature IDs, approved feature details, and deterministic epic candidates are stored in `Run.session_memory["hil_1"]` and passed to Agent B as `hil_context`.
@@ -47,7 +47,7 @@ Shipped in the Phase 1.5 / F3.5 pass:
 - **Offline `next/font/google` build support**: Inter and JetBrains Mono remain wired through `next/font/google`, with checked-in mocked Google CSS responses and WOFF2 files; `npm run dev` and `npm run build` use webpack for reliable offline compilation on Windows.
 
 Still missing for the final prototype:
-- Real Agent B/C adapters using Task 2 structured JSON contracts; Agent A is real-provider capable but Agent B/C still use mock fallback.
+- Real Agent C adapter using the Task 2 structured JSON contract; Agent A/B are real-provider capable, while Agent C still uses mock fallback.
 - Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
 - Correction memory for the Task 4 learning loop.
@@ -123,7 +123,7 @@ Architecture rules:
 
 - S0: implement trigger + mode detection from GDD upload and project selection, create `run_id`, initialize session memory, output `{run_id, project_id, gdd_file, mode}`. ✅ shipped.
 - S1: implement raw GDD loading, `GDDDocument` version registration, structural parse, QA-actionability filter, HIL-0 preflight questions, and DELTA diff. ✅ shipped.
-- S2/S4/S6: add AgentClient interfaces and real adapters using Task 2 structured JSON contracts. ✅ Agent A shipped; Agent B/C still mock-only.
+- S2/S4/S6: add AgentClient interfaces and real adapters using Task 2 structured JSON contracts. ✅ Agent A/B shipped; Agent C still mock-only.
 - S3/S5/S7: expand validators and routers using Task 1 and Task 4 failure handling. ✅ shipped.
 - HIL-1/HIL-2/HIL-3: expose review queues and decision endpoints. ✅ read + decision endpoints + blocking-gate enforcement shipped.
 - S5b/S7b: implement Task 3 Sync-A/B/C semantics with idempotent `external_id`, throttling, retry, and replay. ✅ mock semantics shipped.

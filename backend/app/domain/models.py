@@ -54,6 +54,12 @@ class DeltaStatus(StrEnum):
     REMOVED = "REMOVED"
 
 
+class TaskDeltaStatus(StrEnum):
+    NEW = "NEW"
+    UPDATE_RETEST = "UPDATE_RETEST"
+    ARCHIVE = "ARCHIVE"
+
+
 class Priority(StrEnum):
     P0 = "P0"
     P1 = "P1"
@@ -300,9 +306,11 @@ class QATask(BaseModel):
     description: str
     assignee: str
     priority: Priority
+    priority_justification: str | None = None
     estimate: Estimate
     source_sections: list[str]
     external_id: str
+    delta_status: TaskDeltaStatus | None = None
     confidence: float = Field(ge=0, le=1)
     dedup_flag: bool = False
     cross_cutting_flag: bool = False

@@ -14,7 +14,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | S2 Agent A | 4 / 4 | `AgentClient`, schema-validated Agent A output, fixture-backed mock default, and `AI_PROVIDER` factory with OpenAI Agent A adapter shipped. |
 | S3 Validation A + Router A | 3 / 3 | Schema/source/confidence/coverage validation, Router A lanes, and bounded Agent A retry/rerun with stable HIL escalation shipped. |
 | HIL-1 | 3 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; HIL-1 queues list pending items; approved feature IDs + epic candidates are snapshotted in session memory and passed to Agent B. |
-| S4 Agent B | 1 / 4 | Mock Agent B is behind the shared `AgentClient`. Task 2 structured contract for the real adapter, rule-based assignee enforcement post-LLM, and DELTA task behavior (skip/update/new/archive) still open. |
+| S4 Agent B | 4 / 4 | Agent B now has a Task 2 structured contract, OpenAI adapter path, rule-based assignee normalization, and DELTA skip/update/new/archive behavior in the mock. |
 | S5 Validation B + Router B + HIL-2 | 2 / 3 | Validators (schema, traceability, dedup, assignee, confidence) + lane assignment + HIL-2 queue shipped. Explicit HIL-2 decision API surfaces (edit request, assignee override) still open beyond the generic `POST /review-decisions`. |
 | S5b Notion Sync-A/B | 3 / 4 | `NotionSyncClient` interface + mock implementation shipped; Sync-A/B separated with mock page-id mappings. Real schema preflight / retry / dead-letter still open. |
 | S6 Agent C | 1 / 3 | Mock Agent C is behind the shared `AgentClient` and generates 4 cases per task. Real adapter and "concrete test data + repeatability" rules still open. |
@@ -29,13 +29,11 @@ Backend is now feature-complete for the stepped mock-mode homework narrative. Ev
 
 The reviewer-facing stage UI is now wired. Backend work that can run in parallel with frontend polish:
 
-1. **Real Agent B adapter** (`OpenAIAgentClient.plan_qa_tasks`): mirror the Agent A pattern with a `plan_qa_tasks` JSON schema in `agents/contracts.py`. Must call `QA_ASSIGNEE_BY_FEATURE_TYPE` post-LLM rather than trusting model output. Useful but not blocking — Agent A alone is enough to demonstrate the Task 2 contract pattern.
-2. **Real Agent C adapter** (`OpenAIAgentClient.generate_test_cases`): same shape, plus forbidden-vague-phrase guard. Mock already emits the four categories deterministically — real adapter is incremental value.
-3. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
-4. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
-5. **DELTA task behavior** in Agent B mock: today `Feature.delta_status` is set to `UNCHANGED` for all DELTA runs. Make the mock emit `NEW` / `MODIFIED` / `UNCHANGED` / `REMOVED` per the S1 `delta_report.buckets` so Agent B can branch on it.
-6. **Forbidden-vague-phrase / one-assertion / repeatability validators** in `validate_test_cases`.
-7. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
+1. **Real Agent C adapter** (`OpenAIAgentClient.generate_test_cases`): same shape as Agent A/B, plus forbidden-vague-phrase guard. Mock already emits the four categories deterministically — real adapter is incremental value.
+2. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
+3. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
+4. **Forbidden-vague-phrase / one-assertion / repeatability validators** in `validate_test_cases`.
+5. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
 
 Pick (3) if the homework grader wants to see real Notion working; pick (5)+(6)+(7) if you want demo realism without external dependencies; otherwise skip directly to the frontend and treat the rest as Phase 4 polish.
 
@@ -165,14 +163,14 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Move Agent B behind the shared `AgentClient` interface.
   Verify: `MockAgentClient.plan_qa_tasks()` returns 5 epics / 5 stories / 11 tasks deterministically. Covered by `test_demo_pipeline_generates_complete_execution_plan`.
 
-- [ ] Task: Implement Task 2 Agent B structured JSON contract.
-  Verify: Output uses Epic -> Story -> Task tree with `feature_id`, `source_sections`, `external_id`, priority justification, estimate, and confidence. (Mock returns the shape from the fixture; real LLM adapter still missing.)
+- [x] Task: Implement Task 2 Agent B structured JSON contract.
+  Verify: `AgentBOutput` and `AGENT_B_RESPONSE_SCHEMA` define the Epic -> Story -> Task tree with `feature_id`, `source_sections`, `external_id`, `priority_justification`, estimate, confidence, and optional task DELTA status; `OpenAIAgentClient.plan_qa_tasks()` calls `/v1/responses` with strict schema output. Covered by `test_agent_b_response_schema_requires_task_contract_fields`, `test_agent_b_contract_normalizes_assignee_from_feature_mapping`, and `test_openai_agent_b_uses_structured_contract_and_normalized_assignee`.
 
-- [ ] Task: Enforce rule-based assignee mapping.
-  Verify: Agent output cannot freelance an assignee outside KB mapping. Today `validate_tasks` raises `invalid_assignee` issues post-hoc but the real LLM path should *force* the lookup via `QA_ASSIGNEE_BY_FEATURE_TYPE` before persistence.
+- [x] Task: Enforce rule-based assignee mapping.
+  Verify: `AgentBOutput.to_domain_plan()` normalizes every known task assignee from `QA_ASSIGNEE_BY_FEATURE_TYPE` before creating `QATask`, so a model-provided assignee cannot override the KB mapping. Covered by `test_agent_b_contract_normalizes_assignee_from_feature_mapping` and `test_openai_agent_b_uses_structured_contract_and_normalized_assignee`.
 
-- [ ] Task: Add DELTA task behavior.
-  Verify: Unchanged features skip, modified features create update/retest tasks, new features create tasks, and removed features create archive tasks. (Delta report is built in S1; downstream consumers ignore it.)
+- [x] Task: Add DELTA task behavior.
+  Verify: Mock Agent A maps S1 `delta_report.buckets` to feature `delta_status`; Mock Agent B skips `UNCHANGED`, marks `MODIFIED` as `UPDATE_RETEST`, marks `NEW` as `NEW`, and creates `ARCHIVE` confirmation tasks for `REMOVED`. Covered by `test_mock_agent_a_maps_delta_report_buckets_to_feature_statuses` and `test_mock_agent_b_applies_delta_task_behavior`.
 
 ## Phase S5 - Validation B + Router B + HIL-2
 

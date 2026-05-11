@@ -1,17 +1,21 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import httpx
 from pydantic import ValidationError
 
 from app.config import get_settings
-from app.domain.models import GDDSection, RunMode
+from app.domain.models import GDDSection, ReviewStatus, RunMode, TaskDeltaStatus
 from app.services.agents import AgentClient
 from app.services.agents.contracts import (
     AGENT_A_FEATURE_ID_PATTERN,
     AGENT_A_NAME_MAX_LENGTH,
     AGENT_A_RESPONSE_SCHEMA,
     AGENT_A_SUMMARY_MAX_LENGTH,
+    AGENT_B_RESPONSE_SCHEMA,
+    AgentBOutput,
     AgentAOutput,
 )
 from app.services.agents.factory import build_agent_client
@@ -50,6 +54,40 @@ def test_mock_agent_a_sets_delta_status_in_delta_mode() -> None:
     output = client.analyze_gdd("run_1", _agent_a_sections(), mode=RunMode.DELTA)
 
     assert {feature.delta_status.value for feature in output["features"]} == {"UNCHANGED"}
+
+
+def test_mock_agent_a_maps_delta_report_buckets_to_feature_statuses() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    client = MockAgentClient(fixture_path)
+
+    output = client.analyze_gdd(
+        "run_1",
+        _agent_a_sections(),
+        mode=RunMode.DELTA,
+        delta_report={
+            "buckets": {
+                "NEW": ["\u00a72.3"],
+                "MODIFIED": ["\u00a73.1"],
+                "UNCHANGED": [],
+                "REMOVED": [
+                    "\u00a712.1",
+                    "\u00a712.2",
+                    "\u00a712.4",
+                    "\u00a712.5",
+                    "\u00a712.6",
+                    "\u00a712.7",
+                    "\u00a712.8",
+                ],
+            }
+        },
+    )
+
+    status_by_feature = {
+        feature.feature_id: feature.delta_status.value for feature in output["features"]
+    }
+    assert status_by_feature["F-001"] == "NEW"
+    assert status_by_feature["F-002"] == "MODIFIED"
+    assert status_by_feature["F-008"] == "REMOVED"
 
 
 def test_agent_a_contract_rejects_missing_source_sections() -> None:
@@ -118,6 +156,42 @@ def test_agent_a_response_schema_matches_pydantic_limits() -> None:
     assert properties["confidence"]["maximum"] == 1
 
 
+def test_agent_b_response_schema_requires_task_contract_fields() -> None:
+    task_schema = (
+        AGENT_B_RESPONSE_SCHEMA["properties"]["epics"]["items"]["properties"]["stories"]["items"][
+            "properties"
+        ]["tasks"]["items"]
+    )
+    properties = task_schema["properties"]
+
+    assert properties["task_id"]["pattern"] == "^T-[0-9]{3,}$"
+    assert properties["title"]["maxLength"] == 100
+    assert properties["source_sections"]["minItems"] == 1
+    assert "feature_id" in task_schema["required"]
+    assert "priority_justification" in task_schema["required"]
+    assert "delta_status" in task_schema["required"]
+
+
+def test_agent_b_contract_normalizes_assignee_from_feature_mapping() -> None:
+    agent_output = AgentBOutput.model_validate(_agent_b_payload(assignee="Minh"))
+
+    plan = agent_output.to_domain_plan(
+        "run_1",
+        feature_context_by_id={
+            "F-001": {
+                "feature_id": "F-001",
+                "feature_type": "gameplay_logic",
+                "source_sections": ["\u00a72.3"],
+            }
+        },
+    )
+
+    task = plan["tasks"][0]
+    assert task.assignee == "Ngoc Anh"
+    assert task.priority_justification == "Core gameplay loop."
+    assert task.delta_status is None
+
+
 def test_build_agent_client_rejects_unsupported_provider(tmp_path: Path) -> None:
     settings = replace(get_settings(env_file=tmp_path / ".env"), ai_provider="bogus")
 
@@ -147,7 +221,8 @@ def test_build_agent_client_returns_openai_agent_a_with_mock_fallback(tmp_path: 
 
     assert isinstance(client, OpenAIAgentClient)
     assert client.provider_for("analyze_gdd") == "openai"
-    assert client.provider_for("plan_qa_tasks") == "mock"
+    assert client.provider_for("plan_qa_tasks") == "openai"
+    assert client.provider_for("generate_test_cases") == "mock"
 
 
 def test_mock_agent_b_consumes_hil1_approved_feature_ids() -> None:
@@ -164,6 +239,92 @@ def test_mock_agent_b_consumes_hil1_approved_feature_ids() -> None:
     assert {story.feature_id for story in output["stories"]} == {"F-001"}
     assert {task.feature_id for task in output["tasks"]} == {"F-001"}
     assert len(output["tasks"]) == 2
+
+
+def test_mock_agent_b_applies_delta_task_behavior() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    client = MockAgentClient(fixture_path)
+
+    output = client.plan_qa_tasks(
+        "run_1",
+        hil_context={
+            "approved_feature_ids": ["F-001", "F-002", "F-003", "F-008"],
+            "approved_features": [
+                _approved_feature("F-001", "gameplay_logic", "UNCHANGED"),
+                _approved_feature("F-002", "level_puzzle", "MODIFIED"),
+                _approved_feature("F-003", "economy", "NEW"),
+                _approved_feature("F-008", "backend_liveops", "REMOVED"),
+            ],
+        },
+    )
+
+    tasks = output["tasks"]
+    assert "F-001" not in {task.feature_id for task in tasks}
+    assert {
+        task.delta_status for task in tasks if task.feature_id == "F-002"
+    } == {TaskDeltaStatus.UPDATE_RETEST}
+    assert {
+        task.delta_status for task in tasks if task.feature_id == "F-003"
+    } == {TaskDeltaStatus.NEW}
+    archive_task = next(task for task in tasks if task.feature_id == "F-008")
+    assert archive_task.delta_status == TaskDeltaStatus.ARCHIVE
+    assert archive_task.review_status == ReviewStatus.NEEDS_REVIEW
+    assert archive_task.assignee == "Quan"
+
+
+def test_openai_agent_b_uses_structured_contract_and_normalized_assignee() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    http_client = _FakeOpenAIHTTPClient(_agent_b_payload(assignee="Minh"))
+    client = OpenAIAgentClient(
+        api_key="sk-test",
+        model="gpt-test",
+        fallback=MockAgentClient(fixture_path),
+        http_client=http_client,
+    )
+
+    output = client.plan_qa_tasks(
+        "run_1",
+        hil_context={
+            "project_id": "snake-escape",
+            "approved_features": [_approved_feature("F-001", "gameplay_logic", None)],
+            "epic_structure": {
+                "epics": [
+                    {
+                        "epic_id": "E-CORE",
+                        "title": "Core",
+                        "feature_ids": ["F-001"],
+                    }
+                ]
+            },
+        },
+    )
+
+    request_payload = http_client.requests[0]
+    assert request_payload["text"]["format"]["name"] == "agent_b_output"
+    assert request_payload["text"]["format"]["schema"] == AGENT_B_RESPONSE_SCHEMA
+    assert output["tasks"][0].assignee == "Ngoc Anh"
+    assert output["tasks"][0].priority_justification == "Core gameplay loop."
+
+
+def test_openai_agent_b_falls_back_to_mock_after_transient_502() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    fallback = MockAgentClient(fixture_path)
+    client = OpenAIAgentClient(
+        api_key="sk-test",
+        model="gpt-test",
+        fallback=fallback,
+        http_client=_FailingOpenAIHTTPClient(502),
+        retry_count=0,
+        retry_sleep_seconds=0,
+    )
+
+    output = client.plan_qa_tasks(
+        "run_1",
+        hil_context={"approved_feature_ids": ["F-001"]},
+    )
+
+    assert len(output["tasks"]) == 2
+    assert client.provider_for("plan_qa_tasks") == "mock_after_openai_transient_error"
 
 
 def test_mock_notion_sync_client_implements_notion_contract() -> None:
@@ -188,3 +349,108 @@ def _agent_a_sections() -> list[GDDSection]:
             start=1,
         )
     ]
+
+
+def _agent_b_payload(assignee: str) -> dict[str, object]:
+    return {
+        "epics": [
+            {
+                "epic_id": "E-CORE",
+                "title": "Core Gameplay",
+                "description": "Core gameplay QA.",
+                "feature_ids": ["F-001"],
+                "external_id": "snake-escape-E-CORE",
+                "stories": [
+                    {
+                        "story_id": "S-001",
+                        "title": "Player can clear a path",
+                        "description": "QA verifies tap-to-move behavior.",
+                        "feature_id": "F-001",
+                        "acceptance_criteria": ["Clear path removes the snake."],
+                        "external_id": "snake-escape-E-CORE-S-001",
+                        "tasks": [
+                            {
+                                "task_id": "T-001",
+                                "feature_id": "F-001",
+                                "title": "Verify clear-path snake exits",
+                                "description": "Validate the clear-path behavior.",
+                                "assignee": assignee,
+                                "priority": "P0",
+                                "priority_justification": "Core gameplay loop.",
+                                "estimate": "S",
+                                "source_sections": ["\u00a72.3"],
+                                "external_id": "snake-escape-F-001-T-01",
+                                "delta_status": None,
+                                "confidence": 0.91,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def _approved_feature(
+    feature_id: str,
+    feature_type: str,
+    delta_status: str | None,
+) -> dict[str, object]:
+    return {
+        "feature_id": feature_id,
+        "name": f"{feature_id} Feature",
+        "summary": "Approved feature summary.",
+        "feature_type": feature_type,
+        "source_sections": ["\u00a72.3"],
+        "confidence": 0.9,
+        "assignee": "Wrong",
+        "review_status": "APPROVED",
+        "delta_status": delta_status,
+    }
+
+
+class _FakeOpenAIResponse:
+    text = "{}"
+    status_code = 200
+
+    def __init__(self, structured_payload: dict[str, object]) -> None:
+        self.structured_payload = structured_payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, str]:
+        return {"output_text": json.dumps(self.structured_payload)}
+
+
+class _FakeOpenAIHTTPClient:
+    def __init__(self, structured_payload: dict[str, object]) -> None:
+        self.structured_payload = structured_payload
+        self.requests: list[dict[str, object]] = []
+
+    def post(self, *args: object, **kwargs: object) -> _FakeOpenAIResponse:
+        self.requests.append(kwargs["json"])
+        return _FakeOpenAIResponse(self.structured_payload)
+
+
+class _FailingOpenAIResponse:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.text = "<html>Bad gateway</html>"
+
+    def raise_for_status(self) -> None:
+        request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+        response = httpx.Response(
+            self.status_code,
+            request=request,
+            text=self.text,
+        )
+        raise httpx.HTTPStatusError("OpenAI error", request=request, response=response)
+
+
+class _FailingOpenAIHTTPClient:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+    def post(self, *args: object, **kwargs: object) -> _FailingOpenAIResponse:
+        return _FailingOpenAIResponse(self.status_code)

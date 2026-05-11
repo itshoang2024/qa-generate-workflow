@@ -25,6 +25,7 @@ from app.domain.models import (
 from app.repositories.workflow_repository import WorkflowRepository
 
 ModelT = TypeVar("ModelT")
+QA_TASK_OPTIONAL_COMPAT_COLUMNS = {"priority_justification", "delta_status"}
 
 
 class SupabaseWorkflowRepository(WorkflowRepository):
@@ -248,9 +249,21 @@ class SupabaseWorkflowRepository(WorkflowRepository):
             return
         payload = [self._dump(model) for model in models]
         if on_conflict:
-            self.client.table(table).upsert(payload, on_conflict=on_conflict).execute()
+            try:
+                self.client.table(table).upsert(payload, on_conflict=on_conflict).execute()
+            except Exception as exc:
+                if not _can_retry_without_optional_task_columns(table, exc):
+                    raise
+                legacy_payload = [_without_optional_task_columns(row) for row in payload]
+                self.client.table(table).upsert(legacy_payload, on_conflict=on_conflict).execute()
             return
-        self.client.table(table).insert(payload).execute()
+        try:
+            self.client.table(table).insert(payload).execute()
+        except Exception as exc:
+            if not _can_retry_without_optional_task_columns(table, exc):
+                raise
+            legacy_payload = [_without_optional_task_columns(row) for row in payload]
+            self.client.table(table).insert(legacy_payload).execute()
 
     def _list_run_rows(self, table: str, run_id: str, model_type: type[ModelT]) -> list[ModelT]:
         rows = self.client.table(table).select("*").eq("run_id", run_id).execute().data
@@ -312,3 +325,22 @@ def _version_number(version_id: str) -> int:
     if version_id.startswith("v") and version_id[1:].isdigit():
         return int(version_id[1:])
     return 0
+
+
+def _can_retry_without_optional_task_columns(table: str, exc: Exception) -> bool:
+    if table != "qa_tasks":
+        return False
+    message = str(exc)
+    return (
+        "PGRST204" in message
+        and "schema cache" in message
+        and any(f"'{column}' column" in message for column in QA_TASK_OPTIONAL_COMPAT_COLUMNS)
+    )
+
+
+def _without_optional_task_columns(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in row.items()
+        if key not in QA_TASK_OPTIONAL_COMPAT_COLUMNS
+    }

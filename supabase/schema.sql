@@ -153,9 +153,11 @@ create table if not exists qa_tasks (
   description text not null,
   assignee text not null,
   priority text not null,
+  priority_justification text,
   estimate text not null,
   source_sections jsonb not null,
   external_id text not null,
+  delta_status text,
   confidence numeric not null,
   dedup_flag boolean not null default false,
   cross_cutting_flag boolean not null default false,
@@ -259,6 +261,8 @@ alter table features
   add column if not exists cross_cutting_flag boolean not null default false;
 
 alter table qa_tasks
+  add column if not exists priority_justification text,
+  add column if not exists delta_status text,
   add column if not exists dedup_flag boolean not null default false,
   add column if not exists cross_cutting_flag boolean not null default false;
 

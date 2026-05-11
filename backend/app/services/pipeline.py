@@ -277,6 +277,12 @@ class PipelineService:
             features,
             auto_approve=auto_approve,
         )
+        hil1_context = {
+            **hil1_context,
+            "project_id": run.project_id,
+            "mode": run.mode.value,
+            "delta_report": run.delta_report or {},
+        }
         run.session_memory = {**run.session_memory, "hil_1": hil1_context}
         run = self.repository.update_run(run)
 
@@ -700,6 +706,8 @@ class PipelineService:
             "summary": feature.summary,
             "feature_type": feature.feature_type.value,
             "source_sections": feature.source_sections,
+            "key_behaviors": feature.key_behaviors,
+            "dependencies": feature.dependencies,
             "confidence": feature.confidence,
             "assignee": feature.assignee,
             "review_status": feature.review_status.value,

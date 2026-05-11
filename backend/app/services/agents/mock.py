@@ -5,18 +5,18 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.domain.models import (
-    Epic,
+    DeltaStatus,
     GDDSection,
     QATask,
     ReviewStatus,
     RunMode,
-    Story,
     TestCase,
     TestCategory,
     TestType,
+    TaskDeltaStatus,
 )
 from app.services.agents import AgentClient
-from app.services.agents.contracts import AgentAOutput
+from app.services.agents.contracts import AgentAOutput, AgentBOutput
 
 
 class MockAgentClient(AgentClient):
@@ -37,7 +37,10 @@ class MockAgentClient(AgentClient):
     ) -> dict[str, object]:
         fixture = self._load_fixture()
         actionable = [section.section_id for section in sections if section.actionable]
-        normalized_features = [_agent_a_feature_payload(item, mode) for item in fixture["features"]]
+        normalized_features = [
+            _agent_a_feature_payload(item, mode, delta_report)
+            for item in fixture["features"]
+        ]
         covered = {
             source
             for feature in normalized_features
@@ -80,67 +83,18 @@ class MockAgentClient(AgentClient):
     ) -> dict[str, list[object]]:
         fixture = self._load_fixture()
         approved_feature_ids = _approved_feature_ids(hil_context)
-        epics: list[Epic] = []
-        stories: list[Story] = []
-        tasks: list[QATask] = []
-
-        for epic_data in fixture["epics"]:
-            epic_feature_ids = [
-                feature_id
-                for feature_id in epic_data["feature_ids"]
-                if approved_feature_ids is None or feature_id in approved_feature_ids
-            ]
-            if not epic_feature_ids:
-                continue
-            epics.append(
-                Epic(
-                    id=f"epic_{uuid4().hex[:12]}",
-                    run_id=run_id,
-                    review_status=ReviewStatus.AUTO_APPROVED,
-                    **{
-                        key: value
-                        for key, value in epic_data.items()
-                        if key not in {"stories", "feature_ids"}
-                    },
-                    feature_ids=epic_feature_ids,
-                )
-            )
-            for story_data in epic_data["stories"]:
-                if (
-                    approved_feature_ids is not None
-                    and story_data["feature_id"] not in approved_feature_ids
-                ):
-                    continue
-                stories.append(
-                    Story(
-                        id=f"story_{uuid4().hex[:12]}",
-                        run_id=run_id,
-                        epic_id=epic_data["epic_id"],
-                        review_status=ReviewStatus.AUTO_APPROVED,
-                        **{key: value for key, value in story_data.items() if key != "tasks"},
-                    )
-                )
-                for task_data in story_data["tasks"]:
-                    if (
-                        approved_feature_ids is not None
-                        and task_data["feature_id"] not in approved_feature_ids
-                    ):
-                        continue
-                    confidence = task_data["confidence"]
-                    tasks.append(
-                        QATask(
-                            id=f"task_{uuid4().hex[:12]}",
-                            run_id=run_id,
-                            epic_id=epic_data["epic_id"],
-                            story_id=story_data["story_id"],
-                            review_status=ReviewStatus.AUTO_APPROVED
-                            if confidence >= 0.85
-                            else ReviewStatus.NEEDS_REVIEW,
-                            **task_data,
-                        )
-                    )
-
-        return {"epics": epics, "stories": stories, "tasks": tasks}
+        feature_context_by_id = _agent_b_feature_context_by_id(
+            fixture,
+            hil_context,
+            approved_feature_ids,
+        )
+        agent_output = AgentBOutput.model_validate(
+            {"epics": _agent_b_epic_payloads(fixture["epics"], feature_context_by_id)}
+        )
+        return agent_output.to_domain_plan(
+            run_id,
+            feature_context_by_id=feature_context_by_id,
+        )
 
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
         test_cases: list[TestCase] = []
@@ -195,7 +149,11 @@ class MockAgentClient(AgentClient):
         return json.loads(self.fixture_path.read_text(encoding="utf-8"))
 
 
-def _agent_a_feature_payload(item: dict[str, object], mode: RunMode) -> dict[str, object]:
+def _agent_a_feature_payload(
+    item: dict[str, object],
+    mode: RunMode,
+    delta_report: dict[str, object] | None,
+) -> dict[str, object]:
     payload = {
         key: item[key]
         for key in (
@@ -209,8 +167,51 @@ def _agent_a_feature_payload(item: dict[str, object], mode: RunMode) -> dict[str
             "confidence",
         )
     }
-    payload["delta_status"] = "UNCHANGED" if mode == RunMode.DELTA else None
+    payload["delta_status"] = _feature_delta_status(item, mode, delta_report)
     return payload
+
+
+def _feature_delta_status(
+    item: dict[str, object],
+    mode: RunMode,
+    delta_report: dict[str, object] | None,
+) -> str | None:
+    if mode != RunMode.DELTA:
+        return None
+    if not delta_report:
+        return DeltaStatus.UNCHANGED.value
+
+    buckets = delta_report.get("buckets")
+    if not isinstance(buckets, dict):
+        return DeltaStatus.UNCHANGED.value
+
+    source_sections = {
+        section_id
+        for section_id in item.get("source_sections", [])
+        if isinstance(section_id, str)
+    }
+    if not source_sections:
+        return DeltaStatus.UNCHANGED.value
+
+    status_by_section: dict[str, str] = {}
+    for status in DeltaStatus:
+        raw_section_ids = buckets.get(status.value, [])
+        if isinstance(raw_section_ids, list):
+            for section_id in raw_section_ids:
+                if isinstance(section_id, str):
+                    status_by_section[section_id] = status.value
+
+    section_statuses = {
+        status_by_section.get(section_id, DeltaStatus.UNCHANGED.value)
+        for section_id in source_sections
+    }
+    if section_statuses == {DeltaStatus.REMOVED.value}:
+        return DeltaStatus.REMOVED.value
+    if DeltaStatus.MODIFIED.value in section_statuses:
+        return DeltaStatus.MODIFIED.value
+    if DeltaStatus.NEW.value in section_statuses:
+        return DeltaStatus.NEW.value
+    return DeltaStatus.UNCHANGED.value
 
 
 def _agent_a_ambiguity_payload(item: dict[str, object]) -> dict[str, object]:
@@ -228,3 +229,213 @@ def _approved_feature_ids(hil_context: dict[str, object] | None) -> set[str] | N
     if not isinstance(raw_ids, list):
         return None
     return {feature_id for feature_id in raw_ids if isinstance(feature_id, str)}
+
+
+def _agent_b_feature_context_by_id(
+    fixture: dict[str, object],
+    hil_context: dict[str, object] | None,
+    approved_feature_ids: set[str] | None,
+) -> dict[str, dict[str, object]]:
+    context_features = (hil_context or {}).get("approved_features", [])
+    if isinstance(context_features, list) and context_features:
+        return {
+            str(feature["feature_id"]): dict(feature)
+            for feature in context_features
+            if isinstance(feature, dict)
+            and isinstance(feature.get("feature_id"), str)
+            and (
+                approved_feature_ids is None
+                or str(feature["feature_id"]) in approved_feature_ids
+            )
+        }
+
+    feature_context_by_id: dict[str, dict[str, object]] = {}
+    for feature in fixture.get("features", []):
+        if not isinstance(feature, dict):
+            continue
+        feature_id = feature.get("feature_id")
+        if not isinstance(feature_id, str):
+            continue
+        if approved_feature_ids is not None and feature_id not in approved_feature_ids:
+            continue
+        feature_context_by_id[feature_id] = {
+            "feature_id": feature_id,
+            "name": feature.get("name", ""),
+            "summary": feature.get("summary", ""),
+            "feature_type": feature.get("feature_type"),
+            "source_sections": feature.get("source_sections", []),
+            "key_behaviors": feature.get("key_behaviors", []),
+            "dependencies": feature.get("dependencies", []),
+            "confidence": feature.get("confidence", 1.0),
+            "delta_status": feature.get("delta_status"),
+        }
+    return feature_context_by_id
+
+
+def _agent_b_epic_payloads(
+    fixture_epics: object,
+    feature_context_by_id: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    if not isinstance(fixture_epics, list):
+        return []
+
+    epics: list[dict[str, object]] = []
+    for epic_data in fixture_epics:
+        if not isinstance(epic_data, dict):
+            continue
+        stories = [
+            story
+            for story in (
+                _agent_b_story_payload(story_data, feature_context_by_id)
+                for story_data in epic_data.get("stories", [])
+                if isinstance(story_data, dict)
+            )
+            if story is not None
+        ]
+        if not stories:
+            continue
+        feature_ids = sorted(_story_feature_ids(stories))
+        epics.append(
+            {
+                "epic_id": epic_data["epic_id"],
+                "title": epic_data["title"],
+                "description": epic_data["description"],
+                "feature_ids": feature_ids,
+                "external_id": epic_data["external_id"],
+                "stories": stories,
+            }
+        )
+    return epics
+
+
+def _story_feature_ids(stories: list[dict[str, object]]) -> set[str]:
+    feature_ids: set[str] = set()
+    for story in stories:
+        feature_id = story.get("feature_id")
+        if isinstance(feature_id, str):
+            feature_ids.add(feature_id)
+        tasks = story.get("tasks", [])
+        if isinstance(tasks, list):
+            for task in tasks:
+                if isinstance(task, dict) and isinstance(task.get("feature_id"), str):
+                    feature_ids.add(str(task["feature_id"]))
+    return feature_ids
+
+
+def _agent_b_story_payload(
+    story_data: dict[str, object],
+    feature_context_by_id: dict[str, dict[str, object]],
+) -> dict[str, object] | None:
+    raw_tasks = story_data.get("tasks", [])
+    if not isinstance(raw_tasks, list):
+        return None
+
+    tasks: list[dict[str, object]] = []
+    for task_data in raw_tasks:
+        if not isinstance(task_data, dict):
+            continue
+        task_feature_id = task_data.get("feature_id")
+        if not isinstance(task_feature_id, str):
+            continue
+        feature_context = feature_context_by_id.get(task_feature_id)
+        if feature_context is None:
+            continue
+        delta_status = feature_context.get("delta_status")
+        if delta_status == DeltaStatus.UNCHANGED.value:
+            continue
+        if delta_status == DeltaStatus.REMOVED.value:
+            tasks.append(_archive_task_payload(task_data, feature_context))
+            continue
+        tasks.append(_task_payload(task_data, feature_context))
+    if not tasks:
+        return None
+
+    story_feature_id = story_data.get("feature_id")
+    if not isinstance(story_feature_id, str) or story_feature_id not in feature_context_by_id:
+        story_feature_id = str(tasks[0]["feature_id"])
+    story_delta_status = feature_context_by_id.get(story_feature_id, {}).get("delta_status")
+
+    return {
+        "story_id": story_data["story_id"],
+        "title": _story_title(story_data, story_delta_status),
+        "description": story_data["description"],
+        "feature_id": story_feature_id,
+        "acceptance_criteria": story_data.get("acceptance_criteria", []),
+        "external_id": story_data["external_id"],
+        "tasks": tasks,
+    }
+
+
+def _task_payload(
+    task_data: dict[str, object],
+    feature_context: dict[str, object],
+) -> dict[str, object]:
+    delta_status = feature_context.get("delta_status")
+    payload = dict(task_data)
+    payload["priority_justification"] = _priority_justification(task_data, feature_context)
+    if delta_status == DeltaStatus.MODIFIED.value:
+        payload["title"] = _bounded_title(f"Update and retest {task_data['title']}")
+        payload["description"] = (
+            "Update the existing QA coverage for this modified GDD behavior, then retest "
+            f"the original pass criteria. {task_data['description']}"
+        )
+        payload["delta_status"] = TaskDeltaStatus.UPDATE_RETEST.value
+    elif delta_status == DeltaStatus.NEW.value:
+        payload["delta_status"] = TaskDeltaStatus.NEW.value
+    else:
+        payload["delta_status"] = None
+    return payload
+
+
+def _archive_task_payload(
+    task_data: dict[str, object],
+    feature_context: dict[str, object],
+) -> dict[str, object]:
+    feature_id = str(feature_context["feature_id"])
+    feature_name = str(feature_context.get("name") or feature_id)
+    source_sections = feature_context.get("source_sections")
+    if not isinstance(source_sections, list) or not source_sections:
+        source_sections = ["removed-source"]
+    return {
+        "task_id": str(task_data.get("task_id") or "T-001"),
+        "feature_id": feature_id,
+        "title": _bounded_title(f"Archive QA coverage for removed {feature_name}"),
+        "description": (
+            "Confirm that this removed GDD scope should be archived from active QA "
+            "coverage, then close or update any linked Notion records."
+        ),
+        "assignee": str(feature_context.get("assignee") or "QA Lead"),
+        "priority": "P1",
+        "priority_justification": (
+            "Removed DELTA scope needs Lead confirmation before old QA records are archived."
+        ),
+        "estimate": "S",
+        "source_sections": source_sections,
+        "external_id": f"snake-escape-{feature_id}-ARCHIVE",
+        "delta_status": TaskDeltaStatus.ARCHIVE.value,
+        "confidence": 0.7,
+    }
+
+
+def _story_title(story_data: dict[str, object], delta_status: object) -> str:
+    if delta_status == DeltaStatus.MODIFIED.value:
+        return f"QA updates coverage for {story_data['title']}"
+    if delta_status == DeltaStatus.REMOVED.value:
+        return f"QA archives removed scope for {story_data['title']}"
+    return str(story_data["title"])
+
+
+def _priority_justification(
+    task_data: dict[str, object],
+    feature_context: dict[str, object],
+) -> str:
+    priority = task_data.get("priority", "P1")
+    source_sections = feature_context.get("source_sections", [])
+    source = ", ".join(str(section) for section in source_sections[:2]) if isinstance(source_sections, list) else ""
+    if not source:
+        source = str(task_data.get("source_sections", ["GDD"])[0])
+    return f"{priority} priority follows the approved feature scope cited from {source}."
+
+
+def _bounded_title(title: str) -> str:
+    return title if len(title) <= 100 else f"{title[:97].rstrip()}..."
