@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
 
@@ -6,8 +7,20 @@ import pytest
 fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.api.v1.dependencies import settings_dependency  # noqa: E402
+from app.api.v1.dependencies import repository_dependency, settings_dependency  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolate_api_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    monkeypatch.setenv("NOTION_PROVIDER", "mock")
+    monkeypatch.setenv("REPOSITORY_PROVIDER", "memory")
+    settings_dependency.cache_clear()
+    repository_dependency.cache_clear()
+    yield
+    settings_dependency.cache_clear()
+    repository_dependency.cache_clear()
 
 
 def _snake_gdd_path() -> Path:
@@ -279,6 +292,27 @@ def test_provider_status_endpoint_reports_credential_readiness(
     assert data["ai"] == {"provider": "mock", "credentials_ready": True}
     assert data["notion"] == {"provider": "real", "credentials_ready": False}
     assert data["repository"] == {"provider": "supabase", "credentials_ready": True}
+
+
+def test_demo_run_reports_clear_error_for_unsupported_ai_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AI_PROVIDER", "bogus")
+    monkeypatch.setenv("REPOSITORY_PROVIDER", "memory")
+    settings_dependency.cache_clear()
+    repository_dependency.cache_clear()
+
+    try:
+        response = TestClient(app).post(
+            "/api/v1/demo-runs",
+            json={"preset": "snake_escape", "mode": "NEW_GAME", "auto_approve": True},
+        )
+    finally:
+        settings_dependency.cache_clear()
+        repository_dependency.cache_clear()
+
+    assert response.status_code == 422
+    assert "Unsupported AI_PROVIDER" in response.json()["error"]["message"]
 
 
 def _create_demo_run(client: TestClient) -> str:

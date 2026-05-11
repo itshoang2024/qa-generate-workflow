@@ -6,49 +6,70 @@ from uuid import uuid4
 
 from app.domain.models import (
     Epic,
-    Feature,
-    FeatureType,
     GDDSection,
     QATask,
     ReviewStatus,
+    RunMode,
     Story,
     TestCase,
     TestCategory,
     TestType,
 )
-from app.domain.qa_roster import QA_ASSIGNEE_BY_FEATURE_TYPE
 from app.services.agents import AgentClient
+from app.services.agents.contracts import AgentAOutput
 
 
 class MockAgentClient(AgentClient):
+    provider = "mock"
+
     def __init__(self, fixture_path: Path) -> None:
         self.fixture_path = fixture_path
 
-    def analyze_gdd(self, run_id: str, sections: list[GDDSection]) -> dict[str, object]:
+    def analyze_gdd(
+        self,
+        run_id: str,
+        sections: list[GDDSection],
+        *,
+        mode: RunMode = RunMode.NEW_GAME,
+        delta_report: dict[str, object] | None = None,
+        validation_feedback: list[dict[str, object]] | None = None,
+        target_section_ids: list[str] | None = None,
+    ) -> dict[str, object]:
         fixture = self._load_fixture()
-        features = [
-            Feature(
-                id=f"feat_{uuid4().hex[:12]}",
-                run_id=run_id,
-                review_status=ReviewStatus.AUTO_APPROVED
-                if item["confidence"] >= 0.85
-                else ReviewStatus.NEEDS_REVIEW,
-                assignee=QA_ASSIGNEE_BY_FEATURE_TYPE[FeatureType(item["feature_type"])],
-                **item,
-            )
-            for item in fixture["features"]
-        ]
-        covered = {source for feature in features for source in feature.source_sections}
         actionable = [section.section_id for section in sections if section.actionable]
+        normalized_features = [_agent_a_feature_payload(item, mode) for item in fixture["features"]]
+        covered = {
+            source
+            for feature in normalized_features
+            for source in feature["source_sections"]
+            if isinstance(source, str)
+        }
         uncovered = [section_id for section_id in actionable if section_id not in covered]
+        agent_output = AgentAOutput.model_validate(
+            {
+                "features": normalized_features,
+                "coverage_report": {
+                    "total_input_sections": len(actionable),
+                    "covered_sections": sorted(covered),
+                    "uncovered_sections": uncovered,
+                },
+                "ambiguities": [_agent_a_ambiguity_payload(item) for item in fixture["ambiguities"]],
+            }
+        )
+        features = agent_output.to_domain_features(
+            run_id,
+            feature_ambiguities={
+                str(item["feature_id"]): list(item.get("ambiguities", []))
+                for item in fixture["features"]
+            },
+        )
         return {
             "features": features,
-            "coverage_report": {
-                "actionable_sections": actionable,
-                "covered_sections": sorted(covered),
-                "uncovered_sections": uncovered,
-            },
-            "ambiguities": fixture["ambiguities"],
+            "coverage_report": agent_output.coverage_report.model_dump(mode="json"),
+            "ambiguities": [
+                ambiguity.model_dump(mode="json")
+                for ambiguity in agent_output.ambiguities
+            ],
         }
 
     def plan_qa_tasks(self, run_id: str) -> dict[str, list[object]]:
@@ -144,3 +165,29 @@ class MockAgentClient(AgentClient):
 
     def _load_fixture(self) -> dict[str, object]:
         return json.loads(self.fixture_path.read_text(encoding="utf-8"))
+
+
+def _agent_a_feature_payload(item: dict[str, object], mode: RunMode) -> dict[str, object]:
+    payload = {
+        key: item[key]
+        for key in (
+            "feature_id",
+            "name",
+            "summary",
+            "feature_type",
+            "source_sections",
+            "key_behaviors",
+            "dependencies",
+            "confidence",
+        )
+    }
+    payload["delta_status"] = "UNCHANGED" if mode == RunMode.DELTA else None
+    return payload
+
+
+def _agent_a_ambiguity_payload(item: dict[str, object]) -> dict[str, object]:
+    return {
+        "section_id": item["section_id"],
+        "issue": item.get("issue") or item.get("reason") or "Ambiguous GDD section.",
+        "suggested_action": item.get("suggested_action") or "ask_user",
+    }

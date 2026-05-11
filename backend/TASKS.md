@@ -10,8 +10,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 |---|---|---|
 | S0 Trigger + Mode Detection | 6 / 6 | Request model, rule-based mode detection, run/session init, demo compatibility shipped. |
 | S1 Context Loader | 12 / 12 | GDD loading/versioning, Run source metadata, HIL-0 questions/resolutions, DELTA scaffold, parser actionability shipped. |
-| S2 Agent A | 1 / 4 | `AgentClient` abstract base + `MockAgentClient` shipped. Real LLM adapter, schema-validated structured output, and `AI_PROVIDER` selection guard still open. |
-| S3 Validation A + Router A | 2 / 3 | Schema/source/confidence/coverage validation + `derive_router_lane` thresholds shipped via `validate_features_with_routing`. Bounded retry/rerun on schema/traceability/uncovered-section failures still open. |
+| S2 Agent A | 4 / 4 | `AgentClient`, schema-validated Agent A output, fixture-backed mock default, and `AI_PROVIDER` factory with OpenAI Agent A adapter shipped. |
+| S3 Validation A + Router A | 3 / 3 | Schema/source/confidence/coverage validation, Router A lanes, and bounded Agent A retry/rerun with stable HIL escalation shipped. |
 | HIL-1 | 2 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; `GET /api/v1/runs/{run_id}/review-queues/HIL-1` lists pending items grouped by reviewer/feature/epic. Approved-features-in-session-memory persistence still open (today lane state lives on the artifact itself). |
 | S4 Agent B | 1 / 4 | Mock Agent B is behind the shared `AgentClient`. Task 2 structured contract for the real adapter, rule-based assignee enforcement post-LLM, and DELTA task behavior (skip/update/new/archive) still open. |
 | S5 Validation B + Router B + HIL-2 | 2 / 3 | Validators (schema, traceability, dedup, assignee, confidence) + lane assignment + HIL-2 queue shipped. Explicit HIL-2 decision API surfaces (edit request, assignee override) still open beyond the generic `POST /review-decisions`. |
@@ -38,7 +38,7 @@ Order within this slice:
 5. Add `POST /api/v1/runs/{run_id}/sign-off` + `signed_off_by` / `signed_off_at` on `Run`. Surface in the coverage report.
 6. Extend the coverage report to include `risk_summary`, `sync_summary` (count by `SyncStatus`), `gdd_version_metadata`, and `sign_off`. Update `docs/contracts/pipeline-contract.md`.
 
-Once this slice is green, move on to real LLM adapter (Phase S2 task 2) and real Notion adapter (Phase S5b task 4). Frontend scaffolding can run in parallel with either.
+Once this slice is green, move on to real Agent B/C adapters and real Notion adapter (Phase S5b task 4). Frontend scaffolding can run in parallel with either.
 
 ## Phase 0 Items From Root Plan
 
@@ -107,14 +107,14 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Introduce a shared `AgentClient` interface for agent calls.
   Verify: Abstract base at `app/services/agents/__init__.py`; `MockAgentClient` implements it. Covered by `test_mock_agent_client_implements_agent_client_contract`.
 
-- [ ] Task: Implement Task 2 Agent A structured JSON contract.
-  Verify: Output contains `features`, `coverage_report`, `ambiguities`, source sections, confidence, and optional DELTA status. (Mock returns the shape; real LLM adapter with schema validation still missing.)
+- [x] Task: Implement Task 2 Agent A structured JSON contract.
+  Verify: `AgentAOutput` validates `features`, `coverage_report`, `ambiguities`, source sections, confidence, and optional DELTA status. Mock Agent A now validates through this contract before returning domain features.
 
 - [x] Task: Keep fixture-backed mock Agent A as the default provider.
   Verify: Tests pass with no AI credentials configured.
 
-- [ ] Task: Add real AI provider selection behind `AI_PROVIDER`.
-  Verify: Setting an unsupported provider returns a clear startup or request error. (`AI_PROVIDER` is read by `get_settings()` and surfaced on `/providers/status`, but `PipelineService` only constructs `MockAgentClient` regardless of value — needs a factory.)
+- [x] Task: Add real AI provider selection behind `AI_PROVIDER`.
+  Verify: `build_agent_client()` returns mock by default, constructs an OpenAI Agent A adapter when `AI_PROVIDER=openai` or `real`, requires `OPENAI_API_KEY`, and rejects unsupported providers with a clear request error.
 
 ## Phase S3 - Validation A + Router A
 
@@ -124,8 +124,8 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Add Router A lanes.
   Verify: `derive_router_lane` in `domain/models.py` enforces `>=0.85` → AUTO, `[0.60, 0.85)` → BATCH, `<0.60` → BLOCK for features; `validate_features_with_routing` applies the lane to `review_status`. Covered by `test_validate_features_with_routing_assigns_hil1_lanes`.
 
-- [ ] Task: Add retry/rerun behavior for schema, traceability, and uncovered-section failures.
-  Verify: Tests show bounded retry and stable escalation after max attempts.
+- [x] Task: Add retry/rerun behavior for schema, traceability, and uncovered-section failures.
+  Verify: `run_agent_a_with_retries()` retries schema failures, traceability failures, and uncovered-section reruns up to 3 attempts, merges uncovered-section rerun output, logs attempts in AgentRun/session memory, and emits `agent_a_retry_exhausted` after max attempts. Covered by `tests/test_agent_a_retry.py`.
 
 ## Phase HIL-1 - Epic-Level Review
 
@@ -224,7 +224,7 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 ## Final Backend Verification
 
 - [x] Task: Run the backend test suite.
-  Verify: `conda run -n qa-generator pytest` passes from `backend/` with 32 tests.
+  Verify: `conda run -n qa-generator pytest` passes from `backend/` with 44 tests.
 
 - [x] Task: Run backend linting.
   Verify: `conda run -n qa-generator python -m ruff check .` passes from `backend/`.

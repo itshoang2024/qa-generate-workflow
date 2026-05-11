@@ -13,6 +13,7 @@ class Settings:
     notion_provider: str
     repository_provider: str
     openai_api_key: str | None
+    openai_model: str
     anthropic_api_key: str | None
     notion_token: str | None
     supabase_url: str | None
@@ -51,6 +52,7 @@ def get_settings(env_file: Path | None = None) -> Settings:
         notion_provider=_env_value("NOTION_PROVIDER", env_values, "mock"),
         repository_provider=_env_value("REPOSITORY_PROVIDER", env_values, "memory"),
         openai_api_key=_env_value("OPENAI_API_KEY", env_values) or None,
+        openai_model=_env_value("OPENAI_MODEL", env_values, "gpt-4.1-mini"),
         anthropic_api_key=_env_value("ANTHROPIC_API_KEY", env_values) or None,
         notion_token=_env_value("NOTION_TOKEN", env_values) or None,
         supabase_url=_env_value("SUPABASE_URL", env_values) or None,

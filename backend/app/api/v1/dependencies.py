@@ -3,6 +3,7 @@ from functools import lru_cache
 from app.config import Settings, get_settings
 from app.repositories.factory import build_repository
 from app.repositories.workflow_repository import WorkflowRepository
+from app.services.agents.factory import build_agent_client
 from app.services.pipeline import PipelineService
 
 
@@ -24,4 +25,5 @@ def pipeline_dependency() -> PipelineService:
         snake_gdd_path=settings.snake_gdd_path,
         upload_dir=settings.upload_dir,
         max_upload_bytes=settings.max_upload_bytes,
+        agent_client=build_agent_client(settings),
     )

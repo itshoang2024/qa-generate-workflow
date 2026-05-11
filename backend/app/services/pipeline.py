@@ -28,6 +28,7 @@ from app.domain.models import (
     utc_now,
 )
 from app.repositories.workflow_repository import WorkflowRepository
+from app.services.agent_a_retry import run_agent_a_with_retries
 from app.services.agents import AgentClient
 from app.services.agents.mock import MockAgentClient
 from app.services.gdd_parser import parse_docx_gdd
@@ -39,7 +40,6 @@ from app.services.risk_events import (
     risk_events_from_validation_issues,
 )
 from app.services.validators import (
-    validate_features_with_routing,
     validate_tasks_with_routing,
     validate_test_cases_with_routing,
 )
@@ -144,7 +144,14 @@ class PipelineService:
             run = context["run"]
             sections = context["sections"]
 
-            agent_a_output = self.agent_client.analyze_gdd(run.id, sections)
+            agent_a_result = run_agent_a_with_retries(
+                agent_client=self.agent_client,
+                run_id=run.id,
+                sections=sections,
+                mode=run.mode,
+                delta_report=run.delta_report,
+            )
+            agent_a_output = agent_a_result.output
             features = agent_a_output["features"]
             self.repository.set_features(run.id, features)
             self.repository.add_agent_run(
@@ -155,13 +162,31 @@ class PipelineService:
                     input_snapshot={"section_count": len(sections)},
                     output_snapshot={
                         "feature_count": len(features),
+                        "coverage_report": agent_a_output["coverage_report"],
                         "ambiguities": agent_a_output["ambiguities"],
+                        "attempt_count": agent_a_result.attempt_count,
+                        "retry_exhausted": agent_a_result.exhausted,
+                        "attempts": agent_a_result.attempt_log(),
                     },
+                    provider=self._agent_provider("analyze_gdd"),
                 )
             )
-            run = self._stage(run, PipelineStage.S2_AGENT_A, f"Generated {len(features)} features.")
+            run.session_memory = {
+                **run.session_memory,
+                "agent_a_validation": {
+                    "attempt_count": agent_a_result.attempt_count,
+                    "retry_exhausted": agent_a_result.exhausted,
+                    "attempts": agent_a_result.attempt_log(),
+                },
+            }
+            run = self.repository.update_run(run)
+            run = self._stage(
+                run,
+                PipelineStage.S2_AGENT_A,
+                f"Generated {len(features)} features after {agent_a_result.attempt_count} attempt(s).",
+            )
 
-            feature_issues = validate_features_with_routing(run.id, features, sections)
+            feature_issues = agent_a_result.issues
             self.repository.set_features(run.id, features)
             self.repository.add_validation_issues(feature_issues)
             self._record_risk_events(feature_issues)
@@ -170,6 +195,8 @@ class PipelineService:
                 PipelineStage.S3_VALIDATION_A,
                 f"Feature validation produced {len(feature_issues)} issues.",
             )
+            if agent_a_result.exhausted and not features:
+                raise ValueError("Agent A failed schema validation after bounded retries.")
 
             agent_b_output = self.agent_client.plan_qa_tasks(run.id)
             epics = agent_b_output["epics"]
@@ -189,6 +216,7 @@ class PipelineService:
                         "story_count": len(stories),
                         "task_count": len(tasks),
                     },
+                    provider=self._agent_provider("plan_qa_tasks"),
                 )
             )
             run = self._stage(
@@ -238,6 +266,7 @@ class PipelineService:
                     stage=PipelineStage.S6_AGENT_C,
                     input_snapshot={"task_count": len(tasks)},
                     output_snapshot={"test_case_count": len(test_cases)},
+                    provider=self._agent_provider("generate_test_cases"),
                 )
             )
             run = self._stage(
@@ -475,6 +504,9 @@ class PipelineService:
     def _should_abort_run(self, run: Run) -> bool:
         kill_switch = run.session_memory.get("kill_switch", {})
         return bool(isinstance(kill_switch, dict) and kill_switch.get("tripped"))
+
+    def _agent_provider(self, operation: str) -> str:
+        return self.agent_client.provider_for(operation)
 
     def _risk_summary(self, risk_events: list[Any]) -> dict[str, object]:
         return {

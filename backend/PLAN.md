@@ -13,13 +13,14 @@ The backend must remain mock-first for the local demo while evolving toward the 
 
 ## Current Backend State (2026-05-11)
 
-- FastAPI app, versioned routes, domain models, repository abstraction (in-memory + Supabase), mock pipeline, validators with lane assignment, mock Notion sync, Snake Escape fixture, Supabase schema, and tests are in place.
-- `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, epics, stories, tasks, test cases, validation issues, agent runs, sync events, coverage, and timeline. Demo counts: 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases.
+- FastAPI app, versioned routes, domain models, repository abstraction (in-memory + Supabase), Snake Escape fixture, Supabase schema, runbooks, and backend tests are in place.
+- `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, epics, stories, tasks, test cases, validation issues, risk events, agent runs, Sync-A/B/C events, coverage, sign-off state, and timeline. Demo counts remain 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases in mock mode.
 - `_stage_s0_trigger` and `_stage_s1_context_loader` are split. S0 only creates a run + initializes `session_memory`; S1 owns raw load, `GDDDocument` versioning (`v1`, `v2`, ...), structural parse, QA-actionability filter, HIL-0 question batching, and DELTA section diff (`NEW`/`MODIFIED`/`UNCHANGED`/`REMOVED`).
-- `AgentClient` abstract base at `app/services/agents/__init__.py` with `MockAgentClient`. Real LLM adapter not implemented.
-- Router lanes shipped end-to-end: `derive_router_lane` thresholds in `domain/models.py`, applied by `validate_*_with_routing`, exposed as computed `Feature.lane` / `QATask.lane` / `TestCase.lane`, and surfaced via `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`. `ReviewDecision` cascades epic → features + stories.
-- `MockNotionSyncClient` is a concrete class with no abstract base. Sync-A / Sync-B / Sync-C are emitted in two blocks inside the same `run_demo()` step (S5 for epics + stories + tasks, S7 for test cases) and are not separated as Task 3 requires.
-- Risk events, learning-loop correction memory, kill switch, reviewer sign-off, and the extended coverage report (risk_summary, sync_summary, gdd_version_metadata, sign_off) are not implemented.
+- `AgentClient` abstract base is implemented with `MockAgentClient` as the default. Agent A now has a Task 2 structured JSON contract, optional `delta_status`, an OpenAI Responses API adapter behind `AI_PROVIDER=openai`/`real`, and mock-backed Agent B/C fallback until their real contracts ship.
+- S3 Validation A now retries Agent A schema failures, source traceability failures, and uncovered-section reruns up to 3 attempts. Attempt logs are stored in the AgentRun output snapshot and `Run.session_memory`; exhausted retries emit `agent_a_retry_exhausted` and route the final output to HIL-1 instead of silently proceeding.
+- Router lanes ship end-to-end: `derive_router_lane` thresholds in `domain/models.py`, applied by `validate_*_with_routing`, exposed as computed `Feature.lane` / `QATask.lane` / `TestCase.lane`, and surfaced via `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`. `ReviewDecision` cascades epic -> features + stories.
+- `NotionSyncClient` abstract base and `MockNotionSyncClient` are implemented. Sync-A writes epics/stories, Sync-B writes eligible tasks with mock page-id relations, and Sync-C writes eligible test cases and transitions synced parent tasks to `Test Cases Ready`.
+- Risk events, kill switch, reviewer sign-off, and the extended coverage report (`risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`) are implemented. Learning-loop correction memory is still open.
 - Frontend is not scaffolded.
 
 ## Stage-Based Plan

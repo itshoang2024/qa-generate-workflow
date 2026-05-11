@@ -8,7 +8,11 @@ QA_ASSIGNEE_BY_FEATURE_TYPE: dict[FeatureType, str] = {
     FeatureType.BACKEND_LIVEOPS: "Quan",
     FeatureType.ANIMATION: "Minh",
     FeatureType.TUTORIAL: "Minh",
+    FeatureType.CROSS_CUTTING: "QA Lead",
 }
 
-QA_MEMBERS = set(QA_ASSIGNEE_BY_FEATURE_TYPE.values())
-
+QA_MEMBERS = {
+    assignee
+    for feature_type, assignee in QA_ASSIGNEE_BY_FEATURE_TYPE.items()
+    if feature_type != FeatureType.CROSS_CUTTING
+}

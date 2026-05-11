@@ -92,13 +92,22 @@ def validate_features_with_routing(
     sections: list[GDDSection],
 ) -> list[ValidationIssue]:
     issues = validate_features(run_id, features, sections)
+    blocked_feature_ids = {
+        issue.target_id
+        for issue in issues
+        if issue.target_type == "feature"
+        and issue.code in {"missing_source_section", "hallucination_suspect"}
+    }
     for feature in features:
-        lane = derive_router_lane(
-            feature.confidence,
-            dedup_flag=feature.dedup_flag,
-            cross_cutting_flag=feature.cross_cutting_flag,
-            batch_threshold=FEATURE_BATCH_CONFIDENCE_THRESHOLD,
-        )
+        if feature.feature_id in blocked_feature_ids:
+            lane = "BLOCK"
+        else:
+            lane = derive_router_lane(
+                feature.confidence,
+                dedup_flag=feature.dedup_flag,
+                cross_cutting_flag=feature.cross_cutting_flag,
+                batch_threshold=FEATURE_BATCH_CONFIDENCE_THRESHOLD,
+            )
         _apply_routing_status(feature, lane)
     return issues
 

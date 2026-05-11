@@ -17,6 +17,7 @@ from app.domain.models import (
     utc_now,
 )
 from app.domain.responses import envelope
+from app.services.agents.factory import SUPPORTED_AI_PROVIDERS
 from app.services.review_queues import build_review_queue
 
 router = APIRouter()
@@ -291,11 +292,9 @@ def _ai_credentials_ready(settings: Settings) -> bool:
     provider = settings.ai_provider.lower()
     if provider == "mock":
         return True
-    if provider == "openai":
+    if provider in {"openai", "real"}:
         return bool(settings.openai_api_key)
-    if provider == "anthropic":
-        return bool(settings.anthropic_api_key)
-    return bool(settings.openai_api_key or settings.anthropic_api_key)
+    return provider in SUPPORTED_AI_PROVIDERS
 
 
 def _notion_credentials_ready(settings: Settings) -> bool:

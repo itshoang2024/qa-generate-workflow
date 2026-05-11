@@ -18,28 +18,28 @@ Mock mode remains mandatory for a stable local demo. Real AI, real Notion, Supab
 Already implemented:
 
 - FastAPI backend under `backend/` with `{ data, meta, error }` envelope and exception handlers.
-- Synchronous Snake Escape demo pipeline through `/api/v1/demo-runs` producing 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases.
+- Synchronous Snake Escape demo pipeline through `/api/v1/demo-runs` producing 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases, plus validation issues, risk events, Sync-A/B/C events, coverage, and timeline.
 - DOCX parser for the sample GDD with QA-actionability rules (`§13` = `external_dependency`, metadata sections excluded).
-- `AgentClient` abstract interface at `app/services/agents/__init__.py` with `MockAgentClient` reading `data/snake_escape_fixture.json`.
+- `AgentClient` abstract interface at `app/services/agents/__init__.py` with `MockAgentClient` reading `data/snake_escape_fixture.json`; Agent A also has a Task 2 structured JSON contract and an OpenAI adapter behind `AI_PROVIDER=openai`/`real`.
 - Deterministic validators (`validate_features`, `validate_tasks`, `validate_test_cases`) for source traceability, confidence, assignee sanity, duplicate candidates, and test-case category coverage; plus `validate_*_with_routing` wrappers that assign `AUTO` / `BATCH` / `BLOCK` lanes per the Task 1 thresholds.
-- Mock Notion sync events with `external_id` idempotency shape and `replay_failed_sync_events` repository hook.
+- S3 Agent A retry/rerun policy: schema failures, source traceability failures, and uncovered-section reruns are bounded to 3 attempts, logged in AgentRun/session memory, and escalated with `agent_a_retry_exhausted` after max attempts.
+- `NotionSyncClient` abstract interface with mock Sync-A/B/C events, `external_id` idempotency shape, mock page-id relation mapping, and `replay_failed_sync_events` repository hook.
 - Router lanes exposed on `Feature`, `QATask`, `TestCase` as computed `lane` fields plus `review_status` on every artifact.
 - HIL-0..HIL-3 review queues via `GET /api/v1/runs/{run_id}/review-queues/{tier}` grouped by reviewer / feature / epic; review-decision cascade (approving an epic propagates to its features and stories).
 - Project APIs (`POST/GET /api/v1/projects`, `GET /api/v1/projects/{id}`), S0 trigger (`POST /api/v1/runs/trigger`), S1 context (`POST /api/v1/runs/{run_id}/context`), GDD version history (`GET /api/v1/projects/{project_id}/gdd-documents`), HIL-0 questions/resolutions APIs, and DELTA diff with `NEW`/`MODIFIED`/`UNCHANGED`/`REMOVED` buckets.
 - Provider readiness endpoint `GET /api/v1/providers/status` reporting AI / Notion / repository credential state.
 - In-memory repository by default and optional Supabase repository, with full parity across projects, runs, GDD documents, sections, HIL-0 questions/resolutions, agent runs, review decisions, and sync events.
-- Supabase schema in `supabase/schema.sql` including `runs` upgrades for `session_memory`, `gdd_document_id`, `source_version_id`, `source_metadata`, `delta_report`.
+- Risk event model/API, kill switch, reviewer sign-off endpoint, and coverage report extensions for `risk_summary`, `sync_summary`, `gdd_version_metadata`, and `sign_off`.
+- Supabase schema in `supabase/schema.sql` including `runs` upgrades for `session_memory`, `gdd_document_id`, `source_version_id`, `source_metadata`, `delta_report`, and generated artifact/risk/sync tables.
 - Backend tests (parser, validators, pipeline, agents, API, config, supabase schema) covering the demo counts, S0 split, S1 versioning + DELTA, HIL queues, and review-decision lane updates.
 - Docs, contracts, runbooks, fixture guide, and planning docs.
 
 Still missing for the final prototype:
 
-- `NotionSyncClient` abstract interface; Sync-A/B/C separated as their own pipeline stages instead of one block at S5 / S7.
-- Real LLM AgentClient using Task 2 structured JSON contracts with schema validation, repair/retry policy, and raw-output logging.
-- Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no producer of `SyncStatus.FAILED` events yet).
+- Real Agent B/C adapters using Task 2 structured JSON contracts; Agent A is real-provider capable but Agent B/C still use mock fallback.
+- Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
-- Task 4 deliverables: `RiskEvent` model + endpoint, correction memory for the learning loop, kill switch on hallucination / rejection / sync-error thresholds, reviewer sign-off model and `POST /api/v1/runs/{run_id}/sign-off`.
-- Coverage report extension: risk metrics, sync summary, GDD version metadata, sign-off state surfaced alongside section/task counts.
+- Correction memory for the Task 4 learning loop.
 - Frontend app (`frontend/` is not scaffolded).
 - Final submission polish: full English pass over `Task-1..4.md`, walkthrough script, screenshots.
 

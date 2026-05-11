@@ -44,6 +44,14 @@ class FeatureType(StrEnum):
     BACKEND_LIVEOPS = "backend_liveops"
     ANIMATION = "animation"
     TUTORIAL = "tutorial"
+    CROSS_CUTTING = "cross_cutting"
+
+
+class DeltaStatus(StrEnum):
+    NEW = "NEW"
+    MODIFIED = "MODIFIED"
+    UNCHANGED = "UNCHANGED"
+    REMOVED = "REMOVED"
 
 
 class Priority(StrEnum):
@@ -238,6 +246,7 @@ class Feature(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     assignee: str
     confidence: float = Field(ge=0, le=1)
+    delta_status: DeltaStatus | None = None
     dedup_flag: bool = False
     cross_cutting_flag: bool = False
     ambiguities: list[str] = Field(default_factory=list)
