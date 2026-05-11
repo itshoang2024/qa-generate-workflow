@@ -106,6 +106,7 @@ create table if not exists features (
   dependencies jsonb not null default '[]'::jsonb,
   assignee text not null,
   confidence numeric not null,
+  delta_status text,
   dedup_flag boolean not null default false,
   cross_cutting_flag boolean not null default false,
   ambiguities jsonb not null default '[]'::jsonb,
@@ -253,6 +254,7 @@ create table if not exists sync_events (
 
 create index if not exists idx_runs_project_id on runs(project_id);
 alter table features
+  add column if not exists delta_status text,
   add column if not exists dedup_flag boolean not null default false,
   add column if not exists cross_cutting_flag boolean not null default false;
 
