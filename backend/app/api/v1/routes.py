@@ -13,6 +13,8 @@ from app.domain.models import (
     ReviewDecisionRequest,
     S0TriggerRequest,
     S1ContextRequest,
+    SignOffRequest,
+    utc_now,
 )
 from app.domain.responses import envelope
 from app.services.review_queues import build_review_queue
@@ -206,6 +208,12 @@ def get_validation_issues(run_id: str) -> dict[str, object]:
     return envelope(repository_dependency().list_validation_issues(run_id))
 
 
+@router.get("/runs/{run_id}/risk-events")
+def get_risk_events(run_id: str) -> dict[str, object]:
+    _require_run(run_id)
+    return envelope(repository_dependency().list_risk_events(run_id))
+
+
 @router.get("/runs/{run_id}/sync-events")
 def get_sync_events(run_id: str) -> dict[str, object]:
     _require_run(run_id)
@@ -246,6 +254,23 @@ def replay_sync(run_id: str) -> dict[str, object]:
     _require_run(run_id)
     replayed = repository_dependency().replay_failed_sync_events(run_id)
     return envelope({"replayed_count": len(replayed), "events": replayed})
+
+
+@router.post("/runs/{run_id}/sign-off")
+def sign_off_run(run_id: str, payload: SignOffRequest) -> dict[str, object]:
+    run = _require_run(run_id)
+    signed_off_at = utc_now()
+    run.signed_off_by = payload.reviewer
+    run.signed_off_at = signed_off_at
+    run.coverage_report = {
+        **run.coverage_report,
+        "sign_off": {
+            "signed_off": True,
+            "signed_off_by": payload.reviewer,
+            "signed_off_at": signed_off_at.isoformat(),
+        },
+    }
+    return envelope(repository_dependency().update_run(run))
 
 
 def _require_run(run_id: str):

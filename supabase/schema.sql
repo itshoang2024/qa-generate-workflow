@@ -18,6 +18,8 @@ create table if not exists runs (
   delta_report jsonb,
   coverage_report jsonb not null default '{}'::jsonb,
   timeline jsonb not null default '[]'::jsonb,
+  signed_off_by text,
+  signed_off_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   finished_at timestamptz
@@ -31,7 +33,9 @@ alter table runs
   add column if not exists gdd_document_id text,
   add column if not exists source_version_id text,
   add column if not exists source_metadata jsonb not null default '{}'::jsonb,
-  add column if not exists delta_report jsonb;
+  add column if not exists delta_report jsonb,
+  add column if not exists signed_off_by text,
+  add column if not exists signed_off_at timestamptz;
 
 create table if not exists gdd_documents (
   id text primary key,
@@ -208,6 +212,18 @@ create table if not exists review_decisions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists risk_events (
+  id text primary key,
+  run_id text not null references runs(id) on delete cascade,
+  severity text not null,
+  code text not null,
+  summary text not null,
+  target_type text not null,
+  target_id text not null,
+  owner_action text not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists agent_runs (
   id text primary key,
   run_id text not null references runs(id) on delete cascade,
@@ -259,6 +275,7 @@ create index if not exists idx_hil0_resolutions_run_id on hil0_resolutions(run_i
 create index if not exists idx_features_run_id on features(run_id);
 create index if not exists idx_tasks_run_id on qa_tasks(run_id);
 create index if not exists idx_test_cases_run_id on test_cases(run_id);
+create index if not exists idx_risk_events_run_id on risk_events(run_id);
 create index if not exists idx_sync_events_run_id_status on sync_events(run_id, status);
 
 notify pgrst, 'reload schema';

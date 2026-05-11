@@ -79,20 +79,18 @@ Current implemented endpoints:
 | `GET` | `/runs/{run_id}/tasks` | No | Get `QATask[]`. |
 | `GET` | `/runs/{run_id}/test-cases` | No | Get `TestCase[]`. |
 | `GET` | `/runs/{run_id}/validation-issues` | No | Get `ValidationIssue[]`. |
+| `GET` | `/runs/{run_id}/risk-events` | No | Get Task 4 `RiskEvent[]`. |
 | `GET` | `/runs/{run_id}/sync-events` | No | Get mock Notion `SyncEvent[]`. |
 | `GET` | `/runs/{run_id}/agent-runs` | No | Get Agent A/B/C input and output snapshots. |
 | `GET` | `/runs/{run_id}/review-decisions` | No | Get HIL review decisions for the run. |
 | `GET` | `/runs/{run_id}/review-queues/{hil_tier}` | No | Get HIL-0/1/2/3 review items grouped by reviewer, feature, and epic. |
 | `POST` | `/review-decisions` | Yes | Store a review decision and update in-memory target status when applicable. |
 | `POST` | `/runs/{run_id}/sync-replay` | Yes | Mark failed sync events as replayed. |
+| `POST` | `/runs/{run_id}/sign-off` | Yes | Record QA Lead sign-off and surface it in run coverage. |
 
 ## Remaining Planned Source-Of-Truth Endpoints
 
-These endpoints are not fully implemented yet. They represent the remaining target API needed by Task 1-4.
-
-| Method | Path | Stage | Purpose |
-|---|---|---|---|
-| `GET` | `/runs/{run_id}/risk-events` | Risk | Inspect Task 4 risk events. |
+No planned read endpoint remains in this section for the current slice. Future slices may add write surfaces for dedicated HIL edit requests, learning-loop corrections, and real provider operations.
 
 S0 response shape should include the Task 1 output inside the envelope:
 
@@ -132,6 +130,8 @@ Expected result:
 - `data.current_stage` is `FINAL_COVERAGE`.
 - `data.coverage_report` contains feature/task/test-case counts.
 - Follow-up endpoints can inspect sections, features, epics, stories, tasks, test cases, agent runs, validation issues, review decisions, and sync events.
+- `sync-events` payloads include `sync_phase` as `Sync-A`, `Sync-B`, or `Sync-C`.
+- `risk-events` contains deterministic Task 4 escalations derived from validation issue codes.
 - `Feature`, `QATask`, and `TestCase` payloads include `lane` as `AUTO`, `BATCH`, or `BLOCK`.
 
 Router lane rules:
@@ -194,6 +194,34 @@ Queue tier mapping:
 - `HIL-2`: QA task items; `BLOCK` lane goes to QA Lead, `BATCH` lane goes to the assignee.
 - `HIL-3`: test case items; `BLOCK` lane goes to QA Lead, `BATCH` lane goes to the related task assignee.
 
+## Risk Events
+
+```http
+GET /api/v1/runs/{run_id}/risk-events
+```
+
+Risk events are derived from deterministic validation issues. Current mappings:
+
+- `missing_source_section`, `task_missing_source_section`, `test_case_missing_source_section` -> S1 hallucination/traceability risk.
+- `uncovered_actionable_section` -> S2 scope-drift risk.
+- `invalid_assignee` -> S2 assignee mismatch risk.
+- `duplicate_task_candidate` -> S2 duplicate-task risk.
+
+## Sign-Off
+
+```http
+POST /api/v1/runs/{run_id}/sign-off
+Content-Type: application/json
+```
+
+```json
+{
+  "reviewer": "QA Lead"
+}
+```
+
+The endpoint updates `Run.signed_off_by`, `Run.signed_off_at`, and `Run.coverage_report.sign_off`.
+
 ## Provider Status
 
 ```http
@@ -241,8 +269,8 @@ Supported target types in the in-memory repository are:
 - `task`
 - `test_case`
 
-In-memory status updates are best-effort and match either internal `id` or public IDs such as `task_id`.
-For `epic` decisions, the in-memory store also applies the same decision to features and stories under that epic so HIL-1 approval can clear an epic-level queue.
+Repository status updates are best-effort and match either internal `id` or public IDs such as `task_id`.
+For `epic` decisions, the repository also applies the same decision to features and stories under that epic so HIL-1 approval can clear an epic-level queue.
 
 ## Status Codes
 

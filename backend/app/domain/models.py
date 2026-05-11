@@ -73,6 +73,12 @@ class ValidationSeverity(StrEnum):
     S3_INFORMATIONAL = "S3_INFORMATIONAL"
 
 
+class RiskSeverity(StrEnum):
+    S1 = "S1"
+    S2 = "S2"
+    S3 = "S3"
+
+
 class SyncStatus(StrEnum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
@@ -180,6 +186,8 @@ class Run(BaseModel):
     delta_report: dict[str, Any] | None = None
     coverage_report: dict[str, Any] = Field(default_factory=dict)
     timeline: list[StageEvent] = Field(default_factory=list)
+    signed_off_by: str | None = None
+    signed_off_at: datetime | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     finished_at: datetime | None = None
@@ -349,6 +357,18 @@ class ValidationIssue(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class RiskEvent(BaseModel):
+    id: str = Field(default_factory=lambda: f"risk_{uuid4().hex[:12]}")
+    run_id: str
+    severity: RiskSeverity
+    code: str
+    summary: str
+    target_type: str
+    target_id: str
+    owner_action: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ReviewDecision(BaseModel):
     id: str = Field(default_factory=lambda: f"rd_{uuid4().hex[:12]}")
     run_id: str
@@ -452,6 +472,10 @@ class ReviewDecisionRequest(BaseModel):
     reviewer: str = "demo_user"
     comment: str | None = None
     patch: dict[str, Any] | None = None
+
+
+class SignOffRequest(BaseModel):
+    reviewer: str = Field(default="QA Lead", min_length=1)
 
 
 class ReviewQueueItem(BaseModel):

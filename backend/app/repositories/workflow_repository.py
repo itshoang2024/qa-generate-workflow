@@ -14,6 +14,7 @@ from app.domain.models import (
     Project,
     QATask,
     ReviewDecision,
+    RiskEvent,
     Run,
     Story,
     SyncEvent,
@@ -116,6 +117,12 @@ class WorkflowRepository(ABC):
     def list_validation_issues(self, run_id: str) -> list[ValidationIssue]: ...
 
     @abstractmethod
+    def add_risk_events(self, events: list[RiskEvent]) -> list[RiskEvent]: ...
+
+    @abstractmethod
+    def list_risk_events(self, run_id: str) -> list[RiskEvent]: ...
+
+    @abstractmethod
     def add_review_decision(self, decision: ReviewDecision) -> ReviewDecision: ...
 
     @abstractmethod
@@ -151,6 +158,7 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         self.tasks: dict[str, list[QATask]] = {}
         self.test_cases: dict[str, list[TestCase]] = {}
         self.validation_issues: dict[str, list[ValidationIssue]] = {}
+        self.risk_events: dict[str, list[RiskEvent]] = {}
         self.review_decisions: dict[str, list[ReviewDecision]] = {}
         self.agent_runs: dict[str, list[AgentRun]] = {}
         self.sync_events: dict[str, list[SyncEvent]] = {}
@@ -273,6 +281,14 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     def list_validation_issues(self, run_id: str) -> list[ValidationIssue]:
         return self.validation_issues.get(run_id, [])
+
+    def add_risk_events(self, events: list[RiskEvent]) -> list[RiskEvent]:
+        if events:
+            self.risk_events.setdefault(events[0].run_id, []).extend(events)
+        return events
+
+    def list_risk_events(self, run_id: str) -> list[RiskEvent]:
+        return self.risk_events.get(run_id, [])
 
     def add_review_decision(self, decision: ReviewDecision) -> ReviewDecision:
         self.review_decisions.setdefault(decision.run_id, []).append(decision)

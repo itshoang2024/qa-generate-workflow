@@ -138,6 +138,36 @@ def test_agent_runs_endpoint_returns_agent_snapshots() -> None:
     ]
 
 
+def test_sync_events_endpoint_shows_sync_a_b_c_phases() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.get(f"/api/v1/runs/{run_id}/sync-events")
+
+    assert response.status_code == 200
+    phases = [event["payload"]["sync_phase"] for event in response.json()["data"]]
+    assert phases.count("Sync-A") == 10
+    assert phases.count("Sync-B") == 9
+    assert phases.count("Sync-C") == 36
+    tasks = client.get(f"/api/v1/runs/{run_id}/tasks").json()["data"]
+    task_status = {task["task_id"]: task["status"] for task in tasks}
+    assert task_status["T-001"] == "Test Cases Ready"
+    assert task_status["T-007"] == "Ready for Test Cases"
+
+
+def test_risk_events_endpoint_returns_validator_escalations() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.get(f"/api/v1/runs/{run_id}/risk-events")
+
+    assert response.status_code == 200
+    assert any(
+        event["code"] == "uncovered_actionable_section"
+        for event in response.json()["data"]
+    )
+
+
 def test_review_decisions_endpoint_returns_hil_decisions() -> None:
     client = TestClient(app)
     run_id = _create_demo_run(client)
@@ -211,6 +241,21 @@ def test_review_decision_approval_updates_lane_and_removes_item_from_queue() -> 
         for item in group["items"]
     }
     assert "T-007" not in queued_ids
+
+
+def test_sign_off_endpoint_updates_run_and_coverage_report() -> None:
+    client = TestClient(app)
+    run_id = _create_demo_run(client)
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/sign-off",
+        json={"reviewer": "QA Lead"},
+    )
+    coverage = client.get(f"/api/v1/runs/{run_id}/coverage")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["signed_off_by"] == "QA Lead"
+    assert coverage.json()["data"]["sign_off"]["signed_off"] is True
 
 
 def test_provider_status_endpoint_reports_credential_readiness(

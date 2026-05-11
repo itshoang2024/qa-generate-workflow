@@ -13,6 +13,7 @@ from app.domain.models import (
     Project,
     QATask,
     ReviewDecision,
+    RiskEvent,
     Run,
     Story,
     SyncEvent,
@@ -164,6 +165,13 @@ class SupabaseWorkflowRepository(WorkflowRepository):
 
     def list_validation_issues(self, run_id: str) -> list[ValidationIssue]:
         return self._list_run_rows("validation_issues", run_id, ValidationIssue)
+
+    def add_risk_events(self, events: list[RiskEvent]) -> list[RiskEvent]:
+        self._bulk_insert("risk_events", events)
+        return events
+
+    def list_risk_events(self, run_id: str) -> list[RiskEvent]:
+        return self._list_run_rows("risk_events", run_id, RiskEvent)
 
     def add_review_decision(self, decision: ReviewDecision) -> ReviewDecision:
         self._insert("review_decisions", decision)

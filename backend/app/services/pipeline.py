@@ -18,6 +18,7 @@ from app.domain.models import (
     PipelineStage,
     Project,
     ProjectCreateRequest,
+    ReviewStatus,
     Run,
     RunMode,
     RunStatus,
@@ -30,7 +31,13 @@ from app.repositories.workflow_repository import WorkflowRepository
 from app.services.agents import AgentClient
 from app.services.agents.mock import MockAgentClient
 from app.services.gdd_parser import parse_docx_gdd
-from app.services.notion_sync import MockNotionSyncClient
+from app.services.notion import NotionSyncClient
+from app.services.notion.mock import MockNotionSyncClient
+from app.services.risk_events import (
+    kill_switch_risk_event,
+    kill_switch_state,
+    risk_events_from_validation_issues,
+)
 from app.services.validators import (
     validate_features_with_routing,
     validate_tasks_with_routing,
@@ -49,6 +56,7 @@ class PipelineService:
         upload_dir: Path | None = None,
         max_upload_bytes: int = 10 * 1024 * 1024,
         agent_client: AgentClient | None = None,
+        notion_sync_client: NotionSyncClient | None = None,
     ) -> None:
         self.repository = repository
         self.project_root = fixture_path.parents[1]
@@ -57,7 +65,7 @@ class PipelineService:
         self.upload_dir = upload_dir or self.project_root / "backend" / ".runtime" / "uploads"
         self.max_upload_bytes = max_upload_bytes
         self.agent_client = agent_client or MockAgentClient(fixture_path)
-        self.notion_sync = MockNotionSyncClient()
+        self.notion_sync = notion_sync_client or MockNotionSyncClient()
 
     def create_project(self, request: ProjectCreateRequest) -> Project:
         name = request.name.strip()
@@ -156,6 +164,7 @@ class PipelineService:
             feature_issues = validate_features_with_routing(run.id, features, sections)
             self.repository.set_features(run.id, features)
             self.repository.add_validation_issues(feature_issues)
+            self._record_risk_events(feature_issues)
             run = self._stage(
                 run,
                 PipelineStage.S3_VALIDATION_A,
@@ -191,21 +200,34 @@ class PipelineService:
             task_issues = validate_tasks_with_routing(run.id, tasks, features, sections)
             self.repository.set_tasks(run.id, tasks)
             self.repository.add_validation_issues(task_issues)
+            self._record_risk_events(task_issues)
             feature_name_by_id = {feature.feature_id: feature.name for feature in features}
-            sync_events = []
-            sync_events.extend(self.notion_sync.upsert_epic(epic) for epic in epics)
-            sync_events.extend(self.notion_sync.upsert_story(story) for story in stories)
-            sync_events.extend(
-                self.notion_sync.upsert_task(task, feature_name_by_id.get(task.feature_id, "Unknown"))
-                for task in tasks
-            )
-            self.repository.add_sync_events(sync_events)
+            sync_a_events = self._sync_a_epics_stories(epics, stories)
+            eligible_tasks = self._eligible_for_sync(tasks)
+            sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
+            self.repository.add_sync_events(sync_a_events + sync_b_events)
             run = self._stage(
                 run,
                 PipelineStage.S5_VALIDATION_B_SYNC,
                 f"Task validation produced {len(task_issues)} issues; "
-                f"synced {len(sync_events)} mock Notion records.",
+                f"Sync-A wrote {len(sync_a_events)} records; "
+                f"Sync-B wrote {len(sync_b_events)} task records.",
             )
+            run = self._update_kill_switch_state(run)
+            if self._should_abort_run(run):
+                risk_event = kill_switch_risk_event(
+                    run.id,
+                    run.session_memory["kill_switch"],
+                )
+                self.repository.add_risk_events([risk_event])
+                run.status = RunStatus.FAILED
+                run.finished_at = utc_now()
+                run.coverage_report = self._coverage_report(run.id)
+                return self._stage(
+                    run,
+                    PipelineStage.S5_VALIDATION_B_SYNC,
+                    "Kill switch tripped before Agent C.",
+                )
 
             test_cases = self.agent_client.generate_test_cases(run.id, tasks)
             self.repository.set_test_cases(run.id, test_cases)
@@ -232,9 +254,9 @@ class PipelineService:
             )
             self.repository.set_test_cases(run.id, test_cases)
             self.repository.add_validation_issues(test_case_issues)
-            test_case_sync_events = [
-                self.notion_sync.upsert_test_case(test_case) for test_case in test_cases
-            ]
+            self._record_risk_events(test_case_issues)
+            eligible_test_cases = self._eligible_for_sync(test_cases)
+            test_case_sync_events = self._sync_c_test_cases(eligible_test_cases, tasks)
             self.repository.add_sync_events(test_case_sync_events)
             run = self._stage(
                 run,
@@ -359,16 +381,20 @@ class PipelineService:
 
     def _stage(self, run: Run, stage: PipelineStage, message: str) -> Run:
         run.current_stage = stage
-        run.status = RunStatus.RUNNING if stage != PipelineStage.FINAL_COVERAGE else run.status
+        if run.status != RunStatus.FAILED:
+            run.status = RunStatus.RUNNING if stage != PipelineStage.FINAL_COVERAGE else run.status
         run.timeline.append(StageEvent(stage=stage, status="ok", message=message))
         return self.repository.update_run(run)
 
     def _coverage_report(self, run_id: str) -> dict[str, object]:
+        run = self.repository.get_run(run_id)
         sections = self.repository.list_sections(run_id)
         features = self.repository.list_features(run_id)
         tasks = self.repository.list_tasks(run_id)
         test_cases = self.repository.list_test_cases(run_id)
         issues = self.repository.list_validation_issues(run_id)
+        risk_events = self.repository.list_risk_events(run_id)
+        sync_events = self.repository.list_sync_events(run_id)
 
         actionable_sections = [section.section_id for section in sections if section.actionable]
         covered_sections = sorted({source for feature in features for source in feature.source_sections})
@@ -387,6 +413,85 @@ class PipelineService:
             "validation_issue_count": len(issues),
             "tasks_by_assignee": dict(sorted(assignees.items())),
             "tasks_by_priority": dict(sorted(priorities.items())),
+            "risk_summary": self._risk_summary(risk_events),
+            "sync_summary": self._sync_summary(sync_events),
+            "gdd_version_metadata": {
+                "gdd_document_id": run.gdd_document_id if run else None,
+                "source_version_id": run.source_version_id if run else None,
+                "source_metadata": run.source_metadata if run else {},
+            },
+            "sign_off": {
+                "signed_off": bool(run and run.signed_off_at),
+                "signed_off_by": run.signed_off_by if run else None,
+                "signed_off_at": run.signed_off_at.isoformat()
+                if run and run.signed_off_at
+                else None,
+            },
+        }
+
+    def _sync_a_epics_stories(self, epics: list[Any], stories: list[Any]) -> list[Any]:
+        events = [self.notion_sync.upsert_epic(epic) for epic in epics]
+        events.extend(self.notion_sync.upsert_story(story) for story in stories)
+        return events
+
+    def _sync_b_tasks(
+        self,
+        tasks: list[Any],
+        feature_name_by_id: dict[str, str],
+    ) -> list[Any]:
+        return [
+            self.notion_sync.upsert_task(task, feature_name_by_id.get(task.feature_id, "Unknown"))
+            for task in tasks
+        ]
+
+    def _sync_c_test_cases(self, test_cases: list[Any], tasks: list[Any]) -> list[Any]:
+        events = [self.notion_sync.upsert_test_case(test_case) for test_case in test_cases]
+        synced_task_ids = {test_case.related_task_id for test_case in test_cases}
+        for task in tasks:
+            if task.task_id in synced_task_ids and task.review_status in {
+                ReviewStatus.AUTO_APPROVED,
+                ReviewStatus.APPROVED,
+            }:
+                task.status = "Test Cases Ready"
+        if tasks:
+            self.repository.set_tasks(tasks[0].run_id, tasks)
+        return events
+
+    def _eligible_for_sync(self, items: list[Any]) -> list[Any]:
+        return [
+            item
+            for item in items
+            if item.review_status in {ReviewStatus.AUTO_APPROVED, ReviewStatus.APPROVED}
+        ]
+
+    def _record_risk_events(self, issues: list[Any]) -> None:
+        self.repository.add_risk_events(risk_events_from_validation_issues(issues))
+
+    def _update_kill_switch_state(self, run: Run) -> Run:
+        state = kill_switch_state(self.repository.list_risk_events(run.id))
+        run.session_memory = {**run.session_memory, "kill_switch": state}
+        return self.repository.update_run(run)
+
+    def _should_abort_run(self, run: Run) -> bool:
+        kill_switch = run.session_memory.get("kill_switch", {})
+        return bool(isinstance(kill_switch, dict) and kill_switch.get("tripped"))
+
+    def _risk_summary(self, risk_events: list[Any]) -> dict[str, object]:
+        return {
+            "total": len(risk_events),
+            "by_severity": dict(sorted(Counter(event.severity.value for event in risk_events).items())),
+            "by_code": dict(sorted(Counter(event.code for event in risk_events).items())),
+        }
+
+    def _sync_summary(self, sync_events: list[Any]) -> dict[str, object]:
+        return {
+            "total": len(sync_events),
+            "by_status": dict(sorted(Counter(event.status.value for event in sync_events).items())),
+            "by_phase": dict(
+                sorted(
+                    Counter(event.payload.get("sync_phase", "unknown") for event in sync_events).items()
+                )
+            ),
         }
 
     def _project_id_from_name(self, name: str) -> str:

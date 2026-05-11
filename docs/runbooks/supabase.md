@@ -30,6 +30,7 @@ This runbook describes the current MVP schema. Future risk and sync work will ad
    - `qa_tasks`
    - `test_cases`
    - `validation_issues`
+   - `risk_events`
    - `review_decisions`
    - `agent_runs`
    - `sync_events`
@@ -100,6 +101,7 @@ Expected Supabase rows:
 - eleven rows in `qa_tasks`
 - forty-four rows in `test_cases`
 - rows in `validation_issues`
+- rows in `risk_events`
 - rows in `sync_events`
 
 ## Replace Semantics Warning
@@ -119,7 +121,7 @@ These methods replace all rows of that type for the run. Do not use them for par
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `Supabase storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY` | Missing values in `backend/.env` or the server was not restarted. | Fill both values, restart `uvicorn`, then check `/api/v1/health`. |
-| `Could not find the 'delta_report' column of 'runs' in the schema cache` or `PGRST204` | Supabase table schema is older than the backend models, or PostgREST cache has not reloaded. | Re-run `supabase/schema.sql`; it adds missing columns and sends `notify pgrst, 'reload schema';`, then retry the request. |
+| `Could not find the 'delta_report' column of 'runs' in the schema cache`, `Could not find the 'cross_cutting_flag' column of 'features' in the schema cache`, missing `risk_events`, or any `PGRST204` missing-column/table error | Supabase table schema is older than the backend models, or PostgREST cache has not reloaded. | Re-run `supabase/schema.sql`; it adds missing columns such as `dedup_flag`, `cross_cutting_flag`, test-case `confidence`, sign-off fields, and `risk_events`, then sends `notify pgrst, 'reload schema';`. Restart the backend and retry the request. |
 | `property/table does not exist` or HTTP 400 from Supabase | Schema was not applied or table names changed. | Re-run `supabase/schema.sql` in a test project. |
 | Insert fails on `external_id` uniqueness | Reusing stable fixture external IDs in a table with existing rows. | Use a clean test project or inspect existing rows before rerunning. |
 | API works in memory but fails in Supabase | Provider difference or schema mismatch. | Compare `docs/contracts/storage-contract.md` against `supabase/schema.sql`. |

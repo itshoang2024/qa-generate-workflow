@@ -71,12 +71,12 @@ Current MVP implementation:
 | `S0_TRIGGER` | `PipelineService.run_demo()` | `Project`, `Run` |
 | `S1_CONTEXT_LOADER` | `parse_docx_gdd()` | `GDDSection[]` |
 | `S2_AGENT_A` | `MockAgentClient.analyze_gdd()` | `Feature[]`, `AgentRun` |
-| `S3_VALIDATION_A` | `validate_features()` | `ValidationIssue[]` |
+| `S3_VALIDATION_A` | `validate_features_with_routing()` | `ValidationIssue[]`, `RiskEvent[]` |
 | `S4_AGENT_B` | `MockAgentClient.plan_qa_tasks()` | `Epic[]`, `Story[]`, `QATask[]`, `AgentRun` |
-| `S5_VALIDATION_B_SYNC` | `validate_tasks()`, `MockNotionSyncClient` | task validation issues, mock epic/story/task `SyncEvent[]` |
+| `S5_VALIDATION_B_SYNC` | `validate_tasks_with_routing()`, Sync-A, Sync-B | task validation issues, risk events, mock epic/story/task `SyncEvent[]` with phase labels |
 | `S6_AGENT_C` | `MockAgentClient.generate_test_cases()` | `TestCase[]`, `AgentRun` |
-| `S7_VALIDATION_C_SYNC` | `validate_test_cases()`, `MockNotionSyncClient` | test-case validation issues, test-case `SyncEvent[]` |
-| `FINAL_COVERAGE` | `_coverage_report()` | `Run.coverage_report`, completed status |
+| `S7_VALIDATION_C_SYNC` | `validate_test_cases_with_routing()`, Sync-C | test-case validation issues, risk events, test-case `SyncEvent[]`, task status transition |
+| `FINAL_COVERAGE` | `_coverage_report()` | `Run.coverage_report`, risk/sync/sign-off summaries, completed status |
 
 Each stage appends a `StageEvent` to `Run.timeline`.
 
@@ -91,6 +91,7 @@ Each stage appends a `StageEvent` to `Run.timeline`.
 | QA task | `QATask` | mock Agent B | `set_tasks()` |
 | Test case | `TestCase` | mock Agent C | `set_test_cases()` |
 | Validation issue | `ValidationIssue` | validators | `add_validation_issues()` |
+| Risk event | `RiskEvent` | risk event mapper | `add_risk_events()` |
 | Agent snapshot | `AgentRun` | pipeline | `add_agent_run()` |
 | Mock Notion sync | `SyncEvent` | mock Notion adapter | `add_sync_events()` |
 
@@ -123,7 +124,7 @@ Current source sections use the `§` prefix. Do not replace it with plain numeri
 
 ## Validation Semantics
 
-Validation issues are non-blocking in Phase 1. They are recorded for demo visibility, and the run may still complete.
+Validation issues are non-blocking in Phase 1. They are recorded for demo visibility, and the run may still complete unless the current-run kill switch trips before Agent C.
 
 | Severity | Meaning |
 |---|---|
@@ -145,7 +146,22 @@ Target validators additionally include:
 - hallucination and numerical claim checks
 - forbidden vague phrase checks
 - retry and escalation policy
-- risk event logging
+- risk event logging for all Task 4 failure classes
+
+## Risk Event Semantics
+
+Current deterministic mappings:
+
+| Validation issue code | Risk severity | Meaning |
+|---|---|---|
+| `missing_source_section` | `S1` | Possible hallucination / broken traceability. |
+| `task_missing_source_section` | `S1` | Possible task hallucination / broken traceability. |
+| `test_case_missing_source_section` | `S1` | Possible test-case hallucination / broken traceability. |
+| `uncovered_actionable_section` | `S2` | Scope drift. |
+| `invalid_assignee` | `S2` | Assignee mismatch. |
+| `duplicate_task_candidate` | `S2` | Duplicate task candidate. |
+
+`Run.session_memory.kill_switch` stores current-run counters. When S1 risk count reaches the configured threshold, the pipeline records `kill_switch_tripped`, marks the run `FAILED`, and stops before Agent C.
 
 ## Target Notion Sync Semantics
 
@@ -174,7 +190,23 @@ Task 3 is authoritative for real Notion sync:
   "test_case_count": 44,
   "validation_issue_count": 21,
   "tasks_by_assignee": {"Ngoc Anh": 2},
-  "tasks_by_priority": {"P0": 5}
+  "tasks_by_priority": {"P0": 5},
+  "risk_summary": {"total": 14, "by_severity": {"S2": 14}, "by_code": {}},
+  "sync_summary": {
+    "total": 55,
+    "by_status": {"SUCCESS": 55},
+    "by_phase": {"Sync-A": 10, "Sync-B": 9, "Sync-C": 36}
+  },
+  "gdd_version_metadata": {
+    "gdd_document_id": "gdd_...",
+    "source_version_id": "v1",
+    "source_metadata": {}
+  },
+  "sign_off": {
+    "signed_off": false,
+    "signed_off_by": null,
+    "signed_off_at": null
+  }
 }
 ```
 
@@ -188,6 +220,7 @@ Counts are demo expectations, not universal constants.
 | Missing GDD path | `FileNotFoundError`, returned as HTTP 404 by API route. |
 | Unexpected pipeline exception | Run is marked `FAILED`, then exception is raised. |
 | Validation issue | Stored and surfaced by `/validation-issues`; pipeline continues. |
+| Critical risk threshold reached | Stored as `kill_switch_tripped`; run is marked `FAILED` before Agent C. |
 | Mock sync failure | Not currently simulated except by manually storing failed `SyncEvent` records. |
 
 ## Validation Checklist For Pipeline Changes

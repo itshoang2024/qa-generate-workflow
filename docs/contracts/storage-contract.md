@@ -50,6 +50,7 @@ Storage also should not decide S0 mode. S0 mode detection is rule-based service/
 | `set_tasks()` | Replace all tasks for a run. |
 | `set_test_cases()` | Replace all test cases for a run. |
 | `add_validation_issues()` | Append validation issues. |
+| `add_risk_events()` | Append Task 4 risk events derived from validation/sync/routing failures. |
 | `add_review_decision()` | Append a decision; memory implementation also updates target review status. |
 | `add_agent_run()` | Append an agent snapshot. |
 | `add_sync_events()` | Append sync event audit records. |
@@ -77,6 +78,7 @@ Tables:
 - `qa_tasks`
 - `test_cases`
 - `validation_issues`
+- `risk_events`
 - `review_decisions`
 - `agent_runs`
 - `sync_events`
@@ -85,7 +87,6 @@ Planned memory/risk tables:
 
 - `session_memory`: per-run short-term state, currently stored on `runs.session_memory`.
 - `project_memory`: long-term per-project corrections, supplements, and prior patterns.
-- `risk_events`: Task 4 risk flags, severity, response, owner action, and resolution state.
 - `notion_page_mappings`: `external_id -> page_id` relation cache for Sync-A/B/C.
 
 JSON arrays and snapshots are stored as `jsonb`. Timestamps use `timestamptz`.
@@ -114,7 +115,7 @@ Target GDD version keys:
 | Behavior | Memory | Supabase |
 |---|---|---|
 | Persistence | Process-local only | Cloud persistence |
-| Review status side effect | Updates target object in memory | Stores decision only |
+| Review status side effect | Updates target object in memory | Updates target row and epic cascades where applicable |
 | Replace behavior | Replaces in Python dict | Deletes matching run rows then inserts |
 | Credentials | None | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 | Schema required | No | Yes, `supabase/schema.sql` |

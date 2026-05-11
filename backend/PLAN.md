@@ -11,12 +11,16 @@ Complete the backend according to the four source-of-truth solution files in the
 
 The backend must remain mock-first for the local demo while evolving toward the full staged workflow: S0 trigger/mode detection, S1 rule-based context loading, Agent A/B/C structured JSON output, validation routers, HIL gates, Notion Sync-A/B/C, risk handling, and final coverage/sign-off.
 
-## Current Backend State
+## Current Backend State (2026-05-11)
 
-- FastAPI app, versioned routes, domain models, repository abstraction, mock pipeline, validators, mock Notion sync, Snake Escape fixture, Supabase schema, and tests exist.
-- `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, tasks, test cases, validation issues, coverage, and sync events.
-- `RunMode` already models `NEW_GAME` and `DELTA`.
-- Current implementation is a synchronous MVP with S0 project-selection mode detection, S1 GDD version registration, HIL-0 clarification queue, and DELTA diff scaffold. Real AI, real Notion, later HIL queues, risk dashboard, and full DELTA behavior are still pending.
+- FastAPI app, versioned routes, domain models, repository abstraction (in-memory + Supabase), mock pipeline, validators with lane assignment, mock Notion sync, Snake Escape fixture, Supabase schema, and tests are in place.
+- `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, epics, stories, tasks, test cases, validation issues, agent runs, sync events, coverage, and timeline. Demo counts: 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases.
+- `_stage_s0_trigger` and `_stage_s1_context_loader` are split. S0 only creates a run + initializes `session_memory`; S1 owns raw load, `GDDDocument` versioning (`v1`, `v2`, ...), structural parse, QA-actionability filter, HIL-0 question batching, and DELTA section diff (`NEW`/`MODIFIED`/`UNCHANGED`/`REMOVED`).
+- `AgentClient` abstract base at `app/services/agents/__init__.py` with `MockAgentClient`. Real LLM adapter not implemented.
+- Router lanes shipped end-to-end: `derive_router_lane` thresholds in `domain/models.py`, applied by `validate_*_with_routing`, exposed as computed `Feature.lane` / `QATask.lane` / `TestCase.lane`, and surfaced via `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`. `ReviewDecision` cascades epic → features + stories.
+- `MockNotionSyncClient` is a concrete class with no abstract base. Sync-A / Sync-B / Sync-C are emitted in two blocks inside the same `run_demo()` step (S5 for epics + stories + tasks, S7 for test cases) and are not separated as Task 3 requires.
+- Risk events, learning-loop correction memory, kill switch, reviewer sign-off, and the extended coverage report (risk_summary, sync_summary, gdd_version_metadata, sign_off) are not implemented.
+- Frontend is not scaffolded.
 
 ## Stage-Based Plan
 
