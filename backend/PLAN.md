@@ -14,6 +14,8 @@ The backend must remain mock-first for the local demo while evolving toward the 
 ## Current Backend State (2026-05-11)
 
 - FastAPI app, versioned routes, domain models, repository abstraction (in-memory + Supabase), Snake Escape fixture, Supabase schema, runbooks, and backend tests are in place.
+- Per-stage API endpoints are implemented for the stepped UI: `POST /api/v1/runs/{run_id}/agent-a`, `/agent-b`, `/agent-c`, and `/finalize`. Each endpoint enforces stage preconditions and the relevant blocking HIL gate.
+- HIL-0 supports both single-question resolution and bulk resolution through `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk`, which is the dashboard path for "Proceed with flag (n)".
 - `POST /api/v1/demo-runs` runs the seeded Snake Escape flow and produces sections, features, epics, stories, tasks, test cases, validation issues, risk events, agent runs, Sync-A/B/C events, coverage, sign-off state, and timeline. Demo counts remain 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases in mock mode.
 - `_stage_s0_trigger` and `_stage_s1_context_loader` are split. S0 only creates a run + initializes `session_memory`; S1 owns raw load, `GDDDocument` versioning (`v1`, `v2`, ...), structural parse, QA-actionability filter, HIL-0 question batching, and DELTA section diff (`NEW`/`MODIFIED`/`UNCHANGED`/`REMOVED`).
 - `AgentClient` abstract base is implemented with `MockAgentClient` as the default. Agent A now has a Task 2 structured JSON contract, optional `delta_status`, an OpenAI Responses API adapter behind `AI_PROVIDER=openai`/`real`, and mock-backed Agent B/C fallback until their real contracts ship.
@@ -22,7 +24,7 @@ The backend must remain mock-first for the local demo while evolving toward the 
 - Router lanes ship end-to-end: `derive_router_lane` thresholds in `domain/models.py`, applied by `validate_*_with_routing`, exposed as computed `Feature.lane` / `QATask.lane` / `TestCase.lane`, and surfaced via `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`. `ReviewDecision` cascades epic -> features + stories.
 - `NotionSyncClient` abstract base and `MockNotionSyncClient` are implemented. Sync-A writes epics/stories, Sync-B writes eligible tasks with mock page-id relations, and Sync-C writes eligible test cases and transitions synced parent tasks to `Test Cases Ready`.
 - Risk events, kill switch, reviewer sign-off, and the extended coverage report (`risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`) are implemented. Learning-loop correction memory is still open.
-- Frontend is not scaffolded.
+- Frontend is scaffolded and wired to the staged backend flow. Remaining frontend work is mostly deep-link review/sync/risk/sign-off pages and submission screenshots.
 
 ## Stage-Based Plan
 
@@ -118,6 +120,7 @@ Acceptance:
 - Frontend can show one HIL-0 question batch before Agent A.
 - Proceed-with-flag caps confidence and marks incomplete source.
 - Skipped sections appear in final coverage.
+- Bulk proceed-with-flag resolves the open HIL-0 batch in one API request and avoids parallel Supabase writes from the dashboard.
 
 #### S1.4 DELTA Diff
 
@@ -149,6 +152,23 @@ Acceptance:
 - Mock output remains stable.
 - Real output validates against schema before persistence.
 - Hallucinated or weakly grounded output never bypasses validation.
+
+### Per-Stage Endpoint Orchestration
+
+The backend now exposes the same stage blocks that the UI drives from `<NextStagePanel>`.
+
+Implemented endpoints:
+
+- `POST /api/v1/runs/{run_id}/agent-a`: S1 -> S3, runs Agent A and Validation A.
+- `POST /api/v1/runs/{run_id}/agent-b`: S3 -> S5, requires HIL-1 queue clear, runs Agent B, Validation B, Sync-A, and Sync-B.
+- `POST /api/v1/runs/{run_id}/agent-c`: S5 -> S7, requires HIL-2 queue clear, runs Agent C, Validation C, and Sync-C.
+- `POST /api/v1/runs/{run_id}/finalize`: S7 -> `FINAL_COVERAGE`, requires HIL-3 queue clear and marks the run completed.
+
+Acceptance:
+
+- Wrong-stage calls return HTTP 409 with `error.code="wrong_stage"`.
+- HIL-blocked calls return HTTP 409 with `error.code="hil_gate_blocked"` and the offending tier/count in `error.details`.
+- `/demo-runs` remains the batch smoke-test route and calls the same stage helpers with `auto_approve=True`.
 
 ### S3 Validation A + Router A
 
@@ -303,3 +323,5 @@ Acceptance:
 - Swagger can still run `/api/v1/demo-runs`.
 - Target Stage 0 can create a run from upload + project selection without parsing the file.
 - Target S1 can register/version/parse the uploaded GDD and produce HIL-0/DELTA context.
+- Per-stage endpoints can advance a run from S1 through Agent A, HIL-1, Agent B, HIL-2, Agent C, HIL-3, and Finalize without using `/demo-runs`.
+- Bulk HIL-0 resolution works for the dashboard's "Proceed with flag" action and does not fan out parallel writes.

@@ -132,6 +132,116 @@ def test_project_trigger_context_and_gdd_document_apis() -> None:
     assert [doc["version_id"] for doc in documents_response.json()["data"]] == ["v2", "v1"]
 
 
+def test_agent_a_endpoint_advances_run_to_s3() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+
+    response = client.post(f"/api/v1/runs/{run_id}/agent-a")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["current_stage"] == "S3_VALIDATION_A"
+    assert len(client.get(f"/api/v1/runs/{run_id}/features").json()["data"]) == 8
+    stages = [
+        event["stage"]
+        for event in client.get(f"/api/v1/runs/{run_id}/timeline").json()["data"]
+    ]
+    assert "S2_AGENT_A" in stages
+    assert "S3_VALIDATION_A" in stages
+
+    duplicate = client.post(f"/api/v1/runs/{run_id}/agent-a")
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "wrong_stage"
+
+
+def test_hil0_bulk_resolution_resolves_open_questions() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+    questions = client.get(f"/api/v1/runs/{run_id}/hil-0/questions").json()["data"]
+    open_questions = [question for question in questions if question["status"] == "OPEN"]
+    assert open_questions
+
+    response = client.post(
+        f"/api/v1/runs/{run_id}/hil-0/resolutions/bulk",
+        json={
+            "resolutions": [
+                {
+                    "question_id": question["id"],
+                    "action": "proceed_with_flag",
+                    "reviewer": "QA Lead",
+                    "response": "Proceeding with a confidence flag for the demo walkthrough.",
+                }
+                for question in open_questions
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["data"]) == len(open_questions)
+
+    resolved_questions = client.get(f"/api/v1/runs/{run_id}/hil-0/questions").json()["data"]
+    assert all(question["status"] == "RESOLVED" for question in resolved_questions)
+    assert {question["resolved_action"] for question in resolved_questions} == {"proceed_with_flag"}
+
+
+def test_agent_b_endpoint_blocks_on_unresolved_hil1() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+    assert client.post(f"/api/v1/runs/{run_id}/agent-a").status_code == 200
+
+    blocked = client.post(f"/api/v1/runs/{run_id}/agent-b")
+
+    assert blocked.status_code == 409
+    error = blocked.json()["error"]
+    assert error["code"] == "hil_gate_blocked"
+    assert error["details"]["tier"] == "HIL-1"
+    assert error["details"]["pending_count"] == 2
+
+    _approve_queue(client, run_id, "HIL-1")
+    advanced = client.post(f"/api/v1/runs/{run_id}/agent-b")
+
+    assert advanced.status_code == 200
+    assert advanced.json()["data"]["current_stage"] == "S5_VALIDATION_B_SYNC"
+    phases = [
+        event["payload"]["sync_phase"]
+        for event in client.get(f"/api/v1/runs/{run_id}/sync-events").json()["data"]
+    ]
+    assert phases.count("Sync-A") == 10
+    assert phases.count("Sync-B") == 9
+
+
+def test_agent_c_endpoint_rejects_wrong_stage_after_context() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+
+    response = client.post(f"/api/v1/runs/{run_id}/agent-c")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "wrong_stage"
+    assert response.json()["error"]["details"]["current_stage"] == "S1_CONTEXT_LOADER"
+
+
+def test_stepped_pipeline_matches_demo_counts_after_manual_hil_approval() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+
+    assert client.post(f"/api/v1/runs/{run_id}/agent-a").status_code == 200
+    _approve_queue(client, run_id, "HIL-1")
+    assert client.post(f"/api/v1/runs/{run_id}/agent-b").status_code == 200
+    _approve_queue(client, run_id, "HIL-2")
+    assert client.post(f"/api/v1/runs/{run_id}/agent-c").status_code == 200
+    _approve_queue(client, run_id, "HIL-3")
+    finalized = client.post(f"/api/v1/runs/{run_id}/finalize")
+
+    assert finalized.status_code == 200
+    assert finalized.json()["data"]["status"] == "COMPLETED"
+    assert finalized.json()["data"]["current_stage"] == "FINAL_COVERAGE"
+    coverage = client.get(f"/api/v1/runs/{run_id}/coverage").json()["data"]
+    assert coverage["feature_count"] == 8
+    assert coverage["task_count"] == 11
+    assert coverage["test_case_count"] == 44
+
+
 def test_epics_endpoint_returns_generated_epics() -> None:
     client = TestClient(app)
     run_id = _create_demo_run(client)
@@ -337,3 +447,41 @@ def _create_demo_run(client: TestClient) -> str:
     )
     assert response.status_code == 200
     return response.json()["data"]["id"]
+
+
+def _trigger_and_load_context(client: TestClient) -> str:
+    gdd_path = _snake_gdd_path()
+    if not gdd_path.exists():
+        pytest.skip("Root-level Snake Escape GDD is not available.")
+
+    trigger = client.post(
+        "/api/v1/runs/trigger",
+        json={
+            "project_name": f"Stage API Game {uuid4().hex[:8]}",
+            "gdd_file": str(gdd_path),
+        },
+    )
+    assert trigger.status_code == 200
+    run_id = trigger.json()["data"]["run_id"]
+    context = client.post(f"/api/v1/runs/{run_id}/context")
+    assert context.status_code == 200
+    return run_id
+
+
+def _approve_queue(client: TestClient, run_id: str, tier: str) -> None:
+    queue_response = client.get(f"/api/v1/runs/{run_id}/review-queues/{tier}")
+    assert queue_response.status_code == 200
+    queue = queue_response.json()["data"]
+    for group in queue["groups"]:
+        for item in group["items"]:
+            response = client.post(
+                "/api/v1/review-decisions",
+                json={
+                    "run_id": run_id,
+                    "target_type": item["target_type"],
+                    "target_id": item["target_id"],
+                    "decision": "APPROVED",
+                    "reviewer": group["reviewer"],
+                },
+            )
+            assert response.status_code == 200

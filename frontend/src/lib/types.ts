@@ -504,6 +504,10 @@ export interface HIL0ResolutionRequest {
   artifact_ref?: string;
 }
 
+export interface HIL0BulkResolutionRequest {
+  resolutions: HIL0ResolutionRequest[];
+}
+
 export interface ReviewDecisionRequest {
   run_id: string;
   target_type: string;

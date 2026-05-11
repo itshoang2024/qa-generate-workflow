@@ -4,31 +4,33 @@ This checklist tracks the Next.js demo app against `frontend/PLAN.md` and the fo
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-11)
+## Status Snapshot (last reviewed 2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
 
 | Phase | Done / Total | Status |
 |---|---|---|
-| F0 - Scaffold + Providers | 8 / 8 | Scaffold, providers, env example, typed API/query/mutation layer, and design fixtures shipped. |
+| F0 - Scaffold + Providers | 9 / 9 | Scaffold, providers, env example, typed API/query/mutation layer, design fixtures, and offline Google font build support shipped. |
 | F1 - AppShell + Provider Status + Navigation | 4 / 4 | Shared AppShell, live provider pills, desktop sidebar navigation, provider details dialog, and mobile drawer shipped. |
 | F2 - Projects + GDD Version History | 4 / 4 | Project list, new project dialog, project detail, DELTA trigger, and GDD version-history rows shipped. |
-| F3 - Run Dashboard | 6 / 6 | Timeline, staged Load Context action, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
-| F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | One route template; tier param drives queue + mutation shape. |
+| F3 - Run Dashboard | 6 / 6 | Timeline, Load Context CTA, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
+| F3.5 - Stage-Aware CTA + Inline HIL Approve | 6 / 6 | `<NextStagePanel>`, stage mutation hooks, bulk HIL-0, inline HIL approvals, sequential bulk approvals, and 409 recovery shipped. |
+| F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | Dedicated deep-link routes; re-uses the inline approve list from F3.5. |
 | F5 - Inspection Tables | 0 / 2 | Reusable `<ArtifactTable>` + detail drawer. |
 | F6 - Sync Log + Risk Center | 0 / 3 | Sync log, risk grouped table, kill-switch banner. |
 | F7 - Sign-Off + Final Report | 0 / 2 | Sign-off button, printable report. |
-| F8 - Verification + Submission Polish | 2 / 5 | Lint and build pass; full E2E walkthrough, submission screenshots, and README remain. |
+| F8 - Verification + Submission Polish | 3 / 6 | Lint/typecheck/build pass; HTTP smoke completed separately; browser walkthrough, screenshots, and README remain. |
 
-## Next Implementation Slice - HIL Queues + Artifact Table
+## Next Implementation Slice - Deep Links, Screenshots, And README
 
-The AppShell, projects flow, GDD history, and run dashboard are now in place. Recommended next order:
+The run dashboard can now drive the stepped mock-mode pipeline end to end: `Load Context` creates HIL-0 questions, `Proceed with flag (n)` resolves the HIL-0 batch in one backend request, Agent A/B/C advance through blocking HIL-1/2/3 gates, and Finalize completes the run. The frontend also keeps `next/font/google` restored while `npm run build` works offline through checked-in mocked font responses.
 
-1. Build `/runs/[run_id]/hil/[tier]` route template for HIL-0..HIL-3 queues.
-2. Wire HIL-0 resolutions and HIL-1/2/3 review decisions with pending button states.
-3. Extract the route-local dashboard tables into reusable `<ArtifactTable>`.
-4. Add `<ArtifactDetailDrawer>` for full payload inspection.
-5. Verify with `npm run lint`, `npx tsc --noEmit`, `npm run build`, and browser checks on the queue route.
+Implementation order:
 
-After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
+1. **F8 manual walkthrough** - create a NEW_GAME run and capture the full `Load Context -> HIL-0 -> Agent A -> HIL-1 -> Agent B -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off` path.
+2. **F4 dedicated HIL routes** - build `/runs/[run_id]/hil/[tier]` as deep links that reuse the inline queue rendering and mutation behavior.
+3. **F6/F7 submission pages** - finish sync log, risk center, sign-off report, and print styles.
+4. **Frontend README + screenshots** - document env setup, offline font behavior, demo walkthrough, and screenshot capture.
+
+F5 reusable table/detail cleanup remains useful polish, but it is no longer on the critical path for proving the staged workflow.
 
 ## Phase F0 — Scaffold + Providers
 
@@ -55,6 +57,9 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
 
 - [x] Task: Dump representative JSON for every endpoint into `frontend/_design_fixtures/` (trimmed to 2–3 records + 1 edge case per file) and add `frontend/_design_fixtures/design-system.md`.
   Verify: `Get-ChildItem frontend/_design_fixtures -Filter *.json` returns 17 JSON files and `frontend/_design_fixtures/design-system.md` exists.
+
+- [x] Task: Restore `next/font/google` while keeping offline dev/build support.
+  Verify: `layout.tsx` imports `Inter` and `JetBrains_Mono` from `next/font/google`; `next.config.ts` sets `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`; checked-in WOFF2 files live under `src/app/fonts/google/`; `npm run build` passes offline.
 
 ## Phase F1 — AppShell + Provider Status + Navigation
 
@@ -104,6 +109,28 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
 - [x] Task: Align dashboard visual shell with `ui-design/qa-runs-dashboard` and fix invalid HTML hydration warning.
   Verify: Browser check shows Inter font, slate/indigo tokens, AppShell/sidebar/header, and no `<div>`-inside-`<p>` hydration warning.
 
+## Phase F3.5 — Stage-Aware Dashboard CTA + Inline HIL Approve
+
+Depends on root Phase 1.5 backend endpoints (`/agent-a`, `/agent-b`, `/agent-c`, `/finalize`).
+
+- [x] Task: Add `useRunAgentA`, `useRunAgentB`, `useRunAgentC`, `useFinalizeRun` mutation hooks in `src/lib/mutations.ts`. Each invalidates run / timeline / coverage / agent-runs / sync-events / risk-events / validation-issues plus the four review queues. On `ApiError.code === "hil_gate_blocked"`, toast description should name the offending tier + count.
+  Verify: `npx tsc --noEmit` clean from `frontend/`; each hook is exported and used from the dashboard.
+
+- [x] Task: Replace the hard-coded `Load Context` CTA with `<NextStagePanel>` in `src/app/runs/[id]/page.tsx`. The panel reads `useRun`, `useHil0Questions`, and (lazily) the relevant `useReviewQueue("HIL-1"|"HIL-2"|"HIL-3")` based on `current_stage`. It renders one primary action mapping `current_stage` → mutation per the table in `frontend/PLAN.md` Screen 3.5.
+  Verify: For a freshly triggered NEW_GAME run, the panel walks through `Load Context → Run Agent A → Approve HIL-1 → Run Agent B → Approve HIL-2 → Run Agent C → Approve HIL-3 → Finalize → Sign off` without a page reload or terminal.
+
+- [x] Task: Add inline HIL approve list under `<NextStagePanel>` for HIL-1/2/3. Each item shows `target_id`, `title`, `lane`, `review_status` plus Approve / Reject buttons calling `useCreateReviewDecision`. A bulk `Approve all in queue` button fans out into N mutations with one aggregated toast.
+  Verify: Leaving one feature in `NEEDS_REVIEW` causes the `Run Agent B` button to disable with a "blocked by HIL-1" badge; clicking `Approve all in queue` re-enables it.
+
+- [x] Task: Handle 409 error paths from stage mutations. `hil_gate_blocked` scrolls the inline HIL list into view; `wrong_stage` refetches `useRun`; `kill_switch_tripped` locks the panel and surfaces the red banner the dashboard already renders for `run.session_memory.kill_switch.tripped`.
+  Verify: Manual test by replaying a stale stage mutation — UI recovers gracefully without a hard refresh.
+
+- [x] Task: Add bulk HIL-0 resolution hook and wire `Proceed with flag (n)` to one backend request.
+  Verify: `useResolveHil0Questions()` posts to `/runs/{runId}/hil-0/resolutions/bulk`; dashboard no longer calls `Promise.all` for HIL-0.
+
+- [x] Task: Make bulk HIL-1/2/3 approvals sequential.
+  Verify: `approveItems()` awaits each `useCreateReviewDecision` mutation in order, avoiding request bursts against Supabase/PostgREST.
+
 ## Phase F4 — HIL Queues
 
 - [ ] Task: Build `/runs/[run_id]/hil/[tier]` route template reading `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}` and rendering grouped cards by reviewer / feature / epic.
@@ -148,6 +175,9 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
   Verify: All eight steps complete without console errors.
 
 - [x] Task: `npm run lint` clean from `frontend/`.
+  Verify: Exit code 0.
+
+- [x] Task: `npx tsc --noEmit` clean from `frontend/`.
   Verify: Exit code 0.
 
 - [x] Task: `npm run build` clean from `frontend/`.

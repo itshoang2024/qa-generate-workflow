@@ -30,6 +30,15 @@ app.include_router(api_v1_router, prefix=settings.api_prefix)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+    if isinstance(exc.detail, dict) and "code" in exc.detail:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_envelope(
+                code=str(exc.detail["code"]),
+                message=str(exc.detail.get("message", "Request failed.")),
+                details=exc.detail.get("details"),
+            ),
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content=error_envelope(
@@ -49,4 +58,3 @@ async def unexpected_exception_handler(_: Request, exc: Exception) -> JSONRespon
             details=str(exc),
         ),
     )
-

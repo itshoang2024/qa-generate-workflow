@@ -6,7 +6,9 @@ Deliver a Next.js demo app that exposes every Task-1..4 capability already imple
 
 The frontend is the last credibility gap before submission: backend is feature-complete in mock mode (S0..S7 + HIL-0..HIL-3 + Sync-A/B/C + RiskEvent + kill switch + sign-off), but a reviewer currently cannot see it without `curl`.
 
-## Current State (2026-05-11)
+## Current State (2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
+
+> **Latest implementation pass:** the dashboard no longer stops after `Load Context`. Backend Phase 1.5 endpoints and frontend Phase F3.5 are wired, so the run dashboard can advance Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off.
 
 Already shipped:
 
@@ -20,15 +22,22 @@ Already shipped:
 - `frontend/_design_fixtures/` contains 17 representative JSON payloads plus `design-system.md` for design handoff/reference work.
 - `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px desktop sidebar, mobile sidebar drawer, 56px header, provider status pills/details dialog from `/providers/status`, search command shell, current-run navigation, and user footer.
 - `/projects` and `/projects/[project_id]` are implemented with project listing, new project dialog, run history, DELTA trigger, and GDD version history from `/projects/{project_id}/gdd-documents`.
-- `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, staged `Load Context` action for fresh S0 runs, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
+- `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, `<NextStagePanel>`, inline HIL approvals, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
 - The run dashboard hydration issue caused by a `<div>` skeleton inside `<p>` was fixed with an inline `<span>` skeleton.
 
-Still missing:
+Shipped in the latest pass:
 
+- **Stage-aware `<NextStagePanel>` on the run dashboard** (Screen 3.5 below), replacing the hard-coded S0-only `Load Context` button.
+- **Stage advance mutation hooks** (`useRunAgentA`, `useRunAgentB`, `useRunAgentC`, `useFinalizeRun`) in `src/lib/mutations.ts`.
+- **Inline HIL approve list** rendered under `<NextStagePanel>` for HIL-1/2/3 so the reviewer can clear the blocking gate without leaving the dashboard.
+- **Bulk HIL-0 mutation** (`useResolveHil0Questions`) so "Proceed with flag (n)" sends one API request instead of N parallel single-question requests.
+- **Offline `next/font/google` support** for Inter and JetBrains Mono through checked-in Google font mock responses and local WOFF2 files. `npm run dev` and `npm run build` use webpack because Turbopack currently fails on the local mocked font paths.
+
+Still missing:
 - `/runs/[run_id]/hil/[tier]`, `/runs/[run_id]/sync-log`, `/runs/[run_id]/risk`, and `/runs/[run_id]/sign-off`.
 - Reusable `<ArtifactTable>` and `<ArtifactDetailDrawer>` extraction. The run dashboard currently uses route-local table components.
 - Global header sign-off action polish.
-- `frontend/README.md` with run + build commands.
+- `frontend/README.md` with run + build commands and the offline font note.
 
 ## Target Architecture
 
@@ -110,18 +119,44 @@ Surfaces: `/runs/[run_id]`.
 Behaviour:
 
 - Vertical timeline from `GET /api/v1/runs/{run_id}/timeline` showing every `StageEvent` S0..FINAL_COVERAGE with status + message.
-- Staged next action for fresh S0 runs: a primary `Load Context` CTA calls `POST /api/v1/runs/{run_id}/context`, registers/parses the GDD, creates HIL-0 questions, and refreshes run/timeline/coverage state.
 - Coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary` (by severity + by code), `sync_summary` (by status + by phase), `gdd_version_metadata`, `sign_off` block.
 - Agent runs panel from `GET /api/v1/runs/{run_id}/agent-runs` with Agent A's `attempt_count`, `retry_exhausted`, and expandable `attempts[]` log from the input/output snapshots.
 - Tabs below: Features, Epics, Stories, Tasks, Test Cases, Validation Issues. The current implementation uses route-local tables; Screen 5 remains responsible for extracting a reusable inspection table and drawer.
+- The single-stage `Load Context` CTA is replaced by `<NextStagePanel>` (Screen 3.5) which owns every stage advance.
 
 Acceptance:
 
 - Demo run shows timeline with 9 stage events (S0 → FINAL_COVERAGE).
-- A newly triggered project run opens at `S0_TRIGGER` and shows `Load Context`; after clicking it, the dashboard advances to `S1_CONTEXT_LOADER` with GDD metadata and parsed section counts.
 - Coverage cards show the live backend coverage payload, including section counts, generated artifact counts, risk summary, sync summary, GDD metadata, and sign-off state.
 - Agent A row exposes attempt log when expanded.
 - `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass after the dashboard/AppShell implementation.
+
+### Screen 3.5 — `<NextStagePanel>` stage-aware CTA + inline HIL approve
+
+Surfaces: top of `/runs/[run_id]` (replaces the existing `Load Context` button).
+
+Behaviour:
+
+- Reads `useRun(runId)`, `useHil0Questions(runId)`, and the relevant `useReviewQueue(runId, "HIL-1"|"HIL-2"|"HIL-3")` lazily based on `current_stage`. Decides the next action from this state machine:
+
+  | `run.current_stage` | Blocker | Primary action |
+  |---|---|---|
+  | `S0_TRIGGER` | — | `Load Context` → `useLoadContext` |
+  | `S1_CONTEXT_LOADER` | open HIL-0 questions? | If yes: `Proceed with flag (n)` -> `useResolveHil0Questions`. If no: `Run Agent A` -> `useRunAgentA` |
+  | `S2_AGENT_A` / `S3_VALIDATION_A` | HIL-1 queue > 0? | If yes: render inline approve list + `Approve all` shortcut. If no: `Run Agent B` → `useRunAgentB` |
+  | `S4_AGENT_B` / `S5_VALIDATION_B_SYNC` | HIL-2 queue > 0? | If yes: inline approve list. If no: `Run Agent C` → `useRunAgentC` |
+  | `S6_AGENT_C` / `S7_VALIDATION_C_SYNC` | HIL-3 queue > 0? | If yes: inline approve list. If no: `Finalize` → `useFinalizeRun` |
+  | `FINAL_COVERAGE` | not signed off? | `Sign off` → `useSignOffRun`; signed → green banner |
+
+- On 409 `hil_gate_blocked` from a stage mutation, surface a toast with the offending tier + count and scroll the inline HIL list into view.
+- On 409 `wrong_stage` (e.g. duplicate click), refetch `useRun` to resync UI.
+- On `kill_switch_tripped` the panel locks to a red banner and the dashboard kill-switch banner above remains visible.
+
+Acceptance:
+
+- Walkthrough test (manual, captured in screenshots): with mock providers, clicking through the panel without any terminal command takes a NEW_GAME run from `S0_TRIGGER` to `FINAL_COVERAGE` and produces the same Snake Escape counts (8 features / 5 epics / 5 stories / 11 tasks / 44 test cases) as `/demo-runs`.
+- Blocking gate: leaving one feature in `NEEDS_REVIEW` causes the `Run Agent B` button to disable and the inline HIL-1 list to show that item; approving it re-enables the button.
+- The panel re-renders after every mutation invalidation without a hard reload.
 
 ### Screen 4 — HIL queues (tiers 0/1/2/3)
 
@@ -130,7 +165,7 @@ Surfaces: `/runs/[run_id]/hil/[tier]`.
 Behaviour:
 
 - Reads `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`; renders the API's pre-grouped `ReviewQueueGroup[]` (group by reviewer / feature / epic).
-- HIL-0 actions: `POST /api/v1/runs/{run_id}/hil-0/resolutions` with `action` in `{provide_artifact, proceed_with_flag, skip_section}`. Form per question.
+- HIL-0 actions: `POST /api/v1/runs/{run_id}/hil-0/resolutions` for one question or `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk` for the dashboard batch action. `action` stays in `{provide_artifact, proceed_with_flag, skip_section}`.
 - HIL-1/2/3 actions: `POST /api/v1/review-decisions` with `target_type` + `target_id` + `decision` in `{APPROVED, REJECTED, BLOCKED}` + optional `comment` and `patch`.
 - Lane badges (AUTO / BATCH / BLOCK) match `ReviewQueueItem.lane`; severity badges on associated validation issues.
 - Bulk approve at group level → fan out into individual mutations + single toast.
@@ -207,9 +242,10 @@ Acceptance:
 The frontend slice is complete when:
 
 - `npm run dev` from `frontend/` opens `http://localhost:3000` against `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1` and renders the AppShell.
-- A new user can: create a project → trigger NEW_GAME run at S0 → open `/runs/{run_id}` → Load Context for S1 → walk through HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in the sync log → see risk events → sign off → see the green sign-off banner on the coverage report.
+- A new user can drive the entire stepped walkthrough from the UI: create a project → trigger NEW_GAME → on `/runs/{run_id}` click `Load Context` → `Run Agent A` → approve HIL-1 inline → `Run Agent B` → approve HIL-2 inline → `Run Agent C` → approve HIL-3 inline → `Finalize` → `Sign off`. No terminal commands required.
+- Skipping a HIL approval disables the next stage button and surfaces the queue inline; clicking `Approve all in queue` re-enables it.
 - A second run on the same project triggers DELTA mode and the GDD version history shows `v1` and `v2` linked by `parent_document_id`.
 - `npm run lint` passes from `frontend/`.
-- `npm run build` passes from `frontend/`.
-- Six submission screenshots are captured: AppShell with provider pills, Run dashboard with timeline + coverage, HIL-2 queue, Sync log filtered by Sync-B, Risk center, signed-off coverage report.
+- `npm run build` passes from `frontend/` offline with `next/font/google` restored through local mocked Google font responses.
+- Six submission screenshots are captured: AppShell with provider pills, Run dashboard at each next-stage CTA (S1 / HIL-1 / HIL-2 / HIL-3 / FINAL), HIL queue inline, Sync log filtered by Sync-B, Risk center, signed-off coverage report.
 - `frontend/README.md` documents the dev + build + screenshot capture commands.

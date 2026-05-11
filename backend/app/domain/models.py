@@ -473,6 +473,10 @@ class HIL0ResolutionRequest(BaseModel):
     artifact_ref: str | None = None
 
 
+class HIL0BulkResolutionRequest(BaseModel):
+    resolutions: list[HIL0ResolutionRequest] = Field(min_length=1)
+
+
 class ReviewDecisionRequest(BaseModel):
     run_id: str
     target_type: str

@@ -78,6 +78,9 @@ class WorkflowRepository(ABC):
     def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution: ...
 
     @abstractmethod
+    def add_hil0_resolutions(self, resolutions: list[HIL0Resolution]) -> list[HIL0Resolution]: ...
+
+    @abstractmethod
     def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]: ...
 
     @abstractmethod
@@ -229,12 +232,17 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         return self.hil0_questions.get(run_id, [])
 
     def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution:
-        self.hil0_resolutions.setdefault(resolution.run_id, []).append(resolution)
-        for question in self.hil0_questions.get(resolution.run_id, []):
-            if question.id == resolution.question_id:
-                question.status = "RESOLVED"
-                question.resolved_action = resolution.action
-        return resolution
+        return self.add_hil0_resolutions([resolution])[0]
+
+    def add_hil0_resolutions(self, resolutions: list[HIL0Resolution]) -> list[HIL0Resolution]:
+        for resolution in resolutions:
+            self.hil0_resolutions.setdefault(resolution.run_id, []).append(resolution)
+            for question in self.hil0_questions.get(resolution.run_id, []):
+                if question.id == resolution.question_id:
+                    question.status = "RESOLVED"
+                    question.resolved_action = resolution.action
+                    break
+        return resolutions
 
     def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]:
         return self.hil0_resolutions.get(run_id, [])

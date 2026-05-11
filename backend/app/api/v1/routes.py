@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections import Counter
+
 from fastapi import APIRouter, HTTPException
 
 from app.api.v1.dependencies import pipeline_dependency, repository_dependency, settings_dependency
 from app.config import Settings
 from app.domain.models import (
     DemoRunRequest,
+    HIL0BulkResolutionRequest,
     HIL0Resolution,
     HIL0ResolutionRequest,
     ProjectCreateRequest,
@@ -18,6 +21,7 @@ from app.domain.models import (
 )
 from app.domain.responses import envelope
 from app.services.agents.factory import SUPPORTED_AI_PROVIDERS
+from app.services.pipeline import PipelineConflictError
 from app.services.review_queues import build_review_queue
 
 router = APIRouter()
@@ -131,6 +135,58 @@ def load_run_context(run_id: str, payload: S1ContextRequest | None = None) -> di
     return envelope(result)
 
 
+@router.post("/runs/{run_id}/agent-a")
+def run_agent_a(run_id: str) -> dict[str, object]:
+    try:
+        run = pipeline_dependency().run_agent_a(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(run)
+
+
+@router.post("/runs/{run_id}/agent-b")
+def run_agent_b(run_id: str) -> dict[str, object]:
+    try:
+        run = pipeline_dependency().run_agent_b(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(run)
+
+
+@router.post("/runs/{run_id}/agent-c")
+def run_agent_c(run_id: str) -> dict[str, object]:
+    try:
+        run = pipeline_dependency().run_agent_c(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(run)
+
+
+@router.post("/runs/{run_id}/finalize")
+def finalize_run(run_id: str) -> dict[str, object]:
+    try:
+        run = pipeline_dependency().finalize_run(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(run)
+
+
 @router.get("/runs/{run_id}/timeline")
 def get_timeline(run_id: str) -> dict[str, object]:
     run = _require_run(run_id)
@@ -174,6 +230,40 @@ def create_hil0_resolution(run_id: str, payload: HIL0ResolutionRequest) -> dict[
         HIL0Resolution(run_id=run_id, **payload.model_dump())
     )
     return envelope(resolution)
+
+
+@router.post("/runs/{run_id}/hil-0/resolutions/bulk")
+def create_hil0_resolutions(run_id: str, payload: HIL0BulkResolutionRequest) -> dict[str, object]:
+    _require_run(run_id)
+    question_ids = {question.id for question in repository_dependency().list_hil0_questions(run_id)}
+    requested_ids = [resolution.question_id for resolution in payload.resolutions]
+    missing_ids = sorted(set(requested_ids) - question_ids)
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "HIL-0 question not found.",
+                "question_ids": missing_ids,
+            },
+        )
+
+    duplicate_ids = sorted(
+        question_id for question_id, count in Counter(requested_ids).items() if count > 1
+    )
+    if duplicate_ids:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Duplicate HIL-0 question resolution.",
+                "question_ids": duplicate_ids,
+            },
+        )
+
+    resolutions = [
+        HIL0Resolution(run_id=run_id, **resolution.model_dump())
+        for resolution in payload.resolutions
+    ]
+    return envelope(repository_dependency().add_hil0_resolutions(resolutions))
 
 
 @router.get("/runs/{run_id}/features")
@@ -289,6 +379,17 @@ def _require_project(project_id: str):
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found.")
     return project
+
+
+def _raise_pipeline_conflict(exc: PipelineConflictError) -> None:
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": exc.code,
+            "message": exc.message,
+            "details": exc.details,
+        },
+    ) from exc
 
 
 def _ai_credentials_ready(settings: Settings) -> bool:

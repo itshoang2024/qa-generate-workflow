@@ -112,14 +112,25 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         return self._list_run_rows("hil0_questions", run_id, HIL0Question)
 
     def add_hil0_resolution(self, resolution: HIL0Resolution) -> HIL0Resolution:
-        self._insert("hil0_resolutions", resolution)
-        self.client.table("hil0_questions").update(
-            {
-                "status": "RESOLVED",
-                "resolved_action": resolution.action.value,
-            }
-        ).eq("id", resolution.question_id).execute()
-        return resolution
+        return self.add_hil0_resolutions([resolution])[0]
+
+    def add_hil0_resolutions(self, resolutions: list[HIL0Resolution]) -> list[HIL0Resolution]:
+        if not resolutions:
+            return resolutions
+
+        self._bulk_insert("hil0_resolutions", resolutions)
+        question_ids_by_action: dict[str, list[str]] = {}
+        for resolution in resolutions:
+            question_ids_by_action.setdefault(resolution.action.value, []).append(resolution.question_id)
+
+        for action, question_ids in question_ids_by_action.items():
+            self.client.table("hil0_questions").update(
+                {
+                    "status": "RESOLVED",
+                    "resolved_action": action,
+                }
+            ).in_("id", question_ids).execute()
+        return resolutions
 
     def list_hil0_resolutions(self, run_id: str) -> list[HIL0Resolution]:
         return self._list_run_rows("hil0_resolutions", run_id, HIL0Resolution)
@@ -132,28 +143,28 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         return self._list_run_rows("features", run_id, Feature)
 
     def set_epics(self, run_id: str, epics: list[Epic]) -> list[Epic]:
-        self._replace_run_rows("epics", epics, run_id)
+        self._replace_run_rows("epics", epics, run_id, on_conflict="external_id")
         return epics
 
     def list_epics(self, run_id: str) -> list[Epic]:
         return self._list_run_rows("epics", run_id, Epic)
 
     def set_stories(self, run_id: str, stories: list[Story]) -> list[Story]:
-        self._replace_run_rows("stories", stories, run_id)
+        self._replace_run_rows("stories", stories, run_id, on_conflict="external_id")
         return stories
 
     def list_stories(self, run_id: str) -> list[Story]:
         return self._list_run_rows("stories", run_id, Story)
 
     def set_tasks(self, run_id: str, tasks: list[QATask]) -> list[QATask]:
-        self._replace_run_rows("qa_tasks", tasks, run_id)
+        self._replace_run_rows("qa_tasks", tasks, run_id, on_conflict="external_id")
         return tasks
 
     def list_tasks(self, run_id: str) -> list[QATask]:
         return self._list_run_rows("qa_tasks", run_id, QATask)
 
     def set_test_cases(self, run_id: str, test_cases: list[TestCase]) -> list[TestCase]:
-        self._replace_run_rows("test_cases", test_cases, run_id)
+        self._replace_run_rows("test_cases", test_cases, run_id, on_conflict="external_id")
         return test_cases
 
     def list_test_cases(self, run_id: str) -> list[TestCase]:
@@ -222,11 +233,24 @@ class SupabaseWorkflowRepository(WorkflowRepository):
     def _upsert(self, table: str, model: Any) -> None:
         self.client.table(table).upsert(self._dump(model), on_conflict="id").execute()
 
-    def _replace_run_rows(self, table: str, models: list[Any], run_id: str | None = None) -> None:
+    def _replace_run_rows(
+        self,
+        table: str,
+        models: list[Any],
+        run_id: str | None = None,
+        *,
+        on_conflict: str | None = None,
+    ) -> None:
         target_run_id = run_id or (models[0].run_id if models else None)
         if target_run_id:
             self.client.table(table).delete().eq("run_id", target_run_id).execute()
-        self._bulk_insert(table, models)
+        if not models:
+            return
+        payload = [self._dump(model) for model in models]
+        if on_conflict:
+            self.client.table(table).upsert(payload, on_conflict=on_conflict).execute()
+            return
+        self.client.table(table).insert(payload).execute()
 
     def _list_run_rows(self, table: str, run_id: str, model_type: type[ModelT]) -> list[ModelT]:
         rows = self.client.table(table).select("*").eq("run_id", run_id).execute().data

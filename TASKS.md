@@ -2,33 +2,29 @@
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-11 — post Sync/Risk slice)
+## Status Snapshot (last reviewed 2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
 
 | Phase | Done / Total | Notes |
 |---|---|---|
 | Phase 0 - Repo And Docs | 5 / 5 | Repo docs, backend `.env`, and default GDD path behavior are aligned. |
 | Phase 1 - Backend Stage Completion | 16 / 16 | S0/S1 split, Project/GDDDocument APIs, inspection endpoints, `/providers/status`, and router-lane fields all shipped and test-covered. |
+| Phase 1.5 - Stage Orchestration Endpoints | 7 / 7 | Per-stage endpoints, blocking HIL gates, bulk HIL-0 resolution, and regression tests shipped. |
 | Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair + OpenAI Agent A adapter shipped. Real Agent B/C, real Notion adapter, Notion schema preflight/rate limit/dead-letter still open. |
-| Phase 3 - Frontend | 0 / 8 | `frontend/` not scaffolded. |
-| Phase 4 - Verification & Submission | 0 / 6 | Final pass; depends on Phase 2-3. |
+| Phase 3 - Frontend | 10 / 12 | Stage-aware dashboard CTA, stage mutation hooks, inline HIL approval, bulk HIL-0, and offline font build support shipped; deep-link HIL routes and sync/risk pages remain. |
+| Phase 4 - Verification & Submission | 4 / 8 | Backend tests/lint and frontend lint/typecheck/build pass; screenshots, README polish, browser walkthrough capture, and real Notion smoke remain. |
 
-## Current Focus — Frontend Demo App (Phase 3)
+## Current Focus - Verification, Deep Links, And Submission Polish
 
-Backend is now feature-complete for the homework's core narrative: every stage from Task 1 (S0..S7 + HIL-0..HIL-3 + Final Coverage) is implemented; Task 2 contracts (`AgentAOutput` + JSON schema + structured-output OpenAI adapter) are wired with bounded retry/repair; Task 3 Sync-A/B/C separation with `external_id` → `notion_page_id` mapping is verified by tests (10 / 9 / 36 events per demo run); Task 4 RiskEvent model + kill switch + sign-off endpoint + risk/sync summary in the coverage report all ship and are test-covered.
+The previous E2E blocker is closed. The backend has per-stage endpoints, the frontend can advance through Agent A/B/C/finalize from `<NextStagePanel>`, HIL-1/2/3 are blocking gates, and HIL-0 bulk resolution prevents the Supabase/http2 disconnect caused by 19 parallel resolution requests.
 
-The remaining backend work (real Agent B/C LLM adapter, real Notion `httpx` adapter with retry/rate-limit/dead-letter) gives marginal demo value compared to a frontend that finally shows the workflow to a reviewer. The submission is a homework deliverable — visual proof of the run dashboard, GDD version history, HIL queues, sync log, and coverage report is what makes the design tangible.
+Remaining implementation and polish should focus on:
 
-Recommended order in the frontend slice:
+1. **Manual browser walkthrough capture** - drive `Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off` against the running stack and record screenshots.
+2. **Frontend deep-link routes** - `/runs/[run_id]/hil/[tier]`, `/sync-log`, `/risk`, and `/sign-off` remain useful for screenshots and reviewer navigation, even though the inline dashboard flow can complete the pipeline.
+3. **README/submission polish** - document both `/demo-runs` batch mode and the stepped UI walkthrough, plus offline `next/font/google` build behavior.
+4. **Real providers** - real Agent B/C and real Notion remain follow-up work; mock mode is the stable local demo path.
 
-1. Scaffold `frontend/` with Next.js 14 + TypeScript + Tailwind. Add an API client wrapper around the `{ data, meta, error }` envelope so every page can reuse `useEnvelope()`.
-2. **Project + GDD screen** — `POST /api/v1/projects` and `POST /api/v1/runs/trigger`. New project → `NEW_GAME`, existing project picker → `DELTA`. Show GDD version history from `GET /api/v1/projects/{id}/gdd-documents` with `parent_document_id` links and `delta_report` summary.
-3. **Run dashboard + timeline** — `POST /api/v1/demo-runs` button plus a list from `GET /api/v1/runs`; per-run timeline from `GET /api/v1/runs/{id}/timeline` showing every `StageEvent` from S0 through `FINAL_COVERAGE`.
-4. **HIL review screens** — wire `GET /api/v1/runs/{id}/review-queues/HIL-0..HIL-3` plus `POST /api/v1/runs/{id}/hil-0/resolutions` and `POST /api/v1/review-decisions`. Show lane badges (AUTO / BATCH / BLOCK), group by reviewer / feature / epic exactly like the API returns.
-5. **Inspection panels** — features, epics, stories, tasks, test cases, validation issues, agent runs (with `attempt_count` / `retry_exhausted` for Agent A). Display `delta_status` on features and `sync_phase` on sync events.
-6. **Risk + sync log + coverage report** — `risk-events`, `sync-events` (filter by `sync_phase`), and the extended coverage payload including `risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`. Add a `POST /api/v1/runs/{id}/sign-off` button gated to QA Lead role.
-7. **Provider status badge** in the global header from `GET /api/v1/providers/status` so a reviewer instantly sees `mock` / `openai` / `supabase` state.
-
-Parallelizable backend follow-ups (lower priority, can ship after a working frontend MVP):
+Lower-priority follow-ups (do **after** the walkthrough works):
 
 - Real Agent B/C OpenAI adapters analogous to `OpenAIAgentClient.analyze_gdd`.
 - Real Notion adapter (`NotionSyncClient` httpx implementation) with schema preflight, rate-limit/backoff, dead-letter queue, and a `POST /sync-replay` producer that actually moves `SyncStatus.FAILED` → `REPLAYED`.
@@ -107,6 +103,31 @@ Parallelizable backend follow-ups (lower priority, can ship after a working fron
 - [x] Task: Add router lane fields or derived API output for auto, needs-review, and blocked items.
   Verify: Low-confidence fixture features/tasks appear in the needs-review lane. `Feature`, `QATask`, `TestCase` expose computed `lane`; `validate_*_with_routing` sets `review_status` per Task 1 thresholds. Covered by `test_demo_run_api_produces_enveloped_response`, `test_review_queue_endpoint_groups_items_by_reviewer_feature_and_epic`, `test_review_decision_approval_updates_lane_and_removes_item_from_queue`.
 
+## Phase 1.5 - Stage Orchestration Endpoints (new)
+
+These tasks unblock the stepped E2E walkthrough. Each per-stage endpoint advances the run by exactly one stage block and refuses re-entry / out-of-order calls / unresolved HIL queues with HTTP 409.
+
+- [x] Task: Extract `_stage_s2_agent_a(run, sections, *, auto_approve)`, `_stage_s4_agent_b(run, *, auto_approve)`, `_stage_s6_agent_c(run)`, `_stage_finalize(run)` methods on `PipelineService` so per-stage endpoints can reuse them. `run_demo()` becomes a thin wrapper calling them in order with `auto_approve=True`.
+  Verify: `pytest -k pipeline` still asserts 8 features / 5 epics / 5 stories / 11 tasks / 44 test cases from `/demo-runs`.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-a`. Preconditions: `current_stage == S1_CONTEXT_LOADER`. Effect: run Agent A with bounded retry, persist features, run Validation A, record risk events, advance to `S3_VALIDATION_A`. Errors: 404 run not found; 409 `wrong_stage` if already advanced; 409 `gdd_not_loaded` if S1 was never run.
+  Verify: New `test_agent_a_endpoint_advances_run_to_s3` test posts to the endpoint after `/runs/trigger` + `/context` and asserts `current_stage`, feature count, and a `S2_AGENT_A` + `S3_VALIDATION_A` event pair on the timeline.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-b`. Preconditions: `current_stage == S3_VALIDATION_A`, HIL-1 queue empty. Effect: build HIL-1 session snapshot from current feature approvals, run Agent B, validate tasks, run Sync-A + Sync-B, update kill switch, advance to `S5_VALIDATION_B_SYNC`. Errors: 409 `hil_gate_blocked` with `{ tier: "HIL-1", pending_count }` when queue has `NEEDS_REVIEW`/`BLOCKED` items.
+  Verify: New `test_agent_b_endpoint_blocks_on_unresolved_hil1` test runs Agent A, leaves one feature in `NEEDS_REVIEW`, and asserts the call returns 409 with the right code. After resolving via `/review-decisions`, the call succeeds and produces Sync-A + Sync-B events.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-c`. Preconditions: `current_stage == S5_VALIDATION_B_SYNC`, HIL-2 queue empty. Effect: run Agent C, validate test cases, run Sync-C, flip approved tasks to `Test Cases Ready`, advance to `S7_VALIDATION_C_SYNC`.
+  Verify: Same shape as Agent B test; assert 44 test cases and `S6_AGENT_C` + `S7_VALIDATION_C_SYNC` events.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/finalize`. Preconditions: `current_stage == S7_VALIDATION_C_SYNC`, HIL-3 queue empty. Effect: build coverage report, mark run `COMPLETED`, advance to `FINAL_COVERAGE`.
+  Verify: Stepped walkthrough test runs trigger → context → agent-a → agent-b → agent-c → finalize and asserts the run lands at `FINAL_COVERAGE` with the same coverage counts as `/demo-runs` (`auto_approve=True`).
+
+- [x] Task: Centralise HIL precondition check (`_assert_hil_gate_clear(run_id, tier)`) and `wrong_stage` enforcement on `PipelineService`. Use it from all four endpoints.
+  Verify: Posting `/agent-c` directly after `/context` returns 409 `wrong_stage`; posting `/agent-a` twice returns 409 `wrong_stage` on the second call.
+
+- [x] Task: Add bulk HIL-0 resolution endpoint for the dashboard's `Proceed with flag (n)` action.
+  Verify: `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk` validates the requested question IDs, rejects duplicates, inserts all resolutions in one repository call, marks the questions resolved, and is covered by `test_hil0_bulk_resolution_resolves_open_questions`.
+
 ## Phase 2 - Real AI, Notion, And Risk Handling
 
 - [x] Task: Introduce `AgentClient` interface with methods for Agent A, Agent B, and Agent C.
@@ -144,49 +165,66 @@ Parallelizable backend follow-ups (lower priority, can ship after a working fron
 
 ## Phase 3 - Frontend Demo App
 
-- [ ] Task: Scaffold `frontend/` with Next.js + TypeScript.
+Per-screen task tracking now lives in `frontend/TASKS.md`. The high-level slices below mirror that file so a reader who only opens this document still sees Phase 3 status.
+
+- [x] Task: Scaffold `frontend/` with Next.js + TypeScript.
   Verify: `npm run dev` starts and shows a basic app shell.
 
-- [ ] Task: Add API client wrapper for the backend response envelope.
-  Verify: Frontend can call `/api/v1/health` and render provider mode.
+- [x] Task: Add API client wrapper for the backend response envelope, typed query / mutation layer.
+  Verify: `frontend/src/lib/api.ts` + `queries.ts` + `mutations.ts` cover every `/api/v1` route; `npx tsc --noEmit` clean.
 
-- [ ] Task: Build project selection/create screen for S0 mode detection.
+- [x] Task: Build project selection/create screen for S0 mode detection.
   Verify: New project creates `NEW_GAME`; existing project creates `DELTA`.
 
-- [ ] Task: Build GDD upload and version history flow for S1.
-  Verify: Uploading a GDD registers the next `version_id` and displays parse status.
+- [x] Task: Build GDD upload and version history flow for S1.
+  Verify: `/projects/{id}` lists `v1`, `v2`, ... with `parent_document_id` and `description_status` badges.
 
-- [ ] Task: Build run dashboard with create demo run button and run list.
-  Verify: Clicking create run starts a backend run and displays `COMPLETED`.
+- [x] Task: Build run dashboard with timeline + coverage cards + agent runs + artifact tabs.
+  Verify: `/runs/{id}` shows the demo run timeline, coverage payload, agent retry log, and Features/Epics/Stories/Tasks/Test Cases/Validation tabs.
 
-- [ ] Task: Build timeline and coverage views.
-  Verify: UI shows S0 through Final and coverage counts after a demo run.
+- [x] Task: Add typed `useRunAgentA` / `useRunAgentB` / `useRunAgentC` / `useFinalizeRun` mutation hooks. Each invalidates run / timeline / coverage / agent-runs / sync-events / risk-events / review-queue keys.
+  Verify: Hooks compile against `frontend/src/lib/types.ts` and refresh the dashboard without a manual reload.
 
-- [ ] Task: Build HIL-0, feature review, task review, and test-case review views.
-  Verify: UI shows clarification questions, low-confidence items, blocked tasks, and test-case gaps.
+- [x] Task: Replace the `Load Context` button on the run dashboard with a stage-aware `<NextStagePanel>`. The panel reads `run.current_stage` + HIL queue size and renders one of: Load Context / Run Agent A / Approve HIL-1 / Run Agent B / Approve HIL-2 / Run Agent C / Approve HIL-3 / Finalize / Sign off.
+  Verify: A reviewer can walk a NEW_GAME run from S0 → FINAL_COVERAGE → Sign-off by clicking the panel's primary button at each step, with no terminal calls.
+
+- [x] Task: Add an inline HIL approve list under `<NextStagePanel>` for HIL-1/2/3 with per-item Approve / Reject buttons and an `Approve all in queue` bulk action.
+  Verify: After Agent A completes, the dashboard shows the HIL-1 queue inline; clicking Approve all clears the queue and unblocks the Agent B CTA.
+
+- [x] Task: Change HIL-0 `Proceed with flag (n)` from parallel single-question requests to one bulk mutation.
+  Verify: The dashboard calls `useResolveHil0Questions()` once for the open HIL-0 batch, and frontend lint/typecheck pass.
+
+- [x] Task: Restore `next/font/google` while keeping offline `npm run build` support.
+  Verify: `layout.tsx` uses `Inter` and `JetBrains_Mono` from `next/font/google`; `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` points at checked-in local font responses; `npm run build` passes offline with webpack.
+
+- [ ] Task: Build HIL-0, feature review, task review, and test-case review deep-link views under `/runs/[run_id]/hil/[tier]` (re-uses the same inline component for the body).
+  Verify: Sidebar links open `/runs/{id}/hil/HIL-0..HIL-3`; the page shows the same items as the inline panel and supports the same mutations.
 
 - [ ] Task: Build sync-events and risk-events views.
   Verify: UI shows `external_id`, target type, action, status, payload summary, risk severity, and owner action.
 
 ## Phase 4 - End-to-End Verification And Submission Polish
 
-- [ ] Task: Run backend tests.
+- [x] Task: Run backend tests, including new Phase 1.5 per-stage / HIL-gating tests.
   Verify: `conda activate qa-generator; cd backend; pytest` passes.
 
-- [ ] Task: Run backend lint.
+- [x] Task: Run backend lint.
   Verify: `conda activate qa-generator; cd backend; python -m ruff check .` passes.
 
-- [ ] Task: Run frontend lint/build once frontend exists.
+- [x] Task: Run frontend lint/build once stage CTAs land.
   Verify: `cd frontend; npm run lint; npm run build` passes.
 
-- [ ] Task: Run full mock-mode demo from frontend.
-  Verify: One run displays GDD version metadata, sections, features, tasks, test cases, validation issues, sync events, risk events, and coverage.
+- [x] Task: Run frontend typecheck after the stage/HIL mutation additions.
+  Verify: `cd frontend; npx tsc --noEmit` passes.
+
+- [ ] Task: Run full mock-mode stepped demo from frontend.
+  Verify: One stepped run (`Load Context → Agent A → HIL-1 → Agent B → HIL-2 → Agent C → HIL-3 → Finalize → Sign-off`) displays GDD version metadata, sections, features, tasks, test cases, validation issues, sync events, risk events, and coverage at the corresponding moments — no terminal use.
 
 - [ ] Task: Run real AI + real Notion smoke test when credentials are configured.
-  Verify: Demo run creates or updates Notion records and stores successful `SyncEvent` rows.
+  Verify: Stepped run creates or updates Notion records and stores successful `SyncEvent` rows.
 
-- [ ] Task: Write final demo script in README.
-  Verify: A new user can follow README commands and reproduce the happy path.
+- [ ] Task: Write final demo script in README — both `/demo-runs` (batch) and the stepped walkthrough.
+  Verify: A new user can follow README commands and reproduce both paths.
 
-- [ ] Task: Capture final screenshots or short demo walkthrough notes.
-  Verify: Submission package includes visual proof of dashboard, HIL, GDD versions, coverage, risk handling, and Notion sync.
+- [ ] Task: Capture final screenshots — Run Dashboard at each next-stage CTA (S1 / HIL-1 / HIL-2 / HIL-3 / FINAL), HIL queues, Sync-A / Sync-B / Sync-C events in the sync log, signed-off coverage.
+  Verify: Submission package includes visual proof of the stepped flow plus the final coverage state.

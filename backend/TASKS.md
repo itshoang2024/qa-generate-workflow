@@ -9,7 +9,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Phase | Done / Total | Status |
 |---|---|---|
 | S0 Trigger + Mode Detection | 6 / 6 | Request model, rule-based mode detection, run/session init, demo compatibility shipped. |
-| S1 Context Loader | 12 / 12 | GDD loading/versioning, Run source metadata, HIL-0 questions/resolutions, DELTA scaffold, parser actionability shipped. |
+| S1 Context Loader | 13 / 13 | GDD loading/versioning, Run source metadata, HIL-0 questions/resolutions including bulk resolution, DELTA scaffold, parser actionability shipped. |
+| Stage Orchestration Endpoints | 6 / 6 | Agent A/B/C/finalize endpoints, wrong-stage checks, HIL gates, and tests shipped. |
 | S2 Agent A | 4 / 4 | `AgentClient`, schema-validated Agent A output, fixture-backed mock default, and `AI_PROVIDER` factory with OpenAI Agent A adapter shipped. |
 | S3 Validation A + Router A | 3 / 3 | Schema/source/confidence/coverage validation, Router A lanes, and bounded Agent A retry/rerun with stable HIL escalation shipped. |
 | HIL-1 | 3 / 3 | `ReviewDecision` accepts feature/epic targets and cascades epic→feature/story; HIL-1 queues list pending items; approved feature IDs + epic candidates are snapshotted in session memory and passed to Agent B. |
@@ -20,13 +21,13 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | S7 Validation C + HIL-3 | 1 / 2 | Category coverage + source traceability + low-confidence validators ship; HIL-3 queue exists. Forbidden-vague-phrase and one-assertion-expected-result validators still open. |
 | S7b Notion Sync-C | 2 / 2 | Sync-C emits separate test-case sync events and transitions eligible parent tasks to `Test Cases Ready`. |
 | Final Coverage / Risk / Sign-Off | 4 / 5 | Coverage report includes risk/sync/GDD/sign-off state; RiskEvent model, kill switch, and sign-off endpoint shipped. Learning-loop corrections still open. |
-| Final Backend Verification | 2 / 6 | Backend pytest + ruff pass after the Notion + risk slice. Manual Swagger/Supabase checks still open. |
+| Final Backend Verification | 4 / 6 | Backend pytest + ruff pass in the `qa-generator` env; mock fallback remains test-covered. Manual Swagger/Supabase checks still open. |
 
-## Next Implementation Slice — Hand-off To Frontend (Phase 3)
+## Next Implementation Slice - Remaining Backend Polish
 
-Backend is now feature-complete for the homework narrative. Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A (with structured-output OpenAI adapter + bounded retry/repair), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
+Backend is now feature-complete for the stepped mock-mode homework narrative. Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A (with structured-output OpenAI adapter + bounded retry/repair), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
 
-The biggest reviewer-facing gap is now the absence of a UI. A reviewer cannot see the workflow without `curl`. The next slice is **frontend scaffolding** — owned by root `TASKS.md` Phase 3, not backend `TASKS.md`. Backend work that can run in parallel:
+The reviewer-facing stage UI is now wired. Backend work that can run in parallel with frontend polish:
 
 1. **Real Agent B adapter** (`OpenAIAgentClient.plan_qa_tasks`): mirror the Agent A pattern with a `plan_qa_tasks` JSON schema in `agents/contracts.py`. Must call `QA_ASSIGNEE_BY_FEATURE_TYPE` post-LLM rather than trusting model output. Useful but not blocking — Agent A alone is enough to demonstrate the Task 2 contract pattern.
 2. **Real Agent C adapter** (`OpenAIAgentClient.generate_test_cases`): same shape, plus forbidden-vague-phrase guard. Mock already emits the four categories deterministically — real adapter is incremental value.
@@ -97,8 +98,31 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [x] Task: Add HIL-0 preflight issue model/API.
   Verify: API tests can list one batch of clarification questions and resolve with provide-artifact, proceed-with-flag, or skip.
 
+- [x] Task: Add HIL-0 bulk resolution API for dashboard batch actions.
+  Verify: `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk` resolves the open batch in one request, rejects missing/duplicate question IDs, and is covered by `test_hil0_bulk_resolution_resolves_open_questions`.
+
 - [x] Task: Add S1.4 DELTA diff scaffold.
   Verify: DELTA mode loads previous GDD version and emits `NEW`, `MODIFIED`, `UNCHANGED`, `REMOVED` buckets or a placeholder with stable shape.
+
+## Phase Stage Orchestration Endpoints
+
+- [x] Task: Extract reusable Agent A/B/C/finalize stage methods from the batch demo pipeline.
+  Verify: `/api/v1/demo-runs` still produces the same Snake Escape counts while per-stage endpoints call the same stage helpers.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-a`.
+  Verify: After S0 + S1, posting Agent A advances to `S3_VALIDATION_A`, persists features, and records Agent A timeline events.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-b`.
+  Verify: The endpoint returns 409 `hil_gate_blocked` until HIL-1 is cleared, then advances to `S5_VALIDATION_B_SYNC` and emits Sync-A/B events.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/agent-c`.
+  Verify: The endpoint returns 409 `wrong_stage` if called before Agent B and returns 409 `hil_gate_blocked` until HIL-2 is cleared.
+
+- [x] Task: Add `POST /api/v1/runs/{run_id}/finalize`.
+  Verify: After Agent C and HIL-3 clearance, the endpoint builds coverage, marks the run `COMPLETED`, and sets `current_stage=FINAL_COVERAGE`.
+
+- [x] Task: Add shared stage-precondition errors.
+  Verify: API tests cover `wrong_stage` and `hil_gate_blocked` structured error envelopes.
 
 ## Phase S2 - Agent A
 
@@ -222,7 +246,7 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 ## Final Backend Verification
 
 - [x] Task: Run the backend test suite.
-  Verify: `conda run -n qa-generator pytest` passes from `backend/` with 46 tests.
+  Verify: `C:\Users\Hoang\miniconda3\envs\qa-generator\python.exe -m pytest -q` passes from `backend/`.
 
 - [x] Task: Run backend linting.
   Verify: `conda run -n qa-generator python -m ruff check .` passes from `backend/`.
@@ -236,5 +260,5 @@ All Phase 0 items from root `TASKS.md` are complete. Backend config reads `backe
 - [ ] Task: Run Notion smoke test when credentials are configured.
   Verify: Sync-A/B/C upsert records by `external_id`, preserve page-id relations, and replay failed events without duplicates.
 
-- [ ] Task: Confirm mock fallback remains stable.
+- [x] Task: Confirm mock fallback remains stable.
   Verify: Removing AI, Notion, and Supabase credentials still allows the complete demo run to finish.

@@ -19,6 +19,7 @@ import { api, ApiError } from "./api";
 import { queryKeys } from "./queries";
 import type {
   DemoRunRequest,
+  HIL0BulkResolutionRequest,
   HIL0Resolution,
   HIL0ResolutionRequest,
   LoadContextRequest,
@@ -58,12 +59,54 @@ function withErrorToast<TData, TVariables>(
     onError: (error, variables, onMutateResult, context) => {
       const message =
         error instanceof ApiError
-          ? `${error.code}: ${error.message}`
+          ? apiErrorDescription(error)
           : (error as Error).message || defaultMessage;
       toast.error(defaultMessage, { description: message });
       extras?.onError?.(error, variables, onMutateResult, context);
     },
   };
+}
+
+function apiErrorDescription(error: ApiError): string {
+  if (error.code === "hil_gate_blocked" && isRecord(error.details)) {
+    const tier = error.details.tier ?? "HIL gate";
+    const count = error.details.pending_count ?? "some";
+    return `${tier} is still waiting on ${count} review item(s).`;
+  }
+  if (error.code === "wrong_stage" && isRecord(error.details)) {
+    return `Run is at ${error.details.current_stage}; expected ${error.details.expected_stage}.`;
+  }
+  return `${error.code}: ${error.message}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function invalidateRunSurfaces(
+  queryClient: ReturnType<typeof useQueryClient>,
+  runId: string
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+  queryClient.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.coverage(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.sections(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.features(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.epics(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.stories(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.tasks(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.testCases(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.validationIssues(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.syncEvents(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.riskEvents(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.reviewDecisions(runId) });
+  (["HIL-0", "HIL-1", "HIL-2", "HIL-3"] as const).forEach((tier) =>
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.reviewQueue(runId, tier),
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +196,67 @@ export function useLoadContext(
   });
 }
 
+function useAdvanceRunStage(
+  runId: string,
+  path: string,
+  successTitle: string,
+  extras?: MutationExtras<Run, void>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<Run, ApiError, void>({
+    mutationFn: () => api<Run>(path, { method: "POST" }),
+    ...withErrorToast(`${successTitle} failed.`, extras),
+    onSuccess: (run, variables, onMutateResult, context) => {
+      queryClient.setQueryData(queryKeys.run(runId), run);
+      invalidateRunSurfaces(queryClient, runId);
+      toast.success(successTitle, {
+        description: `Run advanced to ${run.current_stage}.`,
+      });
+      extras?.onSuccess?.(run, variables, onMutateResult, context);
+    },
+  });
+}
+
+/** `POST /api/v1/runs/{run_id}/agent-a` — run Agent A + Validation A. */
+export function useRunAgentA(runId: string, extras?: MutationExtras<Run, void>) {
+  return useAdvanceRunStage(
+    runId,
+    `/runs/${runId}/agent-a`,
+    "Agent A completed",
+    extras
+  );
+}
+
+/** `POST /api/v1/runs/{run_id}/agent-b` — run Agent B + Validation B + Sync-A/B. */
+export function useRunAgentB(runId: string, extras?: MutationExtras<Run, void>) {
+  return useAdvanceRunStage(
+    runId,
+    `/runs/${runId}/agent-b`,
+    "Agent B completed",
+    extras
+  );
+}
+
+/** `POST /api/v1/runs/{run_id}/agent-c` — run Agent C + Validation C + Sync-C. */
+export function useRunAgentC(runId: string, extras?: MutationExtras<Run, void>) {
+  return useAdvanceRunStage(
+    runId,
+    `/runs/${runId}/agent-c`,
+    "Agent C completed",
+    extras
+  );
+}
+
+/** `POST /api/v1/runs/{run_id}/finalize` — build final coverage and complete run. */
+export function useFinalizeRun(runId: string, extras?: MutationExtras<Run, void>) {
+  return useAdvanceRunStage(
+    runId,
+    `/runs/${runId}/finalize`,
+    "Run finalized",
+    extras
+  );
+}
+
 /**
  * `POST /api/v1/demo-runs` — fire the full Snake Escape pipeline end-to-end.
  * Returns the completed `Run` with timeline + coverage populated.
@@ -215,6 +319,40 @@ export function useResolveHil0Question(
         description: `Question ${resolution.question_id} → ${resolution.action}.`,
       });
       extras?.onSuccess?.(resolution, variables, onMutateResult, context);
+    },
+  });
+}
+
+/**
+ * `POST /api/v1/runs/{run_id}/hil-0/resolutions/bulk` — resolve multiple
+ * HIL-0 clarification questions in one backend request.
+ */
+export function useResolveHil0Questions(
+  runId: string,
+  extras?: MutationExtras<HIL0Resolution[], HIL0BulkResolutionRequest>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<HIL0Resolution[], ApiError, HIL0BulkResolutionRequest>({
+    mutationFn: (body) =>
+      api<HIL0Resolution[]>(`/runs/${runId}/hil-0/resolutions/bulk`, {
+        method: "POST",
+        body,
+      }),
+    ...withErrorToast("Failed to resolve HIL-0 questions.", extras),
+    onSuccess: (resolutions, variables, onMutateResult, context) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.hil0Questions(runId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.hil0Resolutions(runId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reviewQueue(runId, "HIL-0"),
+      });
+      toast.success("HIL-0 resolved", {
+        description: `${resolutions.length} question(s) marked proceed with flag.`,
+      });
+      extras?.onSuccess?.(resolutions, variables, onMutateResult, context);
     },
   });
 }

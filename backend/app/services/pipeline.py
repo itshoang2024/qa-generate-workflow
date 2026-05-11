@@ -39,12 +39,21 @@ from app.services.risk_events import (
     kill_switch_state,
     risk_events_from_validation_issues,
 )
+from app.services.review_queues import build_review_queue
 from app.services.validators import (
     validate_tasks_with_routing,
     validate_test_cases_with_routing,
 )
 
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+class PipelineConflictError(Exception):
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.details = details or {}
 
 
 class PipelineService:
@@ -149,181 +158,301 @@ class PipelineService:
             run = context["run"]
             sections = context["sections"]
 
-            agent_a_result = run_agent_a_with_retries(
-                agent_client=self.agent_client,
-                run_id=run.id,
-                sections=sections,
-                mode=run.mode,
-                delta_report=run.delta_report,
-            )
-            agent_a_output = agent_a_result.output
-            features = agent_a_output["features"]
-            self.repository.set_features(run.id, features)
-            self.repository.add_agent_run(
-                AgentRun(
-                    run_id=run.id,
-                    agent_name="Agent A - GDD Analyzer",
-                    stage=PipelineStage.S2_AGENT_A,
-                    input_snapshot={"section_count": len(sections)},
-                    output_snapshot={
-                        "feature_count": len(features),
-                        "coverage_report": agent_a_output["coverage_report"],
-                        "ambiguities": agent_a_output["ambiguities"],
-                        "attempt_count": agent_a_result.attempt_count,
-                        "retry_exhausted": agent_a_result.exhausted,
-                        "attempts": agent_a_result.attempt_log(),
-                    },
-                    provider=self._agent_provider("analyze_gdd"),
-                )
-            )
-            run.session_memory = {
-                **run.session_memory,
-                "agent_a_validation": {
-                    "attempt_count": agent_a_result.attempt_count,
-                    "retry_exhausted": agent_a_result.exhausted,
-                    "attempts": agent_a_result.attempt_log(),
-                },
-            }
-            run = self.repository.update_run(run)
-            run = self._stage(
-                run,
-                PipelineStage.S2_AGENT_A,
-                f"Generated {len(features)} features after {agent_a_result.attempt_count} attempt(s).",
-            )
-
-            feature_issues = agent_a_result.issues
-            self.repository.set_features(run.id, features)
-            self.repository.add_validation_issues(feature_issues)
-            self._record_risk_events(feature_issues)
-            run = self._stage(
-                run,
-                PipelineStage.S3_VALIDATION_A,
-                f"Feature validation produced {len(feature_issues)} issues.",
-            )
-            if agent_a_result.exhausted and not features:
-                raise ValueError("Agent A failed schema validation after bounded retries.")
-
-            hil1_context = self._build_hil1_context(
-                features,
-                auto_approve=request.auto_approve,
-            )
-            run.session_memory = {**run.session_memory, "hil_1": hil1_context}
-            run = self.repository.update_run(run)
-
-            agent_b_output = self.agent_client.plan_qa_tasks(
-                run.id,
-                hil_context=hil1_context,
-            )
-            epics = agent_b_output["epics"]
-            stories = agent_b_output["stories"]
-            tasks = agent_b_output["tasks"]
-            self.repository.set_epics(run.id, epics)
-            self.repository.set_stories(run.id, stories)
-            self.repository.set_tasks(run.id, tasks)
-            self.repository.add_agent_run(
-                AgentRun(
-                    run_id=run.id,
-                    agent_name="Agent B - QA Planner",
-                    stage=PipelineStage.S4_AGENT_B,
-                    input_snapshot={
-                        "hil_1": self._hil1_agent_input_snapshot(hil1_context),
-                    },
-                    output_snapshot={
-                        "epic_count": len(epics),
-                        "story_count": len(stories),
-                        "task_count": len(tasks),
-                    },
-                    provider=self._agent_provider("plan_qa_tasks"),
-                )
-            )
-            run = self._stage(
-                run,
-                PipelineStage.S4_AGENT_B,
-                f"Generated {len(epics)} epics, {len(stories)} stories, and {len(tasks)} tasks.",
-            )
-
-            task_issues = validate_tasks_with_routing(run.id, tasks, features, sections)
-            self.repository.set_tasks(run.id, tasks)
-            self.repository.add_validation_issues(task_issues)
-            self._record_risk_events(task_issues)
-            feature_name_by_id = {feature.feature_id: feature.name for feature in features}
-            sync_a_events = self._sync_a_epics_stories(epics, stories)
-            eligible_tasks = self._eligible_for_sync(tasks)
-            sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
-            self.repository.add_sync_events(sync_a_events + sync_b_events)
-            run = self._stage(
-                run,
-                PipelineStage.S5_VALIDATION_B_SYNC,
-                f"Task validation produced {len(task_issues)} issues; "
-                f"Sync-A wrote {len(sync_a_events)} records; "
-                f"Sync-B wrote {len(sync_b_events)} task records.",
-            )
-            run = self._update_kill_switch_state(run)
-            if self._should_abort_run(run):
-                risk_event = kill_switch_risk_event(
-                    run.id,
-                    run.session_memory["kill_switch"],
-                )
-                self.repository.add_risk_events([risk_event])
-                run.status = RunStatus.FAILED
-                run.finished_at = utc_now()
-                run.coverage_report = self._coverage_report(run.id)
-                return self._stage(
-                    run,
-                    PipelineStage.S5_VALIDATION_B_SYNC,
-                    "Kill switch tripped before Agent C.",
-                )
-
-            test_cases = self.agent_client.generate_test_cases(run.id, tasks)
-            self.repository.set_test_cases(run.id, test_cases)
-            self.repository.add_agent_run(
-                AgentRun(
-                    run_id=run.id,
-                    agent_name="Agent C - Test Case Generator",
-                    stage=PipelineStage.S6_AGENT_C,
-                    input_snapshot={"task_count": len(tasks)},
-                    output_snapshot={"test_case_count": len(test_cases)},
-                    provider=self._agent_provider("generate_test_cases"),
-                )
-            )
-            run = self._stage(
-                run,
-                PipelineStage.S6_AGENT_C,
-                f"Generated {len(test_cases)} test cases.",
-            )
-
-            test_case_issues = validate_test_cases_with_routing(
-                run.id,
-                test_cases,
-                tasks,
-                sections,
-            )
-            self.repository.set_test_cases(run.id, test_cases)
-            self.repository.add_validation_issues(test_case_issues)
-            self._record_risk_events(test_case_issues)
-            eligible_test_cases = self._eligible_for_sync(test_cases)
-            test_case_sync_events = self._sync_c_test_cases(eligible_test_cases, tasks)
-            self.repository.add_sync_events(test_case_sync_events)
-            run = self._stage(
-                run,
-                PipelineStage.S7_VALIDATION_C_SYNC,
-                (
-                    f"Test-case validation produced {len(test_case_issues)} issues; "
-                    f"synced {len(test_case_sync_events)} mock Notion records."
-                ),
-            )
-
-            coverage_report = self._coverage_report(run.id)
-            run.coverage_report = coverage_report
-            run.status = RunStatus.COMPLETED
-            run.finished_at = utc_now()
-            run = self._stage(run, PipelineStage.FINAL_COVERAGE, "Coverage report is ready.")
-            return run
+            run = self._stage_s2_agent_a(run, sections, auto_approve=request.auto_approve)
+            run = self._stage_s4_agent_b(run, auto_approve=request.auto_approve)
+            if run.status == RunStatus.FAILED:
+                return run
+            run = self._stage_s6_agent_c(run, auto_approve=request.auto_approve)
+            return self._stage_finalize(run, auto_approve=request.auto_approve)
         except Exception:
             run.status = RunStatus.FAILED
             run.finished_at = utc_now()
             self.repository.update_run(run)
             raise
+
+    def run_agent_a(self, run_id: str) -> Run:
+        run = self._require_run(run_id)
+        if not run.session_memory.get("context_loaded"):
+            raise PipelineConflictError(
+                "gdd_not_loaded",
+                "Load S1 context before running Agent A.",
+                {"run_id": run_id, "current_stage": run.current_stage.value},
+            )
+        self._assert_stage(run, PipelineStage.S1_CONTEXT_LOADER)
+        sections = self.repository.list_sections(run.id)
+        if not sections:
+            raise PipelineConflictError(
+                "gdd_not_loaded",
+                "No parsed GDD sections are available for this run.",
+                {"run_id": run.id, "current_stage": run.current_stage.value},
+            )
+        return self._stage_s2_agent_a(run, sections, auto_approve=False)
+
+    def run_agent_b(self, run_id: str) -> Run:
+        run = self._require_run(run_id)
+        self._assert_stage(run, PipelineStage.S3_VALIDATION_A)
+        self._assert_hil_gate_clear(run.id, "HIL-1")
+        return self._stage_s4_agent_b(run, auto_approve=False)
+
+    def run_agent_c(self, run_id: str) -> Run:
+        run = self._require_run(run_id)
+        self._assert_stage(run, PipelineStage.S5_VALIDATION_B_SYNC)
+        self._assert_kill_switch_clear(run)
+        self._assert_hil_gate_clear(run.id, "HIL-2")
+        return self._stage_s6_agent_c(run, auto_approve=False)
+
+    def finalize_run(self, run_id: str) -> Run:
+        run = self._require_run(run_id)
+        self._assert_stage(run, PipelineStage.S7_VALIDATION_C_SYNC)
+        self._assert_hil_gate_clear(run.id, "HIL-3")
+        return self._stage_finalize(run, auto_approve=False)
+
+    def _stage_s2_agent_a(
+        self,
+        run: Run,
+        sections: list[GDDSection],
+        *,
+        auto_approve: bool,
+    ) -> Run:
+        agent_a_result = run_agent_a_with_retries(
+            agent_client=self.agent_client,
+            run_id=run.id,
+            sections=sections,
+            mode=run.mode,
+            delta_report=run.delta_report,
+        )
+        agent_a_output = agent_a_result.output
+        features = agent_a_output["features"]
+        self.repository.set_features(run.id, features)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent A - GDD Analyzer",
+                stage=PipelineStage.S2_AGENT_A,
+                input_snapshot={"section_count": len(sections)},
+                output_snapshot={
+                    "feature_count": len(features),
+                    "coverage_report": agent_a_output["coverage_report"],
+                    "ambiguities": agent_a_output["ambiguities"],
+                    "attempt_count": agent_a_result.attempt_count,
+                    "retry_exhausted": agent_a_result.exhausted,
+                    "attempts": agent_a_result.attempt_log(),
+                    "auto_approve": auto_approve,
+                },
+                provider=self._agent_provider("analyze_gdd"),
+            )
+        )
+        run.session_memory = {
+            **run.session_memory,
+            "agent_a_validation": {
+                "attempt_count": agent_a_result.attempt_count,
+                "retry_exhausted": agent_a_result.exhausted,
+                "attempts": agent_a_result.attempt_log(),
+            },
+        }
+        run = self.repository.update_run(run)
+        run = self._stage(
+            run,
+            PipelineStage.S2_AGENT_A,
+            f"Generated {len(features)} features after {agent_a_result.attempt_count} attempt(s).",
+        )
+
+        feature_issues = agent_a_result.issues
+        self.repository.set_features(run.id, features)
+        self.repository.add_validation_issues(feature_issues)
+        self._record_risk_events(feature_issues)
+        run = self._stage(
+            run,
+            PipelineStage.S3_VALIDATION_A,
+            f"Feature validation produced {len(feature_issues)} issues.",
+        )
+        if agent_a_result.exhausted and not features:
+            raise ValueError("Agent A failed schema validation after bounded retries.")
+        return run
+
+    def _stage_s4_agent_b(self, run: Run, *, auto_approve: bool) -> Run:
+        features = self.repository.list_features(run.id)
+        sections = self.repository.list_sections(run.id)
+        hil1_context = self._build_hil1_context(
+            features,
+            auto_approve=auto_approve,
+        )
+        run.session_memory = {**run.session_memory, "hil_1": hil1_context}
+        run = self.repository.update_run(run)
+
+        agent_b_output = self.agent_client.plan_qa_tasks(
+            run.id,
+            hil_context=hil1_context,
+        )
+        epics = agent_b_output["epics"]
+        stories = agent_b_output["stories"]
+        tasks = agent_b_output["tasks"]
+        self.repository.set_epics(run.id, epics)
+        self.repository.set_stories(run.id, stories)
+        self.repository.set_tasks(run.id, tasks)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent B - QA Planner",
+                stage=PipelineStage.S4_AGENT_B,
+                input_snapshot={
+                    "hil_1": self._hil1_agent_input_snapshot(hil1_context),
+                },
+                output_snapshot={
+                    "epic_count": len(epics),
+                    "story_count": len(stories),
+                    "task_count": len(tasks),
+                    "auto_approve": auto_approve,
+                },
+                provider=self._agent_provider("plan_qa_tasks"),
+            )
+        )
+        run = self._stage(
+            run,
+            PipelineStage.S4_AGENT_B,
+            f"Generated {len(epics)} epics, {len(stories)} stories, and {len(tasks)} tasks.",
+        )
+
+        task_issues = validate_tasks_with_routing(run.id, tasks, features, sections)
+        self.repository.set_tasks(run.id, tasks)
+        self.repository.add_validation_issues(task_issues)
+        self._record_risk_events(task_issues)
+        feature_name_by_id = {feature.feature_id: feature.name for feature in features}
+        sync_a_events = self._sync_a_epics_stories(epics, stories)
+        eligible_tasks = self._eligible_for_sync(tasks)
+        sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
+        self.repository.add_sync_events(sync_a_events + sync_b_events)
+        run = self._stage(
+            run,
+            PipelineStage.S5_VALIDATION_B_SYNC,
+            f"Task validation produced {len(task_issues)} issues; "
+            f"Sync-A wrote {len(sync_a_events)} records; "
+            f"Sync-B wrote {len(sync_b_events)} task records.",
+        )
+        run = self._update_kill_switch_state(run)
+        if self._should_abort_run(run):
+            risk_event = kill_switch_risk_event(
+                run.id,
+                run.session_memory["kill_switch"],
+            )
+            self.repository.add_risk_events([risk_event])
+            run.status = RunStatus.FAILED
+            run.finished_at = utc_now()
+            run.coverage_report = self._coverage_report(run.id)
+            return self._stage(
+                run,
+                PipelineStage.S5_VALIDATION_B_SYNC,
+                "Kill switch tripped before Agent C.",
+            )
+        return run
+
+    def _stage_s6_agent_c(self, run: Run, *, auto_approve: bool) -> Run:
+        tasks = self.repository.list_tasks(run.id)
+        sections = self.repository.list_sections(run.id)
+        test_cases = self.agent_client.generate_test_cases(run.id, tasks)
+        self.repository.set_test_cases(run.id, test_cases)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent C - Test Case Generator",
+                stage=PipelineStage.S6_AGENT_C,
+                input_snapshot={"task_count": len(tasks)},
+                output_snapshot={
+                    "test_case_count": len(test_cases),
+                    "auto_approve": auto_approve,
+                },
+                provider=self._agent_provider("generate_test_cases"),
+            )
+        )
+        run = self._stage(
+            run,
+            PipelineStage.S6_AGENT_C,
+            f"Generated {len(test_cases)} test cases.",
+        )
+
+        test_case_issues = validate_test_cases_with_routing(
+            run.id,
+            test_cases,
+            tasks,
+            sections,
+        )
+        self.repository.set_test_cases(run.id, test_cases)
+        self.repository.add_validation_issues(test_case_issues)
+        self._record_risk_events(test_case_issues)
+        eligible_test_cases = self._eligible_for_sync(test_cases)
+        test_case_sync_events = self._sync_c_test_cases(eligible_test_cases, tasks)
+        self.repository.add_sync_events(test_case_sync_events)
+        return self._stage(
+            run,
+            PipelineStage.S7_VALIDATION_C_SYNC,
+            (
+                f"Test-case validation produced {len(test_case_issues)} issues; "
+                f"synced {len(test_case_sync_events)} mock Notion records."
+            ),
+        )
+
+    def _stage_finalize(self, run: Run, *, auto_approve: bool) -> Run:
+        coverage_report = self._coverage_report(run.id)
+        run.coverage_report = coverage_report
+        run.status = RunStatus.COMPLETED
+        run.finished_at = utc_now()
+        return self._stage(run, PipelineStage.FINAL_COVERAGE, "Coverage report is ready.")
+
+    def _require_run(self, run_id: str) -> Run:
+        run = self.repository.get_run(run_id)
+        if run is None:
+            raise LookupError(f"Run not found: {run_id}")
+        return run
+
+    def _assert_stage(self, run: Run, expected_stage: PipelineStage) -> None:
+        if run.current_stage == expected_stage:
+            return
+        raise PipelineConflictError(
+            "wrong_stage",
+            f"Run is at {run.current_stage.value}; expected {expected_stage.value}.",
+            {
+                "run_id": run.id,
+                "current_stage": run.current_stage.value,
+                "expected_stage": expected_stage.value,
+                "status": run.status.value,
+            },
+        )
+
+    def _assert_hil_gate_clear(self, run_id: str, tier: str) -> None:
+        queue = build_review_queue(self.repository, run_id, tier)
+        if queue.item_count == 0:
+            return
+        raise PipelineConflictError(
+            "hil_gate_blocked",
+            f"{queue.hil_tier} has {queue.item_count} item(s) still awaiting review.",
+            {
+                "run_id": run_id,
+                "tier": queue.hil_tier,
+                "pending_count": queue.item_count,
+                "groups": [
+                    {
+                        "group_id": group.group_id,
+                        "reviewer": group.reviewer,
+                        "feature_id": group.feature_id,
+                        "epic_id": group.epic_id,
+                        "item_count": group.item_count,
+                    }
+                    for group in queue.groups
+                ],
+            },
+        )
+
+    def _assert_kill_switch_clear(self, run: Run) -> None:
+        if run.status == RunStatus.FAILED or self._should_abort_run(run):
+            raise PipelineConflictError(
+                "kill_switch_tripped",
+                "Run is halted by the kill switch.",
+                {
+                    "run_id": run.id,
+                    "current_stage": run.current_stage.value,
+                    "kill_switch": run.session_memory.get("kill_switch", {}),
+                },
+            )
 
     def _stage_s0_trigger(self, project: Project, gdd_file: str, mode: RunMode) -> Run:
         run = self.repository.create_run(

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ChevronRight,
   RefreshCw,
@@ -29,14 +31,32 @@ import {
   useTasks,
   useTestCases,
   useValidationIssues,
+  useHil0Questions,
+  useReviewQueue,
+  queryKeys,
 } from "@/lib/queries";
-import { useLoadContext } from "@/lib/mutations";
+import { ApiError } from "@/lib/api";
+import {
+  useCreateReviewDecision,
+  useFinalizeRun,
+  useLoadContext,
+  useResolveHil0Question,
+  useResolveHil0Questions,
+  useRunAgentA,
+  useRunAgentB,
+  useRunAgentC,
+  useSignOffRun,
+} from "@/lib/mutations";
 import type {
   AgentRun,
   CoverageReport,
   Epic,
   Feature,
+  HilTier,
+  HIL0Question,
   QATask,
+  ReviewQueue,
+  ReviewQueueItem,
   Run,
   StageEvent,
   Story,
@@ -1429,20 +1449,370 @@ function ArtifactTabs({ runId }: { runId: string }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+function flattenReviewQueue(queue?: ReviewQueue): ReviewQueueItem[] {
+  return queue?.groups.flatMap((group) => group.items) ?? [];
+}
+
+function isSignedOff(run: Run): boolean {
+  const coverageSignOff = run.coverage_report?.sign_off as
+    | { signed_off?: boolean }
+    | undefined;
+  return Boolean(run.signed_off_at || coverageSignOff?.signed_off);
+}
+
+function NextStagePanel({ run }: { run: Run }) {
+  const stage = run.current_stage;
+  const queryClient = useQueryClient();
+  const queueRef = useRef<HTMLDivElement | null>(null);
+  const [bulkAction, setBulkAction] = useState<string | null>(null);
+
+  const hil1Enabled = stage === "S2_AGENT_A" || stage === "S3_VALIDATION_A";
+  const hil2Enabled = stage === "S4_AGENT_B" || stage === "S5_VALIDATION_B_SYNC";
+  const hil3Enabled = stage === "S6_AGENT_C" || stage === "S7_VALIDATION_C_SYNC";
+
+  const hil0Questions = useHil0Questions(run.id, {
+    enabled: stage === "S1_CONTEXT_LOADER",
+  });
+  const hil1Queue = useReviewQueue(run.id, "HIL-1", { enabled: hil1Enabled });
+  const hil2Queue = useReviewQueue(run.id, "HIL-2", { enabled: hil2Enabled });
+  const hil3Queue = useReviewQueue(run.id, "HIL-3", { enabled: hil3Enabled });
+
+  const handleStageError = (error: ApiError) => {
+    if (error.code === "hil_gate_blocked") {
+      window.setTimeout(() => queueRef.current?.scrollIntoView({ block: "center" }), 0);
+    }
+    if (error.code === "wrong_stage") {
+      queryClient.invalidateQueries({ queryKey: queryKeys.run(run.id) });
+    }
+  };
+
+  const loadContext = useLoadContext(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const runAgentA = useRunAgentA(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const runAgentB = useRunAgentB(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const runAgentC = useRunAgentC(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const finalizeRun = useFinalizeRun(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const signOffRun = useSignOffRun(run.id);
+  const resolveHil0 = useResolveHil0Question(run.id);
+  const resolveHil0Bulk = useResolveHil0Questions(run.id);
+  const createDecision = useCreateReviewDecision();
+
+  const openHil0Questions = ((hil0Questions.data ?? []) as HIL0Question[]).filter(
+    (question) => question.status === "OPEN",
+  );
+
+  const activeTier: HilTier | null = hil1Enabled
+    ? "HIL-1"
+    : hil2Enabled
+      ? "HIL-2"
+      : hil3Enabled
+        ? "HIL-3"
+        : null;
+  const activeQueue =
+    activeTier === "HIL-1"
+      ? hil1Queue
+      : activeTier === "HIL-2"
+        ? hil2Queue
+        : activeTier === "HIL-3"
+          ? hil3Queue
+          : null;
+  const reviewItems = flattenReviewQueue(activeQueue?.data);
+
+  const stageBusy =
+    loadContext.isPending ||
+    runAgentA.isPending ||
+    runAgentB.isPending ||
+    runAgentC.isPending ||
+    finalizeRun.isPending ||
+    signOffRun.isPending ||
+    resolveHil0Bulk.isPending ||
+    Boolean(bulkAction);
+  const queuePending = Boolean(activeTier && activeQueue?.isPending);
+  const killSwitch = run.session_memory?.kill_switch as
+    | { tripped?: boolean; s1_risk_count?: number; threshold?: number }
+    | undefined;
+
+  const approveItems = async (items: ReviewQueueItem[]) => {
+    if (!items.length) return;
+    setBulkAction(`approve-${activeTier}`);
+    try {
+      for (const item of items) {
+        await createDecision.mutateAsync({
+          run_id: run.id,
+          target_type: item.target_type,
+          target_id: item.target_id,
+          decision: "APPROVED",
+          reviewer: item.reviewer,
+        });
+      }
+      toast.success(`${activeTier} queue approved`, {
+        description: `${items.length} item(s) cleared.`,
+      });
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const resolveAllHil0 = async () => {
+    if (!openHil0Questions.length) return;
+    setBulkAction("resolve-hil0");
+    try {
+      await resolveHil0Bulk.mutateAsync({
+        resolutions: openHil0Questions.map((question) => ({
+          question_id: question.id,
+          action: "proceed_with_flag",
+          reviewer: "QA Lead",
+          response: "Proceeding with a confidence flag for the demo walkthrough.",
+        })),
+      });
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const pendingIcon = stageBusy ? <Loader2 size={14} className="animate-spin" /> : null;
+  let title = "Pipeline complete";
+  let description = "This run has no further stage action.";
+  let actionLabel: string | null = null;
+  let ActionIcon: React.ElementType = BadgeCheck;
+  let onAction: (() => void) | null = null;
+  let tone = "border-indigo-500/30 bg-indigo-500/8";
+
+  if (run.status === "FAILED" || killSwitch?.tripped) {
+    title = "Pipeline halted";
+    description = "The kill switch or a stage failure stopped this run before completion.";
+    ActionIcon = AlertTriangle;
+    tone = "border-rose-500/30 bg-rose-500/8";
+  } else if (stage === "S0_TRIGGER") {
+    title = "Next: Load Context";
+    description = "Register the GDD version, parse sections, and prepare HIL-0 questions.";
+    actionLabel = "Load Context";
+    ActionIcon = FileText;
+    onAction = () => loadContext.mutate(undefined);
+  } else if (stage === "S1_CONTEXT_LOADER") {
+    if (openHil0Questions.length > 0) {
+      title = "HIL-0 questions are open";
+      description = "Resolve clarification prompts before handing the parsed GDD to Agent A.";
+      actionLabel = `Proceed with flag (${openHil0Questions.length})`;
+      ActionIcon = ListChecks;
+      onAction = () => void resolveAllHil0();
+      tone = "border-amber-500/30 bg-amber-500/8";
+    } else {
+      title = "Next: Run Agent A";
+      description = "Generate feature inventory from actionable GDD sections and run Validation A.";
+      actionLabel = "Run Agent A";
+      ActionIcon = Workflow;
+      onAction = () => runAgentA.mutate();
+    }
+  } else if (hil1Enabled) {
+    if (reviewItems.length > 0 || queuePending) {
+      title = "HIL-1 review required";
+      description = "Clear feature review items before Agent B can plan epics, stories, and tasks.";
+      actionLabel = reviewItems.length ? `Approve all (${reviewItems.length})` : "Loading queue";
+      ActionIcon = ListChecks;
+      onAction = () => void approveItems(reviewItems);
+      tone = "border-amber-500/30 bg-amber-500/8";
+    } else {
+      title = "Next: Run Agent B";
+      description = "Plan QA epics, stories, and tasks, then sync approved scope to Notion.";
+      actionLabel = "Run Agent B";
+      ActionIcon = Workflow;
+      onAction = () => runAgentB.mutate();
+    }
+  } else if (hil2Enabled) {
+    if (reviewItems.length > 0 || queuePending) {
+      title = "HIL-2 review required";
+      description = "Clear task review items before Agent C can generate test cases.";
+      actionLabel = reviewItems.length ? `Approve all (${reviewItems.length})` : "Loading queue";
+      ActionIcon = ListChecks;
+      onAction = () => void approveItems(reviewItems);
+      tone = "border-amber-500/30 bg-amber-500/8";
+    } else {
+      title = "Next: Run Agent C";
+      description = "Generate test cases, run Validation C, and sync ready cases to Notion.";
+      actionLabel = "Run Agent C";
+      ActionIcon = Workflow;
+      onAction = () => runAgentC.mutate();
+    }
+  } else if (hil3Enabled) {
+    if (reviewItems.length > 0 || queuePending) {
+      title = "HIL-3 review required";
+      description = "Clear flagged test cases before final coverage can be produced.";
+      actionLabel = reviewItems.length ? `Approve all (${reviewItems.length})` : "Loading queue";
+      ActionIcon = ListChecks;
+      onAction = () => void approveItems(reviewItems);
+      tone = "border-amber-500/30 bg-amber-500/8";
+    } else {
+      title = "Next: Finalize";
+      description = "Build the final coverage report and mark the run completed.";
+      actionLabel = "Finalize";
+      ActionIcon = BadgeCheck;
+      onAction = () => finalizeRun.mutate();
+    }
+  } else if (stage === "FINAL_COVERAGE") {
+    if (isSignedOff(run)) {
+      title = "Signed off";
+      description = `Final coverage was signed off by ${run.signed_off_by ?? "QA Lead"}.`;
+      ActionIcon = BadgeCheck;
+      tone = "border-emerald-500/30 bg-emerald-500/8";
+    } else {
+      title = "Next: Sign off";
+      description = "The pipeline is complete. Record QA Lead sign-off for the final report.";
+      actionLabel = "Sign off";
+      ActionIcon = BadgeCheck;
+      onAction = () => signOffRun.mutate({ reviewer: "QA Lead" });
+      tone = "border-emerald-500/30 bg-emerald-500/8";
+    }
+  }
+
+  const disabled =
+    stageBusy ||
+    queuePending ||
+    !onAction ||
+    (Boolean(activeTier) && reviewItems.length === 0 && actionLabel === "Loading queue");
+
+  return (
+    <div className={cn("mb-5 rounded-xl border p-4", tone)}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-1.5 flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-indigo-300">
+            <ActionIcon size={14} />
+            Next stage
+            <IdChip>{stage}</IdChip>
+          </div>
+          <p className="text-[13.5px] font-medium text-slate-100">{title}</p>
+          <p className="mt-1 text-[12.5px] text-slate-400">{description}</p>
+        </div>
+
+        {actionLabel ? (
+          <button
+            type="button"
+            onClick={onAction ?? undefined}
+            disabled={disabled}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 text-[14px] font-medium text-white transition-colors hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {pendingIcon ?? <ActionIcon size={14} />}
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
+
+      {openHil0Questions.length > 0 && stage === "S1_CONTEXT_LOADER" ? (
+        <div className="mt-4 divide-y divide-border rounded-lg border border-border bg-slate-950/25">
+          {openHil0Questions.map((question) => (
+            <div key={question.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <IdChip>{question.section_id}</IdChip>
+                  <span className="text-[13px] font-medium text-slate-100">
+                    {question.title}
+                  </span>
+                </div>
+                <p className="mt-1 text-[12.5px] text-slate-400">{question.question}</p>
+              </div>
+              <button
+                type="button"
+                disabled={resolveHil0.isPending || Boolean(bulkAction)}
+                onClick={() =>
+                  resolveHil0.mutate({
+                    question_id: question.id,
+                    action: "proceed_with_flag",
+                    reviewer: "QA Lead",
+                    response: "Proceeding with a confidence flag for the demo walkthrough.",
+                  })
+                }
+                className="inline-flex h-7 shrink-0 items-center rounded-md border border-slate-700 px-2.5 text-[12px] font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-60"
+              >
+                Proceed
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {activeTier && (reviewItems.length > 0 || queuePending) ? (
+        <div ref={queueRef} className="mt-4 divide-y divide-border rounded-lg border border-border bg-slate-950/25">
+          {queuePending ? (
+            <div className="space-y-2 p-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : (
+            reviewItems.map((item) => (
+              <div key={`${item.target_type}-${item.target_id}`} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <IdChip>{item.target_id}</IdChip>
+                    <LaneBadge lane={item.lane} />
+                    <StatusBadge status={item.review_status} />
+                  </div>
+                  <p className="mt-1 truncate text-[13px] font-medium text-slate-100">
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 text-[11.5px] text-slate-500">
+                    {item.reviewer}
+                    {item.feature_id ? ` - ${item.feature_id}` : ""}
+                    {item.epic_id ? ` - ${item.epic_id}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={createDecision.isPending || Boolean(bulkAction)}
+                    onClick={() =>
+                      createDecision.mutate({
+                        run_id: run.id,
+                        target_type: item.target_type,
+                        target_id: item.target_id,
+                        decision: "APPROVED",
+                        reviewer: item.reviewer,
+                      })
+                    }
+                    className="inline-flex h-7 items-center rounded-md bg-emerald-500/15 px-2.5 text-[12px] font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-60"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    disabled={createDecision.isPending || Boolean(bulkAction)}
+                    onClick={() =>
+                      createDecision.mutate({
+                        run_id: run.id,
+                        target_type: item.target_type,
+                        target_id: item.target_id,
+                        decision: "REJECTED",
+                        reviewer: item.reviewer,
+                      })
+                    }
+                    className="inline-flex h-7 items-center rounded-md border border-slate-700 px-2.5 text-[12px] font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function RunDashboardPage() {
   const params = useParams<{ id: string }>();
   const runId = params.id;
 
   const { data: runData, isPending: runPending } = useRun(runId);
-  const loadContext = useLoadContext(runId);
   const run = runData as Run | undefined;
-  const contextLoaded = Boolean(run?.session_memory?.context_loaded);
-  const canLoadContext = Boolean(
-    run &&
-      !contextLoaded &&
-      run.current_stage === "S0_TRIGGER" &&
-      run.status !== "FAILED",
-  );
 
   return (
     <div className="p-6 max-w-[1440px] w-full mx-auto">
@@ -1498,29 +1868,10 @@ export default function RunDashboardPage() {
         </div>
 
         <div className="flex gap-2 shrink-0">
-          {canLoadContext ? (
-            <button
-              type="button"
-              onClick={() => loadContext.mutate(undefined)}
-              disabled={loadContext.isPending}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium bg-indigo-500 text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-            >
-              {loadContext.isPending ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <FileText size={14} />
-              )}
-              Load Context
-            </button>
-          ) : null}
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors">
-            <RefreshCw size={14} />
-            Replay sync
-          </button>
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
-            <BadgeCheck size={14} />
-            Sign off
-          </button>
+          <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-medium text-slate-300 border border-slate-700 bg-slate-950/30">
+            <Workflow size={14} />
+            {run?.current_stage ?? "Loading"}
+          </span>
         </div>
       </div>
 
@@ -1542,37 +1893,7 @@ export default function RunDashboardPage() {
         ) : null;
       })()}
 
-      {canLoadContext ? (
-        <div className="mb-5 rounded-xl border border-indigo-500/30 bg-indigo-500/8 p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-1.5 flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-indigo-300">
-                <FileText size={14} />
-                Next stage
-              </div>
-              <p className="text-[13.5px] font-medium text-slate-100">
-                S0 trigger recorded. Load S1 context when the GDD reference is ready.
-              </p>
-              <p className="mt-1 text-[12.5px] text-slate-400">
-                This registers the GDD version, parses sections, and prepares HIL-0 questions.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => loadContext.mutate(undefined)}
-              disabled={loadContext.isPending}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 text-[14px] font-medium text-white transition-colors hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loadContext.isPending ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <FileText size={14} />
-              )}
-              Load Context
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {run ? <NextStagePanel run={run} /> : null}
 
       {/* Agent runs */}
       <div className="mb-5">
