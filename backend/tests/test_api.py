@@ -78,6 +78,21 @@ def test_project_trigger_context_and_gdd_document_apis() -> None:
     assert projects_response.status_code == 200
     assert any(project["id"] == project_id for project in projects_response.json()["data"])
 
+    initial_coverage = client.get(f"/api/v1/runs/{new_trigger_data['run_id']}/coverage")
+    assert initial_coverage.status_code == 200
+    initial_coverage_data = initial_coverage.json()["data"]
+    assert initial_coverage_data["total_sections"] == 0
+    assert initial_coverage_data["risk_summary"] == {
+        "total": 0,
+        "by_severity": {},
+        "by_code": {},
+    }
+    assert initial_coverage_data["sync_summary"] == {
+        "total": 0,
+        "by_status": {},
+        "by_phase": {},
+    }
+
     first_context = client.post(
         f"/api/v1/runs/{new_trigger_data['run_id']}/context",
         json={"description": "Uploaded by API test."},

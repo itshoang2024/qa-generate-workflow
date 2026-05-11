@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Inbox,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ import {
   useTestCases,
   useValidationIssues,
 } from "@/lib/queries";
+import { useLoadContext } from "@/lib/mutations";
 import type {
   AgentRun,
   CoverageReport,
@@ -82,6 +84,43 @@ type AgentOutput = {
 };
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
+
+function normalizeCoverageReport(
+  report?: Partial<CoverageReport> | null,
+): CoverageReport {
+  return {
+    total_sections: report?.total_sections ?? 0,
+    actionable_sections: report?.actionable_sections ?? 0,
+    covered_sections: report?.covered_sections ?? [],
+    uncovered_sections: report?.uncovered_sections ?? [],
+    feature_count: report?.feature_count ?? 0,
+    task_count: report?.task_count ?? 0,
+    test_case_count: report?.test_case_count ?? 0,
+    validation_issue_count: report?.validation_issue_count ?? 0,
+    tasks_by_assignee: report?.tasks_by_assignee ?? {},
+    tasks_by_priority: report?.tasks_by_priority ?? {},
+    risk_summary: {
+      total: report?.risk_summary?.total ?? 0,
+      by_severity: report?.risk_summary?.by_severity ?? {},
+      by_code: report?.risk_summary?.by_code ?? {},
+    },
+    sync_summary: {
+      total: report?.sync_summary?.total ?? 0,
+      by_status: report?.sync_summary?.by_status ?? {},
+      by_phase: report?.sync_summary?.by_phase ?? {},
+    },
+    gdd_version_metadata: {
+      gdd_document_id: report?.gdd_version_metadata?.gdd_document_id ?? null,
+      source_version_id: report?.gdd_version_metadata?.source_version_id ?? null,
+      source_metadata: report?.gdd_version_metadata?.source_metadata ?? {},
+    },
+    sign_off: {
+      signed_off: report?.sign_off?.signed_off ?? false,
+      signed_off_by: report?.sign_off?.signed_off_by ?? null,
+      signed_off_at: report?.sign_off?.signed_off_at ?? null,
+    },
+  };
+}
 
 function fmtTime(iso: string | undefined): string {
   if (!iso) return "—";
@@ -727,7 +766,6 @@ function MiniStat({
 
 function CoveragePanel({ runId }: { runId: string }) {
   const { data, isPending, isError } = useCoverage(runId);
-  const c = data as CoverageReport | undefined;
 
   if (isPending) {
     return (
@@ -743,7 +781,7 @@ function CoveragePanel({ runId }: { runId: string }) {
     );
   }
 
-  if (isError || !c) {
+  if (isError) {
     return (
       <div className="rounded-xl ring-1 ring-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-400">
         Failed to load coverage data.
@@ -751,8 +789,10 @@ function CoveragePanel({ runId }: { runId: string }) {
     );
   }
 
+  const c = normalizeCoverageReport(data);
   const uncovered = c.uncovered_sections ?? [];
-  const coveredCount = c.actionable_sections - uncovered.length;
+  const coveredCount = Math.max(0, c.actionable_sections - uncovered.length);
+  const nonActionableCount = Math.max(0, c.total_sections - c.actionable_sections);
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -760,7 +800,11 @@ function CoveragePanel({ runId }: { runId: string }) {
       <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
         <SectionLabel
           right={
-            uncovered.length === 0 ? (
+            c.actionable_sections === 0 ? (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-slate-500/15 text-slate-300">
+                pending
+              </span>
+            ) : uncovered.length === 0 ? (
               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-emerald-500/15 text-emerald-400">
                 complete
               </span>
@@ -783,7 +827,7 @@ function CoveragePanel({ runId }: { runId: string }) {
           <MiniStat
             label="Actionable"
             value={c.actionable_sections}
-            sub={`${c.total_sections - c.actionable_sections} non-actionable`}
+            sub={`${nonActionableCount} non-actionable`}
           />
         </div>
         {uncovered.length > 0 && (
@@ -904,7 +948,30 @@ function CoveragePanel({ runId }: { runId: string }) {
       <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
         <SectionLabel>GDD source</SectionLabel>
         {(() => {
-          const meta = c.gdd_version_metadata.source_metadata as GddSourceMeta;
+          const meta = c.gdd_version_metadata.source_metadata as Partial<GddSourceMeta>;
+          const hasSource =
+            Boolean(c.gdd_version_metadata.gdd_document_id) ||
+            Boolean(c.gdd_version_metadata.source_version_id) ||
+            Boolean(meta.file_name);
+          const sha256 = meta.sha256;
+
+          if (!hasSource) {
+            return (
+              <div className="flex items-start gap-2.5">
+                <div className="size-9 rounded-lg bg-slate-500/15 text-slate-400 flex items-center justify-center shrink-0">
+                  <FileText size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-slate-100">
+                    No GDD version loaded
+                  </p>
+                  <p className="mt-1 text-[12px] text-slate-400">
+                    Waiting for S1 context.
+                  </p>
+                </div>
+              </div>
+            );
+          }
           return (
             <div className="flex items-start gap-2.5">
               <div className="size-9 rounded-lg bg-slate-500/15 text-slate-400 flex items-center justify-center shrink-0">
@@ -912,23 +979,31 @@ function CoveragePanel({ runId }: { runId: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-slate-100 truncate">
-                  {meta.file_name}
+                  {meta.file_name ?? "Unknown file"}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-1 items-center">
-                  <IdChip>{c.gdd_version_metadata.gdd_document_id}</IdChip>
-                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-indigo-500/18 text-indigo-300">
-                    {c.gdd_version_metadata.source_version_id}
-                  </span>
-                  <span className="font-mono text-[11px] text-slate-500">
-                    {Math.round(meta.size_bytes / 1024)} KB
-                  </span>
+                  {c.gdd_version_metadata.gdd_document_id ? (
+                    <IdChip>{c.gdd_version_metadata.gdd_document_id}</IdChip>
+                  ) : null}
+                  {c.gdd_version_metadata.source_version_id ? (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-indigo-500/18 text-indigo-300">
+                      {c.gdd_version_metadata.source_version_id}
+                    </span>
+                  ) : null}
+                  {typeof meta.size_bytes === "number" ? (
+                    <span className="font-mono text-[11px] text-slate-500">
+                      {Math.round(meta.size_bytes / 1024)} KB
+                    </span>
+                  ) : null}
                 </div>
-                <p
-                  className="mt-1.5 font-mono text-[11px] text-slate-500 truncate"
-                  title={meta.sha256}
-                >
-                  sha256: {meta.sha256.slice(0, 16)}…
-                </p>
+                {sha256 ? (
+                  <p
+                    className="mt-1.5 font-mono text-[11px] text-slate-500 truncate"
+                    title={sha256}
+                  >
+                    sha256: {sha256.slice(0, 16)}...
+                  </p>
+                ) : null}
               </div>
             </div>
           );
@@ -1359,7 +1434,15 @@ export default function RunDashboardPage() {
   const runId = params.id;
 
   const { data: runData, isPending: runPending } = useRun(runId);
+  const loadContext = useLoadContext(runId);
   const run = runData as Run | undefined;
+  const contextLoaded = Boolean(run?.session_memory?.context_loaded);
+  const canLoadContext = Boolean(
+    run &&
+      !contextLoaded &&
+      run.current_stage === "S0_TRIGGER" &&
+      run.status !== "FAILED",
+  );
 
   return (
     <div className="p-6 max-w-[1440px] w-full mx-auto">
@@ -1415,6 +1498,21 @@ export default function RunDashboardPage() {
         </div>
 
         <div className="flex gap-2 shrink-0">
+          {canLoadContext ? (
+            <button
+              type="button"
+              onClick={() => loadContext.mutate(undefined)}
+              disabled={loadContext.isPending}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium bg-indigo-500 text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+            >
+              {loadContext.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <FileText size={14} />
+              )}
+              Load Context
+            </button>
+          ) : null}
           <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[14px] font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors">
             <RefreshCw size={14} />
             Replay sync
@@ -1443,6 +1541,38 @@ export default function RunDashboardPage() {
           </div>
         ) : null;
       })()}
+
+      {canLoadContext ? (
+        <div className="mb-5 rounded-xl border border-indigo-500/30 bg-indigo-500/8 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-1.5 flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.06em] text-indigo-300">
+                <FileText size={14} />
+                Next stage
+              </div>
+              <p className="text-[13.5px] font-medium text-slate-100">
+                S0 trigger recorded. Load S1 context when the GDD reference is ready.
+              </p>
+              <p className="mt-1 text-[12.5px] text-slate-400">
+                This registers the GDD version, parses sections, and prepares HIL-0 questions.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadContext.mutate(undefined)}
+              disabled={loadContext.isPending}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-3.5 text-[14px] font-medium text-white transition-colors hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadContext.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <FileText size={14} />
+              )}
+              Load Context
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Agent runs */}
       <div className="mb-5">

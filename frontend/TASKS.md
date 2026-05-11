@@ -11,7 +11,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | F0 - Scaffold + Providers | 8 / 8 | Scaffold, providers, env example, typed API/query/mutation layer, and design fixtures shipped. |
 | F1 - AppShell + Provider Status + Navigation | 4 / 4 | Shared AppShell, live provider pills, desktop sidebar navigation, provider details dialog, and mobile drawer shipped. |
 | F2 - Projects + GDD Version History | 4 / 4 | Project list, new project dialog, project detail, DELTA trigger, and GDD version-history rows shipped. |
-| F3 - Run Dashboard | 5 / 5 | Timeline, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
+| F3 - Run Dashboard | 6 / 6 | Timeline, staged Load Context action, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
 | F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | One route template; tier param drives queue + mutation shape. |
 | F5 - Inspection Tables | 0 / 2 | Reusable `<ArtifactTable>` + detail drawer. |
 | F6 - Sync Log + Risk Center | 0 / 3 | Sync log, risk grouped table, kill-switch banner. |
@@ -76,7 +76,7 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
   Verify: Browser check on `/projects` lists `Snake Escape`, shows project/run summary metrics, and keeps the empty-state CTA in place for zero-project backends.
 
 - [x] Task: Build `<NewProjectDialog>` with `react-hook-form` + `zod`; it exposes a create-record action through `useCreateProject()` and a primary create+trigger action through `useTriggerRun()` with `project_name` for backend-owned `NEW_GAME` creation.
-  Verify: Browser check opens the dialog and validates the default GDD file field; TypeScript covers the `useTriggerRun()` payload and `/runs/<run_id>` navigation path.
+  Verify: Browser check opens the dialog and validates the default GDD file field; TypeScript covers the `useTriggerRun()` payload and `/runs/<run_id>` navigation path. The trigger action intentionally lands on an S0 run; S1 is started from the run dashboard.
 
 - [x] Task: Build `/projects/[project_id]` detail page showing project metadata, runs scoped to the project, and a "Trigger DELTA run" button calling `useTriggerRun()` with `project_id` for `DELTA` mode.
   Verify: Browser check on `/projects/snake-escape` shows metadata, run history, and the DELTA dialog with the project source document prefilled.
@@ -88,6 +88,9 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
 
 - [x] Task: Build `/runs/[run_id]` page with vertical timeline from `GET /api/v1/runs/{run_id}/timeline`; each `StageEvent` rendered as a card with stage name, status, timestamp, message.
   Verify: Snake Escape demo timeline shows 9 stages from `S0_TRIGGER` to `FINAL_COVERAGE`.
+
+- [x] Task: Add staged `Load Context` UX for runs still at `S0_TRIGGER`; button calls `useLoadContext()` and refreshes run, runs list, timeline, coverage, sections, GDD documents, and HIL-0 questions.
+  Verify: A newly triggered project run shows the `Load Context` CTA; clicking it advances the dashboard to `S1_CONTEXT_LOADER` and populates GDD metadata/section counts without a page reload.
 
 - [x] Task: Build coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`.
   Verify: `/runs/run_87a8f69786fc` renders coverage percentage, total/actionable sections, generated artifact counts, risk by severity/code, sync by phase, GDD metadata, and sign-off state.
@@ -141,7 +144,7 @@ After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
 
 ## Phase F8 — Verification + Submission Polish
 
-- [ ] Task: Manual end-to-end walkthrough — create project → trigger NEW_GAME → walk HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in sync log → see risk events → sign off → second run on same project triggers DELTA + version history shows `v1, v2`.
+- [ ] Task: Manual end-to-end walkthrough — create project → trigger NEW_GAME at S0 → open run dashboard → Load Context for S1 → walk HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in sync log → see risk events → sign off → second run on same project triggers DELTA + version history shows `v1, v2`.
   Verify: All eight steps complete without console errors.
 
 - [x] Task: `npm run lint` clean from `frontend/`.

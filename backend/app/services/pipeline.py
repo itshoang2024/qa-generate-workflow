@@ -126,6 +126,11 @@ class PipelineService:
             "delta_report": context["delta_report"],
         }
 
+    def coverage_report(self, run_id: str) -> dict[str, object]:
+        if self.repository.get_run(run_id) is None:
+            raise LookupError(f"Run not found: {run_id}")
+        return self._coverage_report(run_id)
+
     def run_demo(self, request: DemoRunRequest) -> Run:
         if request.preset != "snake_escape":
             raise ValueError("Only the 'snake_escape' preset is supported in Phase 1.")

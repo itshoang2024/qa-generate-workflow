@@ -50,7 +50,18 @@ Last updated: 2026-05-11
 - [x] Sync global tracking docs after implementation.
   Verify: `frontend/PLAN.md` and `frontend/TASKS.md` reflect shipped data layer, AppShell, provider pills, sidebar navigation, run dashboard, and remaining open work.
 
+- [x] Add staged `Load Context` next action for S0 runs.
+  Verify: `/runs/[id]` shows a primary `Load Context` CTA when `run.current_stage === "S0_TRIGGER"` and `session_memory.context_loaded` is false; clicking it calls `POST /api/v1/runs/{run_id}/context`.
+
+- [x] Refresh dependent dashboard queries after S1.
+  Verify: `useLoadContext()` invalidates run, runs list, timeline, coverage, sections, project GDD documents, and HIL-0 questions so the dashboard updates from S0 to S1 without a full page reload.
+
+- [x] Sync staged workflow docs after implementation.
+  Verify: `frontend/PLAN.md`, `frontend/TASKS.md`, and this route-local `TASKS.md` describe trigger as S0-only and `Load Context` as the explicit S1 action.
+
 ## Notes
+
+- Project `Create + trigger` stops at S0 by design. The run dashboard owns the S1 `Load Context` transition so reviewers can see the staged workflow rather than a hidden auto-advance.
 
 - Provider pill text dùng dữ liệu thật từ `/providers/status`, nên có thể khác mock text trong ảnh thiết kế nếu backend đang chạy với provider khác.
 - AppShell hiện áp dụng cho mọi route hiện có. Các target route như `/projects`, `/runs/[id]/risk`, `/runs/[id]/sync-log` vẫn là các màn hình tương lai nếu chưa được implement.

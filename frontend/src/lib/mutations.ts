@@ -135,6 +135,9 @@ export function useLoadContext(
     ...withErrorToast("Failed to load run context.", extras),
     onSuccess: (result, variables, onMutateResult, context) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+      queryClient.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.coverage(runId) });
       queryClient.invalidateQueries({
         queryKey: queryKeys.projectGddDocuments(result.project_id),
       });

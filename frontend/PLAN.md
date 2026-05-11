@@ -20,7 +20,7 @@ Already shipped:
 - `frontend/_design_fixtures/` contains 17 representative JSON payloads plus `design-system.md` for design handoff/reference work.
 - `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px desktop sidebar, mobile sidebar drawer, 56px header, provider status pills/details dialog from `/providers/status`, search command shell, current-run navigation, and user footer.
 - `/projects` and `/projects/[project_id]` are implemented with project listing, new project dialog, run history, DELTA trigger, and GDD version history from `/projects/{project_id}/gdd-documents`.
-- `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
+- `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, staged `Load Context` action for fresh S0 runs, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
 - The run dashboard hydration issue caused by a `<div>` skeleton inside `<p>` was fixed with an inline `<span>` skeleton.
 
 Still missing:
@@ -93,15 +93,15 @@ Surfaces: `/projects`, `/projects/[project_id]`.
 Behaviour:
 
 - List from `GET /api/v1/projects`.
-- "New project" dialog exposes a create-record action via `POST /api/v1/projects` and a primary create+trigger action via `POST /api/v1/runs/trigger` with `project_name` for backend-owned `NEW_GAME` creation.
+- "New project" dialog exposes a create-record action via `POST /api/v1/projects` and a primary create+trigger action via `POST /api/v1/runs/trigger` with `project_name` for backend-owned `NEW_GAME` creation. This intentionally creates an S0 run only; S1 is started from the run dashboard.
 - Existing project picker drives `POST /api/v1/runs/trigger` with `project_id` → mode `DELTA`.
 - Project detail page shows runs scoped to the project + GDD version history from `GET /api/v1/projects/{project_id}/gdd-documents` with `parent_document_id` chain and `description_status` badges (`PENDING` / `USER_PROVIDED` / `AI_GENERATED`).
 
 Acceptance:
 
-- New project → `mode=NEW_GAME` run; existing project → `mode=DELTA` run.
+- New project → `mode=NEW_GAME` S0 run; existing project → `mode=DELTA` S0 run.
 - Uploading the second GDD for a project shows `v2` linked to `v1` via parent badge.
-- Trigger button states reflect mutation `isPending` and toast on success/error.
+- Trigger button states reflect mutation `isPending`, toast on success/error, and route to `/runs/{run_id}` for the next staged action.
 
 ### Screen 3 — Run dashboard
 
@@ -110,6 +110,7 @@ Surfaces: `/runs/[run_id]`.
 Behaviour:
 
 - Vertical timeline from `GET /api/v1/runs/{run_id}/timeline` showing every `StageEvent` S0..FINAL_COVERAGE with status + message.
+- Staged next action for fresh S0 runs: a primary `Load Context` CTA calls `POST /api/v1/runs/{run_id}/context`, registers/parses the GDD, creates HIL-0 questions, and refreshes run/timeline/coverage state.
 - Coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary` (by severity + by code), `sync_summary` (by status + by phase), `gdd_version_metadata`, `sign_off` block.
 - Agent runs panel from `GET /api/v1/runs/{run_id}/agent-runs` with Agent A's `attempt_count`, `retry_exhausted`, and expandable `attempts[]` log from the input/output snapshots.
 - Tabs below: Features, Epics, Stories, Tasks, Test Cases, Validation Issues. The current implementation uses route-local tables; Screen 5 remains responsible for extracting a reusable inspection table and drawer.
@@ -117,6 +118,7 @@ Behaviour:
 Acceptance:
 
 - Demo run shows timeline with 9 stage events (S0 → FINAL_COVERAGE).
+- A newly triggered project run opens at `S0_TRIGGER` and shows `Load Context`; after clicking it, the dashboard advances to `S1_CONTEXT_LOADER` with GDD metadata and parsed section counts.
 - Coverage cards show the live backend coverage payload, including section counts, generated artifact counts, risk summary, sync summary, GDD metadata, and sign-off state.
 - Agent A row exposes attempt log when expanded.
 - `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass after the dashboard/AppShell implementation.
@@ -205,7 +207,7 @@ Acceptance:
 The frontend slice is complete when:
 
 - `npm run dev` from `frontend/` opens `http://localhost:3000` against `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1` and renders the AppShell.
-- A new user can: create a project → upload a GDD → trigger NEW_GAME run → walk through HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in the sync log → see risk events → sign off → see the green sign-off banner on the coverage report.
+- A new user can: create a project → trigger NEW_GAME run at S0 → open `/runs/{run_id}` → Load Context for S1 → walk through HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in the sync log → see risk events → sign off → see the green sign-off banner on the coverage report.
 - A second run on the same project triggers DELTA mode and the GDD version history shows `v1` and `v2` linked by `parent_document_id`.
 - `npm run lint` passes from `frontend/`.
 - `npm run build` passes from `frontend/`.

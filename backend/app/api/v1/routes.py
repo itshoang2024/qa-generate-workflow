@@ -139,8 +139,11 @@ def get_timeline(run_id: str) -> dict[str, object]:
 
 @router.get("/runs/{run_id}/coverage")
 def get_coverage(run_id: str) -> dict[str, object]:
-    run = _require_run(run_id)
-    return envelope(run.coverage_report)
+    try:
+        coverage = pipeline_dependency().coverage_report(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return envelope(coverage)
 
 
 @router.get("/runs/{run_id}/sections")
