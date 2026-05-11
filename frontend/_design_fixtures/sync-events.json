@@ -1,0 +1,1969 @@
+{
+  "data": [
+    {
+      "id": "sync_8e5c80ebc2b0",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "epic",
+      "target_id": "E-CORE-GAMEPLAY",
+      "external_id": "snake-escape-E-CORE-GAMEPLAY",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Epic",
+        "properties": {
+          "Title": "Core Gameplay QA",
+          "Feature IDs": [
+            "F-001"
+          ],
+          "external_id": "snake-escape-E-CORE-GAMEPLAY"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_core_gameplay"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_9c942d2c9d84",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "epic",
+      "target_id": "E-LEVEL-ELEMENTS",
+      "external_id": "snake-escape-E-LEVEL-ELEMENTS",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Epic",
+        "properties": {
+          "Title": "Level Elements QA",
+          "Feature IDs": [
+            "F-002"
+          ],
+          "external_id": "snake-escape-E-LEVEL-ELEMENTS"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_level_elements"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_fa7401508eea",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "epic",
+      "target_id": "E-BOOSTERS",
+      "external_id": "snake-escape-E-BOOSTERS",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Epic",
+        "properties": {
+          "Title": "Boosters and Onboarding QA",
+          "Feature IDs": [
+            "F-003",
+            "F-004"
+          ],
+          "external_id": "snake-escape-E-BOOSTERS"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_boosters"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_ebc9b47032cc",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "epic",
+      "target_id": "E-DAILY-COMPETITIVE",
+      "external_id": "snake-escape-E-DAILY-COMPETITIVE",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Epic",
+        "properties": {
+          "Title": "Daily and Competitive QA",
+          "Feature IDs": [
+            "F-005",
+            "F-006"
+          ],
+          "external_id": "snake-escape-E-DAILY-COMPETITIVE"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_daily_competitive"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_5deebfc9e0eb",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "epic",
+      "target_id": "E-UI-BACKEND",
+      "external_id": "snake-escape-E-UI-BACKEND",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Epic",
+        "properties": {
+          "Title": "UI, Infrastructure, and LiveOps QA",
+          "Feature IDs": [
+            "F-007"
+          ],
+          "external_id": "snake-escape-E-UI-BACKEND"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_ui_backend"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_07ef72757dde",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "story",
+      "target_id": "S-001",
+      "external_id": "snake-escape-E-CORE-GAMEPLAY-S-001",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Story",
+        "properties": {
+          "Epic": "E-CORE-GAMEPLAY",
+          "Title": "Player resolves a board by tapping valid snakes",
+          "Feature": "F-001",
+          "Epic page": "mock_page_snake_escape_e_core_gameplay",
+          "external_id": "snake-escape-E-CORE-GAMEPLAY-S-001"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_core_gameplay_s_001"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_2f397850a5a0",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "story",
+      "target_id": "S-002",
+      "external_id": "snake-escape-E-LEVEL-ELEMENTS-S-002",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Story",
+        "properties": {
+          "Epic": "E-LEVEL-ELEMENTS",
+          "Title": "Player encounters obstacle and support elements",
+          "Feature": "F-002",
+          "Epic page": "mock_page_snake_escape_e_level_elements",
+          "external_id": "snake-escape-E-LEVEL-ELEMENTS-S-002"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_level_elements_s_002"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_a7d455088874",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "story",
+      "target_id": "S-003",
+      "external_id": "snake-escape-E-BOOSTERS-S-003",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Story",
+        "properties": {
+          "Epic": "E-BOOSTERS",
+          "Title": "Player uses boosters from inventory or ad flow",
+          "Feature": "F-003",
+          "Epic page": "mock_page_snake_escape_e_boosters",
+          "external_id": "snake-escape-E-BOOSTERS-S-003"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_boosters_s_003"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_6a6049cb12f4",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "story",
+      "target_id": "S-004",
+      "external_id": "snake-escape-E-DAILY-COMPETITIVE-S-004",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Story",
+        "properties": {
+          "Epic": "E-DAILY-COMPETITIVE",
+          "Title": "Player receives daily and competitive rewards",
+          "Feature": "F-005",
+          "Epic page": "mock_page_snake_escape_e_daily_competitive",
+          "external_id": "snake-escape-E-DAILY-COMPETITIVE-S-004"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_daily_competitive_s_004"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_72154de7eabc",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "story",
+      "target_id": "S-005",
+      "external_id": "snake-escape-E-UI-BACKEND-S-005",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Story",
+        "properties": {
+          "Epic": "E-UI-BACKEND",
+          "Title": "QA verifies UI and backend operational coverage",
+          "Feature": "F-007",
+          "Epic page": "mock_page_snake_escape_e_ui_backend",
+          "external_id": "snake-escape-E-UI-BACKEND-S-005"
+        },
+        "sync_phase": "Sync-A",
+        "notion_page_id": "mock_page_snake_escape_e_ui_backend_s_005"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_27f61cf0a4e9",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-001",
+      "external_id": "snake-escape-F-001-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "S",
+          "Priority": "P0",
+          "Confidence": 0.92,
+          "Task title": "Verify clear-path snake exits and is removed",
+          "Description": "Check that tapping a snake with an unobstructed path plays the exit animation, removes the snake, and credits progress.",
+          "external_id": "snake-escape-F-001-T-01",
+          "Epic / Story": {
+            "epic_id": "E-CORE-GAMEPLAY",
+            "story_id": "S-001",
+            "epic_page_id": "mock_page_snake_escape_e_core_gameplay",
+            "story_page_id": "mock_page_snake_escape_e_core_gameplay_s_001"
+          },
+          "Feature name": "Dot-Grid Board System",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Suggested assignee": "Ngoc Anh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_ec56e632e970",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-002",
+      "external_id": "snake-escape-F-001-T-02",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "M",
+          "Priority": "P0",
+          "Confidence": 0.91,
+          "Task title": "Verify blocked snake costs health once",
+          "Description": "Check that the first wrong tap on a blocked snake costs one health and repeated taps on the same blocked snake do not re-penalize.",
+          "external_id": "snake-escape-F-001-T-02",
+          "Epic / Story": {
+            "epic_id": "E-CORE-GAMEPLAY",
+            "story_id": "S-001",
+            "epic_page_id": "mock_page_snake_escape_e_core_gameplay",
+            "story_page_id": "mock_page_snake_escape_e_core_gameplay_s_001"
+          },
+          "Feature name": "Dot-Grid Board System",
+          "Source sections": [
+            "§2.3",
+            "§2.4"
+          ],
+          "Suggested assignee": "Ngoc Anh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_02"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_ef48d8a2f288",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-003",
+      "external_id": "snake-escape-F-002-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "M",
+          "Priority": "P0",
+          "Confidence": 0.89,
+          "Task title": "Verify Wall countdown and collision behavior",
+          "Description": "Check wall blocking, countdown decrement on successful snake exits, disappearance at zero, and collision health loss.",
+          "external_id": "snake-escape-F-002-T-01",
+          "Epic / Story": {
+            "epic_id": "E-LEVEL-ELEMENTS",
+            "story_id": "S-002",
+            "epic_page_id": "mock_page_snake_escape_e_level_elements",
+            "story_page_id": "mock_page_snake_escape_e_level_elements_s_002"
+          },
+          "Feature name": "Snake Representation and Directional Behavior",
+          "Source sections": [
+            "§3.1"
+          ],
+          "Suggested assignee": "Huy"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_bc423769968c",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-004",
+      "external_id": "snake-escape-F-002-T-02",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "M",
+          "Priority": "P1",
+          "Confidence": 0.88,
+          "Task title": "Verify Black Hole portal transfer",
+          "Description": "Check paired Black Hole entry, exit, and teleport animation behavior for snakes passing through the portal.",
+          "external_id": "snake-escape-F-002-T-02",
+          "Epic / Story": {
+            "epic_id": "E-LEVEL-ELEMENTS",
+            "story_id": "S-002",
+            "epic_page_id": "mock_page_snake_escape_e_level_elements",
+            "story_page_id": "mock_page_snake_escape_e_level_elements_s_002"
+          },
+          "Feature name": "Snake Representation and Directional Behavior",
+          "Source sections": [
+            "§3.2"
+          ],
+          "Suggested assignee": "Huy"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_02"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_95112e0845d4",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-005",
+      "external_id": "snake-escape-F-003-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "S",
+          "Priority": "P1",
+          "Confidence": 0.87,
+          "Task title": "Verify Hint booster cost and effect",
+          "Description": "Check Hint cost, ad alternative, inventory decrement, and highlight behavior for an escapable snake.",
+          "external_id": "snake-escape-F-003-T-01",
+          "Epic / Story": {
+            "epic_id": "E-BOOSTERS",
+            "story_id": "S-003",
+            "epic_page_id": "mock_page_snake_escape_e_boosters",
+            "story_page_id": "mock_page_snake_escape_e_boosters_s_003"
+          },
+          "Feature name": "Tap-to-Move Mechanic for Snakes",
+          "Source sections": [
+            "§4.1",
+            "§7.3"
+          ],
+          "Suggested assignee": "Linh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_3985803f45a4",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-006",
+      "external_id": "snake-escape-F-003-T-02",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "S",
+          "Priority": "P1",
+          "Confidence": 0.87,
+          "Task title": "Verify Grid Vision booster cost and arrows",
+          "Description": "Check Grid Vision cost, ad alternative, inventory decrement, and simultaneous directional exit arrows.",
+          "external_id": "snake-escape-F-003-T-02",
+          "Epic / Story": {
+            "epic_id": "E-BOOSTERS",
+            "story_id": "S-003",
+            "epic_page_id": "mock_page_snake_escape_e_boosters",
+            "story_page_id": "mock_page_snake_escape_e_boosters_s_003"
+          },
+          "Feature name": "Tap-to-Move Mechanic for Snakes",
+          "Source sections": [
+            "§4.2",
+            "§7.3"
+          ],
+          "Suggested assignee": "Linh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_02"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_d2b1784c4db9",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-009",
+      "external_id": "snake-escape-F-006-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "L",
+          "Priority": "P0",
+          "Confidence": 0.86,
+          "Task title": "Verify Tournament unlock, scoring, and reward lifecycle",
+          "Description": "Check level 14 unlock, score and streak multiplier handling, leaderboard reward mapping, and lifecycle service behavior.",
+          "external_id": "snake-escape-F-006-T-01",
+          "Epic / Story": {
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "story_id": "S-004",
+            "epic_page_id": "mock_page_snake_escape_e_daily_competitive",
+            "story_page_id": "mock_page_snake_escape_e_daily_competitive_s_004"
+          },
+          "Feature name": "Wall Obstacle with Countdown and Collision Feedback",
+          "Source sections": [
+            "§9.1",
+            "§12.3"
+          ],
+          "Suggested assignee": "Quan"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_006_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_f9306a244354",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-010",
+      "external_id": "snake-escape-F-007-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "L",
+          "Priority": "P1",
+          "Confidence": 0.85,
+          "Task title": "Verify screen inventory, navigation, localisation, and theme variants",
+          "Description": "Check major screens, navigation flow, dark mode, landscape, and localisation expansion risks.",
+          "external_id": "snake-escape-F-007-T-01",
+          "Epic / Story": {
+            "epic_id": "E-UI-BACKEND",
+            "story_id": "S-005",
+            "epic_page_id": "mock_page_snake_escape_e_ui_backend",
+            "story_page_id": "mock_page_snake_escape_e_ui_backend_s_005"
+          },
+          "Feature name": "Black Hole Portal Element",
+          "Source sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3"
+          ],
+          "Suggested assignee": "Minh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_007_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_d21dfc6ad538",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0001",
+      "external_id": "snake-escape-F-001-T-01-TC-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify clear-path snake exits and is removed.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify clear-path snake exits and is removed - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-01-TC-01",
+          "Related task": "T-001",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-001 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01_tc_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_58b7dd94e871",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0002",
+      "external_id": "snake-escape-F-001-T-01-TC-02",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify clear-path snake exits and is removed.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify clear-path snake exits and is removed - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-01-TC-02",
+          "Related task": "T-001",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-001 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01_tc_02"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_4058c6c08208",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0003",
+      "external_id": "snake-escape-F-001-T-01-TC-03",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify clear-path snake exits and is removed.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify clear-path snake exits and is removed - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-01-TC-03",
+          "Related task": "T-001",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-001 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01_tc_03"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_b08f42d069d0",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0004",
+      "external_id": "snake-escape-F-001-T-01-TC-04",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify clear-path snake exits and is removed.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify clear-path snake exits and is removed - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-01-TC-04",
+          "Related task": "T-001",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-001 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01_tc_04"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_a0eb915a4d40",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0005",
+      "external_id": "snake-escape-F-001-T-02-TC-05",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify blocked snake costs health once.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify blocked snake costs health once - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-02-TC-05",
+          "Related task": "T-002",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-002 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.4"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_02_tc_05"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_248ae6e89d94",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0006",
+      "external_id": "snake-escape-F-001-T-02-TC-06",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify blocked snake costs health once.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify blocked snake costs health once - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-02-TC-06",
+          "Related task": "T-002",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-002 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.4"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_02_tc_06"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_1e40df72fbba",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0007",
+      "external_id": "snake-escape-F-001-T-02-TC-07",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify blocked snake costs health once.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify blocked snake costs health once - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-02-TC-07",
+          "Related task": "T-002",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-002 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.4"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_02_tc_07"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_f09cacf162c8",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0008",
+      "external_id": "snake-escape-F-001-T-02-TC-08",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify blocked snake costs health once.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify blocked snake costs health once - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-02-TC-08",
+          "Related task": "T-002",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-002 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.4"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_02_tc_08"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_e07c1ef24c69",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0009",
+      "external_id": "snake-escape-F-002-T-01-TC-09",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Wall countdown and collision behavior.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Wall countdown and collision behavior - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-002-T-01-TC-09",
+          "Related task": "T-003",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-003 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.1"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_01_tc_09"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_2b74290fe891",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0010",
+      "external_id": "snake-escape-F-002-T-01-TC-10",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify Wall countdown and collision behavior.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Wall countdown and collision behavior - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-002-T-01-TC-10",
+          "Related task": "T-003",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-003 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.1"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_01_tc_10"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_925da2a3313d",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0011",
+      "external_id": "snake-escape-F-002-T-01-TC-11",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Wall countdown and collision behavior.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Wall countdown and collision behavior - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-002-T-01-TC-11",
+          "Related task": "T-003",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-003 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.1"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_01_tc_11"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_7b422d91dea1",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0012",
+      "external_id": "snake-escape-F-002-T-01-TC-12",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify Wall countdown and collision behavior.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Wall countdown and collision behavior - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-002-T-01-TC-12",
+          "Related task": "T-003",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-003 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.1"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_01_tc_12"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_4a7eb4ff7616",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0013",
+      "external_id": "snake-escape-F-002-T-02-TC-13",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Black Hole portal transfer.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Black Hole portal transfer - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-002-T-02-TC-13",
+          "Related task": "T-004",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-004 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.2"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_02_tc_13"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_a29482b35ce1",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0014",
+      "external_id": "snake-escape-F-002-T-02-TC-14",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify Black Hole portal transfer.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Black Hole portal transfer - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-002-T-02-TC-14",
+          "Related task": "T-004",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-004 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.2"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_02_tc_14"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_ea97dfd7ff65",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0015",
+      "external_id": "snake-escape-F-002-T-02-TC-15",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Black Hole portal transfer.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Black Hole portal transfer - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-002-T-02-TC-15",
+          "Related task": "T-004",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-004 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.2"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_02_tc_15"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_ce6a275a9dba",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0016",
+      "external_id": "snake-escape-F-002-T-02-TC-16",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify Black Hole portal transfer.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Black Hole portal transfer - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-002-T-02-TC-16",
+          "Related task": "T-004",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-004 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§3.2"
+          ],
+          "Related task page": "mock_page_snake_escape_f_002_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_002_t_02_tc_16"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_e09fa57358d6",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0017",
+      "external_id": "snake-escape-F-003-T-01-TC-17",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Hint booster cost and effect.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Hint booster cost and effect - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-01-TC-17",
+          "Related task": "T-005",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-005 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.1",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_01_tc_17"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_2ce70b15ac4d",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0018",
+      "external_id": "snake-escape-F-003-T-01-TC-18",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify Hint booster cost and effect.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Hint booster cost and effect - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-01-TC-18",
+          "Related task": "T-005",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-005 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.1",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_01_tc_18"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_d4361818bded",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0019",
+      "external_id": "snake-escape-F-003-T-01-TC-19",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Hint booster cost and effect.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Hint booster cost and effect - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-01-TC-19",
+          "Related task": "T-005",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-005 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.1",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_01_tc_19"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_86c5c87e23aa",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0020",
+      "external_id": "snake-escape-F-003-T-01-TC-20",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify Hint booster cost and effect.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Hint booster cost and effect - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-01-TC-20",
+          "Related task": "T-005",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-005 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.1",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_01_tc_20"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_c52d35616a84",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0021",
+      "external_id": "snake-escape-F-003-T-02-TC-21",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Grid Vision booster cost and arrows.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Grid Vision booster cost and arrows - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-02-TC-21",
+          "Related task": "T-006",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-006 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.2",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_02_tc_21"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_1fca74353661",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0022",
+      "external_id": "snake-escape-F-003-T-02-TC-22",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify Grid Vision booster cost and arrows.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Grid Vision booster cost and arrows - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-02-TC-22",
+          "Related task": "T-006",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-006 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.2",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_02_tc_22"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_be0b22abb604",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0023",
+      "external_id": "snake-escape-F-003-T-02-TC-23",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Grid Vision booster cost and arrows.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Grid Vision booster cost and arrows - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-02-TC-23",
+          "Related task": "T-006",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-006 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.2",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_02_tc_23"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_2598e264f41a",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0024",
+      "external_id": "snake-escape-F-003-T-02-TC-24",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify Grid Vision booster cost and arrows.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Grid Vision booster cost and arrows - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-003-T-02-TC-24",
+          "Related task": "T-006",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-006 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§4.2",
+            "§7.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_003_t_02"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_003_t_02_tc_24"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_a8680e97ff60",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0033",
+      "external_id": "snake-escape-F-006-T-01-TC-33",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Tournament unlock, scoring, and reward lifecycle - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-006-T-01-TC-33",
+          "Related task": "T-009",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-009 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§9.1",
+            "§12.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_006_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_006_t_01_tc_33"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    },
+    {
+      "id": "sync_2736cf74a4c6",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0034",
+      "external_id": "snake-escape-F-006-T-01-TC-34",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Tournament unlock, scoring, and reward lifecycle - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-006-T-01-TC-34",
+          "Related task": "T-009",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-009 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§9.1",
+            "§12.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_006_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_006_t_01_tc_34"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_97eab51080fa",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0035",
+      "external_id": "snake-escape-F-006-T-01-TC-35",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Tournament unlock, scoring, and reward lifecycle - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-006-T-01-TC-35",
+          "Related task": "T-009",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-009 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§9.1",
+            "§12.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_006_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_006_t_01_tc_35"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_76dd8e126f95",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0036",
+      "external_id": "snake-escape-F-006-T-01-TC-36",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify Tournament unlock, scoring, and reward lifecycle - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-006-T-01-TC-36",
+          "Related task": "T-009",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-009 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§9.1",
+            "§12.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_006_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_006_t_01_tc_36"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_9326453f7a43",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0037",
+      "external_id": "snake-escape-F-007-T-01-TC-37",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+            "Execute the happy path scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify screen inventory, navigation, localisation, and theme variants - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-007-T-01-TC-37",
+          "Related task": "T-010",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-010 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_007_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_007_t_01_tc_37"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_90bfab9654e6",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0038",
+      "external_id": "snake-escape-F-007-T-01-TC-38",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "regression",
+          "Steps": [
+            "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+            "Execute the blocked or invalid action scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify screen inventory, navigation, localisation, and theme variants - Negative",
+          "Status": "Not Run",
+          "Category": "negative",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-007-T-01-TC-38",
+          "Related task": "T-010",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-010 is ready for test case generation."
+          ],
+          "Expected result": "The blocked or invalid action scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_007_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_007_t_01_tc_38"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_af74874ca4cd",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0039",
+      "external_id": "snake-escape-F-007-T-01-TC-39",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+            "Execute the boundary condition scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify screen inventory, navigation, localisation, and theme variants - Edge",
+          "Status": "Not Run",
+          "Category": "edge",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-007-T-01-TC-39",
+          "Related task": "T-010",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-010 is ready for test case generation."
+          ],
+          "Expected result": "The boundary condition scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_007_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_007_t_01_tc_39"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    },
+    {
+      "id": "sync_86b455c39b16",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0040",
+      "external_id": "snake-escape-F-007-T-01-TC-40",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "integration",
+          "Steps": [
+            "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+            "Execute the linked feature flow scenario described by the QA task.",
+            "Record the observed result and compare it with the expected behavior."
+          ],
+          "Title": "Verify screen inventory, navigation, localisation, and theme variants - Integration",
+          "Status": "Not Run",
+          "Category": "integration",
+          "Priority": "P1",
+          "external_id": "snake-escape-F-007-T-01-TC-40",
+          "Related task": "T-010",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-010 is ready for test case generation."
+          ],
+          "Expected result": "The linked feature flow scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3"
+          ],
+          "Related task page": "mock_page_snake_escape_f_007_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_007_t_01_tc_40"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.656734Z",
+      "updated_at": "2026-05-11T05:49:04.656734Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_72bc655ae9a1"
+  },
+  "error": null
+}

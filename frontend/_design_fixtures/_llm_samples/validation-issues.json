@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "id": "vi_1a65235a2788",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§12.8",
+      "severity": "S3_INFORMATIONAL",
+      "code": "uncovered_actionable_section",
+      "message": "Actionable GDD section is not mapped to any feature in the mock Agent A output.",
+      "stage": "S3_VALIDATION_A",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_f0fbe53405ab",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§15",
+      "severity": "S3_INFORMATIONAL",
+      "code": "preflight_note",
+      "message": "IMPORTANT: Daily Challenge (Epic 10) has extensive UI assets (Calendar, Trophy Room, Results) but minimal GDD text. Formal specs align to the existing art direction documented here.",
+      "stage": "S1_CONTEXT_LOADER",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_5a086c5f4e69"
+  },
+  "error": null
+}

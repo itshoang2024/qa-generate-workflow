@@ -1,0 +1,680 @@
+{
+  "data": {
+    "id": "run_87a8f69786fc",
+    "project_id": "snake-escape",
+    "mode": "NEW_GAME",
+    "status": "COMPLETED",
+    "current_stage": "FINAL_COVERAGE",
+    "session_memory": {
+      "mode": "NEW_GAME",
+      "hil_1": {
+        "source": "HIL-1",
+        "approval_mode": "demo_auto_approve",
+        "epic_structure": {
+          "epics": [
+            {
+              "title": "Gameplay Logic Scope",
+              "epic_id": "HIL1-GAMEPLAY-LOGIC",
+              "feature_ids": [
+                "F-001",
+                "F-002",
+                "F-003",
+                "F-004",
+                "F-005",
+                "F-006",
+                "F-007",
+                "F-009",
+                "F-010",
+                "F-014"
+              ]
+            },
+            {
+              "title": "Tutorial Scope",
+              "epic_id": "HIL1-TUTORIAL",
+              "feature_ids": [
+                "F-012"
+              ]
+            },
+            {
+              "title": "Level Puzzle Scope",
+              "epic_id": "HIL1-LEVEL-PUZZLE",
+              "feature_ids": [
+                "F-013",
+                "F-026"
+              ]
+            },
+            {
+              "title": "Economy Scope",
+              "epic_id": "HIL1-ECONOMY",
+              "feature_ids": [
+                "F-015"
+              ]
+            },
+            {
+              "title": "Backend Liveops Scope",
+              "epic_id": "HIL1-BACKEND-LIVEOPS",
+              "feature_ids": [
+                "F-017",
+                "F-018",
+                "F-022",
+                "F-023",
+                "F-024",
+                "F-025"
+              ]
+            },
+            {
+              "title": "Ui Layout Scope",
+              "epic_id": "HIL1-UI-LAYOUT",
+              "feature_ids": [
+                "F-019",
+                "F-020"
+              ]
+            },
+            {
+              "title": "Animation Scope",
+              "epic_id": "HIL1-ANIMATION",
+              "feature_ids": [
+                "F-021"
+              ]
+            }
+          ],
+          "source": "feature_type_grouping"
+        },
+        "held_feature_ids": [
+          "F-008",
+          "F-011",
+          "F-016"
+        ],
+        "approved_features": [
+          {
+            "lane": "AUTO",
+            "name": "Dot-Grid Board System",
+            "summary": "Implements a dot-grid board where dots define snake positions and bend paths. Board sizes range from a minimum of 3x3 to a maximum of 40x40 dots. Supports pinch-to-zoom gesture for larger boards using two fingers.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.95,
+            "feature_id": "F-001",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.1"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Snake Representation and Directional Behavior",
+            "summary": "Snakes occupy sequences of dots with a facing direction (Left, Right, Up, Down). Direction determines the exit trajectory when tapped. Snake rendering includes curved bends along dot paths.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.99,
+            "feature_id": "F-002",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.2"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Tap-to-Move Mechanic for Snakes",
+            "summary": "Players tap snakes to slide them off the board if the path to board edge is unobstructed. Successful moves trigger an exit animation and remove the snake, crediting the player. Wrong moves (path blocked) cause a one-time health penalty per snake.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.99,
+            "feature_id": "F-003",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.3"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Health and Lives System",
+            "summary": "Each level has configurable health representing allowable wrong moves (default 3). When health reaches zero, the level fails, triggering Revive or Failed screens.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.98,
+            "feature_id": "F-004",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.4"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Level Completion and Failure Flow",
+            "summary": "Winning the level requires all snakes to exit, awarding coins and showing Result screen. Failing occurs when health reaches zero, showing Revive/Failed popups with options to revive (pay or watch ad) or restart (reset progress).",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.99,
+            "feature_id": "F-005",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.5"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Wall Obstacle with Countdown and Collision Feedback",
+            "summary": "Walls block snake movement. Each snake exit reduces the Wall's countdown by one. When countdown hits zero, the Wall disappears. Collision with Wall costs health and triggers collision animation.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.98,
+            "feature_id": "F-006",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§3.1"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Black Hole Portal Element",
+            "summary": "Black Holes act as paired portals: snakes entering one exit from its pair or directly off board. Teleport includes swirl/shrink enter and expand exit animations.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.98,
+            "feature_id": "F-007",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§3.2"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Hint Booster System",
+            "summary": "A booster that highlights one snake that can currently escape. Costs 300 Coin or watching one ad per use, and is inventory-based.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.96,
+            "feature_id": "F-009",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§4.1"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Grid Vision (Ruler) Booster",
+            "summary": "Displays directional exit arrows on all snakes simultaneously. Costs 900 Coin or watching one ad per use, inventory-based.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.96,
+            "feature_id": "F-010",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§4.2"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Progressive In-Game Tutorial System",
+            "summary": "Triggers tutorials on level milestones or first encounters, fading out after the player completes prompted actions. Includes animated finger with specified animation states and durations.",
+            "assignee": "Minh",
+            "confidence": 0.99,
+            "feature_id": "F-012",
+            "delta_status": null,
+            "feature_type": "tutorial",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§5",
+              "§11"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Level Structure and Difficulty Progression",
+            "summary": "Levels numbered sequentially without chapter locks. Difficulty grows by increasing board size, snake count, obstacles, and reducing health margins. Levels grouped into themed chapters for visual variety.",
+            "assignee": "Huy",
+            "confidence": 0.98,
+            "feature_id": "F-013",
+            "delta_status": null,
+            "feature_type": "level_puzzle",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§6.1",
+              "§6.3",
+              "§14.4"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Level Unlocking and Tournament Gate",
+            "summary": "Levels unlock sequentially after completion. Tournament feature unlocks at Level 14, gating competitive play.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.98,
+            "feature_id": "F-014",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§6.2"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Coin Economy Sources and Sinks",
+            "summary": "Coins earned from level completions, ads, daily activities, missions, spins, and IAP packs. Coins spent on boosters and revives, with detailed pricing and bundles including no-ads options.",
+            "assignee": "Linh",
+            "confidence": 0.99,
+            "feature_id": "F-015",
+            "delta_status": null,
+            "feature_type": "economy",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§7.2",
+              "§7.3",
+              "§7.5"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Tournament System with Streak Multiplier and Leaderboard",
+            "summary": "Players join starting Level 14, scoring with win streak multiplier increasing per win, managed server-side with leaderboards and reward tiers based on ranks.",
+            "assignee": "Quan",
+            "confidence": 0.99,
+            "feature_id": "F-017",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§9.1",
+              "§12.3"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Play With Friend Asynchronous/Real-Time Mode",
+            "summary": "Enables match where two players complete the same level asynchronously or real-time. Features scoring with base and time bonuses, match countdown timer, result screen with score and snake count comparison, and friend management flow.",
+            "assignee": "Quan",
+            "confidence": 0.98,
+            "feature_id": "F-018",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§9.2",
+              "§12.5"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Screen Inventory and Navigation Flow",
+            "summary": "Defines UI screens including splash, home/dashboard, gameplay HUD, results, shop, daily features, tournament, friend system, and settings. Navigation flows from splash to home and branches to various features like shop and gameplay.",
+            "assignee": "Minh",
+            "confidence": 0.99,
+            "feature_id": "F-019",
+            "delta_status": null,
+            "feature_type": "ui_layout",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§10.1",
+              "§10.2"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Localization, Themes, and Layout Support",
+            "summary": "Multi-language support including Portuguese, with design for text expansion. Includes dark mode full visual variant and landscape orientation layout.",
+            "assignee": "Minh",
+            "confidence": 0.95,
+            "feature_id": "F-020",
+            "delta_status": null,
+            "feature_type": "ui_layout",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§10.3"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Animation Specifications for Gameplay and UI",
+            "summary": "Includes snake movement, exit, wrong move feedback, tutorial finger states, popups, boosters, walls, black hole teleport, spin wheel, and win streak visuals with detailed timing and effects.",
+            "assignee": "Minh",
+            "confidence": 0.99,
+            "feature_id": "F-021",
+            "delta_status": null,
+            "feature_type": "animation",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§11",
+              "§5"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Player Data Cloud Save and Sync",
+            "summary": "Persist player data including level progress, coins, boosters, settings, mission and tournament progress. Syncs at session start with local caching to maintain 60fps gameplay.",
+            "assignee": "Quan",
+            "confidence": 0.99,
+            "feature_id": "F-022",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§12.1"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Daily Reset and Remote Configuration Services",
+            "summary": "Server-side UTC resets for daily systems like missions and spins. Provides remote config for economy tuning, tournament schedules, rewards, and feature flags for seasonal events.",
+            "assignee": "Quan",
+            "confidence": 0.98,
+            "feature_id": "F-023",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§12.2",
+              "§12.7"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Daily Challenge Backend Service",
+            "summary": "Backend serves a unique daily puzzle level JSON to all players with support for replaying past challenges on request.",
+            "assignee": "Quan",
+            "confidence": 0.99,
+            "feature_id": "F-024",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§12.4"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Analytics Event Tracking",
+            "summary": "Tracks key gameplay and app events including level starts/completions/fails, booster usage, revives, IAP purchases, ad watches, and session starts.",
+            "assignee": "Quan",
+            "confidence": 0.99,
+            "feature_id": "F-025",
+            "delta_status": null,
+            "feature_type": "backend_liveops",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§12.6"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Level Data Format and Editor with Validation",
+            "summary": "Serialized level files include board size, dots, snake positions/directions, obstacles, and health. Unity Editor tool enables level design and an automated solvability checker validates at least one solution before shipping.",
+            "assignee": "Huy",
+            "confidence": 0.99,
+            "feature_id": "F-026",
+            "delta_status": null,
+            "feature_type": "level_puzzle",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§14.1",
+              "§14.2"
+            ]
+          }
+        ],
+        "approved_feature_ids": [
+          "F-001",
+          "F-002",
+          "F-003",
+          "F-004",
+          "F-005",
+          "F-006",
+          "F-007",
+          "F-009",
+          "F-010",
+          "F-012",
+          "F-013",
+          "F-014",
+          "F-015",
+          "F-017",
+          "F-018",
+          "F-019",
+          "F-020",
+          "F-021",
+          "F-022",
+          "F-023",
+          "F-024",
+          "F-025",
+          "F-026"
+        ],
+        "review_queue_feature_ids": [
+          "F-008",
+          "F-011",
+          "F-016"
+        ]
+      },
+      "gdd_file": "D:\\Code\\SUNS-RISER\\qa-generate-workflow\\data\\GDD_Sample_Snake_Escape.docx",
+      "project_id": "snake-escape",
+      "kill_switch": {
+        "tripped": false,
+        "threshold": 3,
+        "s1_risk_count": 0
+      },
+      "context_loaded": true,
+      "gdd_document_id": "gdd_63ecb1ddfa2e",
+      "source_version_id": "v3",
+      "agent_a_validation": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": []
+          },
+          {
+            "attempt": 2,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§12.8"
+            ]
+          },
+          {
+            "attempt": 3,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§2.1"
+            ]
+          }
+        ],
+        "attempt_count": 3,
+        "retry_exhausted": true
+      },
+      "hil_0_question_count": 14,
+      "actionable_section_count": 41
+    },
+    "gdd_document_id": "gdd_63ecb1ddfa2e",
+    "source_version_id": "v3",
+    "source_metadata": {
+      "origin": "local_reference",
+      "sha256": "d9ea45a6c51d266687e05e5abf1dec7e67059b301bb02c91d2319fd6f909e8d9",
+      "file_name": "GDD_Sample_Snake_Escape.docx",
+      "size_bytes": 169243,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    "delta_report": null,
+    "coverage_report": {
+      "sign_off": {
+        "signed_off": false,
+        "signed_off_at": null,
+        "signed_off_by": null
+      },
+      "task_count": 10,
+      "risk_summary": {
+        "total": 1,
+        "by_code": {
+          "uncovered_actionable_section": 1
+        },
+        "by_severity": {
+          "S2": 1
+        }
+      },
+      "sync_summary": {
+        "total": 50,
+        "by_phase": {
+          "Sync-A": 10,
+          "Sync-B": 8,
+          "Sync-C": 32
+        },
+        "by_status": {
+          "SUCCESS": 50
+        }
+      },
+      "feature_count": 26,
+      "total_sections": 55,
+      "test_case_count": 40,
+      "covered_sections": [
+        "§10.1",
+        "§10.2",
+        "§10.3",
+        "§11",
+        "§12.1",
+        "§12.2",
+        "§12.3",
+        "§12.4",
+        "§12.5",
+        "§12.6",
+        "§12.7",
+        "§14.1",
+        "§14.2",
+        "§14.4",
+        "§2.1",
+        "§2.2",
+        "§2.3",
+        "§2.4",
+        "§2.5",
+        "§3.1",
+        "§3.2",
+        "§3.3",
+        "§4.1",
+        "§4.2",
+        "§4.3",
+        "§4.4",
+        "§5",
+        "§6.1",
+        "§6.2",
+        "§6.3",
+        "§7.2",
+        "§7.3",
+        "§7.5",
+        "§8.1",
+        "§8.2",
+        "§8.3",
+        "§8.4",
+        "§8.5",
+        "§9.1",
+        "§9.2"
+      ],
+      "tasks_by_assignee": {
+        "Huy": 2,
+        "Linh": 3,
+        "Minh": 2,
+        "Quan": 1,
+        "Ngoc Anh": 2
+      },
+      "tasks_by_priority": {
+        "P0": 4,
+        "P1": 6
+      },
+      "uncovered_sections": [
+        "§12.8"
+      ],
+      "actionable_sections": 41,
+      "gdd_version_metadata": {
+        "gdd_document_id": "gdd_63ecb1ddfa2e",
+        "source_metadata": {
+          "origin": "local_reference",
+          "sha256": "d9ea45a6c51d266687e05e5abf1dec7e67059b301bb02c91d2319fd6f909e8d9",
+          "file_name": "GDD_Sample_Snake_Escape.docx",
+          "size_bytes": 169243,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        },
+        "source_version_id": "v3"
+      },
+      "validation_issue_count": 15
+    },
+    "timeline": [
+      {
+        "stage": "S0_TRIGGER",
+        "status": "ok",
+        "message": "Triggered NEW_GAME run for project 'Snake Escape'.",
+        "created_at": "2026-05-11T05:48:02.513398Z"
+      },
+      {
+        "stage": "S1_CONTEXT_LOADER",
+        "status": "ok",
+        "message": "Registered v3 and parsed 55 GDD sections.",
+        "created_at": "2026-05-11T05:48:04.145921Z"
+      },
+      {
+        "stage": "S2_AGENT_A",
+        "status": "ok",
+        "message": "Generated 26 features after 3 attempt(s).",
+        "created_at": "2026-05-11T05:49:00.295224Z"
+      },
+      {
+        "stage": "S3_VALIDATION_A",
+        "status": "ok",
+        "message": "Feature validation produced 5 issues.",
+        "created_at": "2026-05-11T05:49:01.047176Z"
+      },
+      {
+        "stage": "S4_AGENT_B",
+        "status": "ok",
+        "message": "Generated 5 epics, 5 stories, and 10 tasks.",
+        "created_at": "2026-05-11T05:49:02.360790Z"
+      },
+      {
+        "stage": "S5_VALIDATION_B_SYNC",
+        "status": "ok",
+        "message": "Task validation produced 2 issues; Sync-A wrote 10 records; Sync-B wrote 8 task records.",
+        "created_at": "2026-05-11T05:49:03.113897Z"
+      },
+      {
+        "stage": "S6_AGENT_C",
+        "status": "ok",
+        "message": "Generated 40 test cases.",
+        "created_at": "2026-05-11T05:49:04.039501Z"
+      },
+      {
+        "stage": "S7_VALIDATION_C_SYNC",
+        "status": "ok",
+        "message": "Test-case validation produced 8 issues; synced 32 mock Notion records.",
+        "created_at": "2026-05-11T05:49:05.145808Z"
+      },
+      {
+        "stage": "FINAL_COVERAGE",
+        "status": "ok",
+        "message": "Coverage report is ready.",
+        "created_at": "2026-05-11T05:49:06.780245Z"
+      }
+    ],
+    "signed_off_by": null,
+    "signed_off_at": null,
+    "created_at": "2026-05-11T05:48:02.368865Z",
+    "updated_at": "2026-05-11T05:49:06.780245Z",
+    "finished_at": "2026-05-11T05:49:06.780245Z"
+  },
+  "meta": {
+    "request_id": "req_b5e13b2bf048"
+  },
+  "error": null
+}

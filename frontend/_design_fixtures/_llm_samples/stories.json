@@ -1,0 +1,38 @@
+{
+  "data": [
+    {
+      "id": "story_42fa8ee8790c",
+      "run_id": "run_87a8f69786fc",
+      "story_id": "S-001",
+      "epic_id": "E-CORE-GAMEPLAY",
+      "title": "Player resolves a board by tapping valid snakes",
+      "description": "As a player, I can remove snakes when their exit paths are clear.",
+      "feature_id": "F-001",
+      "acceptance_criteria": [
+        "Clear snake exits the board",
+        "Board state updates after removal"
+      ],
+      "external_id": "snake-escape-E-CORE-GAMEPLAY-S-001",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "story_5797663b79a8",
+      "run_id": "run_87a8f69786fc",
+      "story_id": "S-002",
+      "epic_id": "E-LEVEL-ELEMENTS",
+      "title": "Player encounters obstacle and support elements",
+      "description": "As a player, I see walls and Black Holes behave consistently with puzzle rules.",
+      "feature_id": "F-002",
+      "acceptance_criteria": [
+        "Wall countdown decreases only on successful escapes",
+        "Black Hole teleport animation preserves snake flow"
+      ],
+      "external_id": "snake-escape-E-LEVEL-ELEMENTS-S-002",
+      "review_status": "AUTO_APPROVED"
+    }
+  ],
+  "meta": {
+    "request_id": "req_898248d2ab2b"
+  },
+  "error": null
+}

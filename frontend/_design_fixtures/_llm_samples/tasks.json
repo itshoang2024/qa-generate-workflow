@@ -1,0 +1,56 @@
+{
+  "data": [
+    {
+      "id": "task_6d50f8dd566c",
+      "run_id": "run_87a8f69786fc",
+      "task_id": "T-001",
+      "story_id": "S-001",
+      "epic_id": "E-CORE-GAMEPLAY",
+      "feature_id": "F-001",
+      "title": "Verify clear-path snake exits and is removed",
+      "description": "Check that tapping a snake with an unobstructed path plays the exit animation, removes the snake, and credits progress.",
+      "assignee": "Ngoc Anh",
+      "priority": "P0",
+      "estimate": "S",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "status": "Test Cases Ready",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "task_583aa2ca7067",
+      "run_id": "run_87a8f69786fc",
+      "task_id": "T-007",
+      "story_id": "S-003",
+      "epic_id": "E-BOOSTERS",
+      "feature_id": "F-004",
+      "title": "Review booster first-introduction overlay flow",
+      "description": "Review popup, OK transition, dark overlay, finger animation, activation, and inventory decrement in the first booster tutorial.",
+      "assignee": "Minh",
+      "priority": "P1",
+      "estimate": "M",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "status": "Ready for Test Cases",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    }
+  ],
+  "meta": {
+    "request_id": "req_9075b4a5936b"
+  },
+  "error": null
+}

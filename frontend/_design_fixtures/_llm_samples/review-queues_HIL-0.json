@@ -1,0 +1,77 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-0",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 2,
+    "groups": [
+      {
+        "group_id": "reviewer:QA Lead|feature:none|epic:none",
+        "reviewer": "QA Lead",
+        "feature_id": null,
+        "epic_id": null,
+        "item_count": 2,
+        "items": [
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_10_9",
+            "title": "UI/UX Specification",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_10_9",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§10",
+              "title": "UI/UX Specification",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_12_10",
+            "title": "Backend & Infrastructure Requirements",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_12_10",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§12",
+              "title": "Backend & Infrastructure Requirements",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_0e9f16694f22"
+  },
+  "error": null
+}

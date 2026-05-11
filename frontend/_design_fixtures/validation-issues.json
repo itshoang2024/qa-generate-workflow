@@ -1,0 +1,173 @@
+{
+  "data": [
+    {
+      "id": "vi_1a65235a2788",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§12.8",
+      "severity": "S3_INFORMATIONAL",
+      "code": "uncovered_actionable_section",
+      "message": "Actionable GDD section is not mapped to any feature in the mock Agent A output.",
+      "stage": "S3_VALIDATION_A",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_f0fbe53405ab",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§15",
+      "severity": "S3_INFORMATIONAL",
+      "code": "preflight_note",
+      "message": "IMPORTANT: Daily Challenge (Epic 10) has extensive UI assets (Calendar, Trophy Room, Results) but minimal GDD text. Formal specs align to the existing art direction documented here.",
+      "stage": "S1_CONTEXT_LOADER",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_b8597e26209f",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§15",
+      "severity": "S3_INFORMATIONAL",
+      "code": "preflight_note",
+      "message": "NOTE: Daily Reward (login bonus / chest animation) exists in art assets but had no prior GDD section. It is now captured in §8.4 and Epic 12.",
+      "stage": "S1_CONTEXT_LOADER",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_cabcd54ef7a0",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "section",
+      "target_id": "§15",
+      "severity": "S3_INFORMATIONAL",
+      "code": "preflight_note",
+      "message": "TIP: Dark Mode and Landscape variants are present in art assets. These should be scoped as explicit Epic 12 stories to ensure implementation coverage.",
+      "stage": "S1_CONTEXT_LOADER",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_be4be47c4118",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "agent",
+      "target_id": "Agent A",
+      "severity": "S2_RECOVERABLE",
+      "code": "agent_a_retry_exhausted",
+      "message": "Agent A validation still failed after 3 attempts; route to HIL-1.",
+      "stage": "S3_VALIDATION_A",
+      "created_at": "2026-05-11T05:48:59.511612Z"
+    },
+    {
+      "id": "vi_759b87bda491",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-007",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_task",
+      "message": "Task requires HIL-2 review because confidence is below 0.85.",
+      "stage": "S5_VALIDATION_B_SYNC",
+      "created_at": "2026-05-11T05:49:02.527751Z"
+    },
+    {
+      "id": "vi_d77c1b364523",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-008",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_task",
+      "message": "Task requires HIL-2 review because confidence is below 0.85.",
+      "stage": "S5_VALIDATION_B_SYNC",
+      "created_at": "2026-05-11T05:49:02.527751Z"
+    },
+    {
+      "id": "vi_2a0da76cfe40",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0025",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_eb224fe70dd4",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0026",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_cffed8eff228",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0027",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_c751ed9eacfb",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0028",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_482ff915dc6a",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0029",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_bf1cfc0b96c4",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0030",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_ea09873ad9d0",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0031",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    },
+    {
+      "id": "vi_a6ae4e3efc86",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0032",
+      "severity": "S2_RECOVERABLE",
+      "code": "low_confidence_test_case",
+      "message": "Test case requires HIL-3 review because confidence is below 0.85.",
+      "stage": "S7_VALIDATION_C_SYNC",
+      "created_at": "2026-05-11T05:49:04.184030Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_5a086c5f4e69"
+  },
+  "error": null
+}

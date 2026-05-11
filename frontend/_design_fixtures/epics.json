@@ -1,0 +1,70 @@
+{
+  "data": [
+    {
+      "id": "epic_831fb7e58cba",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-BOOSTERS",
+      "title": "Boosters and Onboarding QA",
+      "description": "Validate booster effects, costs, acquisition sources, and first-use tutorial flow.",
+      "feature_ids": [
+        "F-003",
+        "F-004"
+      ],
+      "external_id": "snake-escape-E-BOOSTERS",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "epic_f23e9eab7eef",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-CORE-GAMEPLAY",
+      "title": "Core Gameplay QA",
+      "description": "Validate snake movement, wrong taps, lives, win, fail, and revive behavior.",
+      "feature_ids": [
+        "F-001"
+      ],
+      "external_id": "snake-escape-E-CORE-GAMEPLAY",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "epic_f28a3529a248",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-DAILY-COMPETITIVE",
+      "title": "Daily and Competitive QA",
+      "description": "Validate daily engagement loops and tournament liveops behavior.",
+      "feature_ids": [
+        "F-005",
+        "F-006"
+      ],
+      "external_id": "snake-escape-E-DAILY-COMPETITIVE",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "epic_7de8662f6e6c",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-LEVEL-ELEMENTS",
+      "title": "Level Elements QA",
+      "description": "Validate board scale, walls, Black Holes, and element extensibility rules.",
+      "feature_ids": [
+        "F-002"
+      ],
+      "external_id": "snake-escape-E-LEVEL-ELEMENTS",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "epic_ffd9d7b51548",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-UI-BACKEND",
+      "title": "UI, Infrastructure, and LiveOps QA",
+      "description": "Validate screen inventory, layout variants, cloud services, analytics, remote config, and notifications.",
+      "feature_ids": [
+        "F-007"
+      ],
+      "external_id": "snake-escape-E-UI-BACKEND",
+      "review_status": "AUTO_APPROVED"
+    }
+  ],
+  "meta": {
+    "request_id": "req_5a1560ca0030"
+  },
+  "error": null
+}

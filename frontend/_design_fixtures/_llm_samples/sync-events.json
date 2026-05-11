@@ -1,0 +1,91 @@
+{
+  "data": [
+    {
+      "id": "sync_27f61cf0a4e9",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "task",
+      "target_id": "T-001",
+      "external_id": "snake-escape-F-001-T-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Task",
+        "properties": {
+          "Status": "Ready for Test Cases",
+          "Due date": null,
+          "Estimate": "S",
+          "Priority": "P0",
+          "Confidence": 0.92,
+          "Task title": "Verify clear-path snake exits and is removed",
+          "Description": "Check that tapping a snake with an unobstructed path plays the exit animation, removes the snake, and credits progress.",
+          "external_id": "snake-escape-F-001-T-01",
+          "Epic / Story": {
+            "epic_id": "E-CORE-GAMEPLAY",
+            "story_id": "S-001",
+            "epic_page_id": "mock_page_snake_escape_e_core_gameplay",
+            "story_page_id": "mock_page_snake_escape_e_core_gameplay_s_001"
+          },
+          "Feature name": "Dot-Grid Board System",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Suggested assignee": "Ngoc Anh"
+        },
+        "sync_phase": "Sync-B",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:02.961840Z",
+      "updated_at": "2026-05-11T05:49:02.961840Z"
+    },
+    {
+      "id": "sync_d21dfc6ad538",
+      "run_id": "run_87a8f69786fc",
+      "target_type": "test_case",
+      "target_id": "TC-0001",
+      "external_id": "snake-escape-F-001-T-01-TC-01",
+      "action": "upsert",
+      "provider": "mock_notion",
+      "status": "SUCCESS",
+      "payload": {
+        "database": "Test Case",
+        "properties": {
+          "Type": "functional",
+          "Steps": [
+            "Open the feature area for Verify clear-path snake exits and is removed.",
+            "Execute the happy path scenario described by the QA task."
+          ],
+          "Title": "Verify clear-path snake exits and is removed - Positive",
+          "Status": "Not Run",
+          "Category": "positive",
+          "Priority": "P0",
+          "external_id": "snake-escape-F-001-T-01-TC-01",
+          "Related task": "T-001",
+          "Preconditions": [
+            "Snake Escape demo project is loaded.",
+            "QA task T-001 is ready for test case generation."
+          ],
+          "Expected result": "The happy path scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+          "Source sections": [
+            "§2.3",
+            "§2.5"
+          ],
+          "Related task page": "mock_page_snake_escape_f_001_t_01"
+        },
+        "sync_phase": "Sync-C",
+        "notion_page_id": "mock_page_snake_escape_f_001_t_01_tc_01"
+      },
+      "retry_count": 0,
+      "error": null,
+      "created_at": "2026-05-11T05:49:04.645365Z",
+      "updated_at": "2026-05-11T05:49:04.645365Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_72bc655ae9a1"
+  },
+  "error": null
+}

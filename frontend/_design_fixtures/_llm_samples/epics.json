@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "id": "epic_831fb7e58cba",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-BOOSTERS",
+      "title": "Boosters and Onboarding QA",
+      "description": "Validate booster effects, costs, acquisition sources, and first-use tutorial flow.",
+      "feature_ids": [
+        "F-003",
+        "F-004"
+      ],
+      "external_id": "snake-escape-E-BOOSTERS",
+      "review_status": "AUTO_APPROVED"
+    },
+    {
+      "id": "epic_f23e9eab7eef",
+      "run_id": "run_87a8f69786fc",
+      "epic_id": "E-CORE-GAMEPLAY",
+      "title": "Core Gameplay QA",
+      "description": "Validate snake movement, wrong taps, lives, win, fail, and revive behavior.",
+      "feature_ids": [
+        "F-001"
+      ],
+      "external_id": "snake-escape-E-CORE-GAMEPLAY",
+      "review_status": "AUTO_APPROVED"
+    }
+  ],
+  "meta": {
+    "request_id": "req_5a1560ca0030"
+  },
+  "error": null
+}

@@ -122,10 +122,15 @@ def test_s1_context_loader_registers_versioned_gdd_documents_and_delta() -> None
     second_context = service.load_context(second_trigger["run_id"], S1ContextRequest())
     second_document = second_context["gdd_document"]
     second_run = repository.get_run(second_trigger["run_id"])
+    second_questions = repository.list_hil0_questions(second_trigger["run_id"])
 
     assert first_document.version_id == "v1"
     assert first_document.description_status == GDDDescriptionStatus.USER_PROVIDED
     assert first_questions
+    assert second_questions
+    assert {question.id for question in first_questions}.isdisjoint(
+        {question.id for question in second_questions}
+    )
     assert second_trigger["mode"] == "DELTA"
     assert second_document.version_id == "v2"
     assert second_document.parent_document_id == first_document.id

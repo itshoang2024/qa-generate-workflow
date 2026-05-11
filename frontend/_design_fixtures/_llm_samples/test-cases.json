@@ -1,0 +1,76 @@
+{
+  "data": [
+    {
+      "id": "tc_55e7382b0dac",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0001",
+      "title": "Verify clear-path snake exits and is removed - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-001 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify clear-path snake exits and is removed.",
+        "Execute the happy path scenario described by the QA task."
+      ],
+      "expected_result": "The happy path scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-001",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01-TC-01",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-001-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_14a3ce874fdd",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0025",
+      "title": "Review booster first-introduction overlay flow - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-007 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review booster first-introduction overlay flow.",
+        "Execute the happy path scenario described by the QA task."
+      ],
+      "expected_result": "The happy path scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-007",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01-TC-25",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-004-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    }
+  ],
+  "meta": {
+    "request_id": "req_a2805f20c479"
+  },
+  "error": null
+}

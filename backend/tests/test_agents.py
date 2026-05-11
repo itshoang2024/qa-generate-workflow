@@ -7,7 +7,13 @@ from pydantic import ValidationError
 from app.config import get_settings
 from app.domain.models import GDDSection, RunMode
 from app.services.agents import AgentClient
-from app.services.agents.contracts import AgentAOutput
+from app.services.agents.contracts import (
+    AGENT_A_FEATURE_ID_PATTERN,
+    AGENT_A_NAME_MAX_LENGTH,
+    AGENT_A_RESPONSE_SCHEMA,
+    AGENT_A_SUMMARY_MAX_LENGTH,
+    AgentAOutput,
+)
 from app.services.agents.factory import build_agent_client
 from app.services.agents.mock import MockAgentClient
 from app.services.agents.openai import OpenAIAgentClient
@@ -71,6 +77,45 @@ def test_agent_a_contract_rejects_missing_source_sections() -> None:
 
     with pytest.raises(ValidationError):
         AgentAOutput.model_validate(payload)
+
+
+def test_agent_a_contract_rejects_non_canonical_feature_id() -> None:
+    payload = {
+        "features": [
+            {
+                "feature_id": "F01",
+                "name": "Unsupported Feature ID",
+                "summary": "Feature ID must use the canonical zero-padded format.",
+                "feature_type": "gameplay_logic",
+                "source_sections": ["S1"],
+                "key_behaviors": [],
+                "dependencies": [],
+                "confidence": 0.9,
+                "delta_status": None,
+            }
+        ],
+        "coverage_report": {
+            "total_input_sections": 1,
+            "covered_sections": ["S1"],
+            "uncovered_sections": [],
+        },
+        "ambiguities": [],
+    }
+
+    with pytest.raises(ValidationError):
+        AgentAOutput.model_validate(payload)
+
+
+def test_agent_a_response_schema_matches_pydantic_limits() -> None:
+    feature_schema = AGENT_A_RESPONSE_SCHEMA["properties"]["features"]["items"]
+    properties = feature_schema["properties"]
+
+    assert properties["feature_id"]["pattern"] == AGENT_A_FEATURE_ID_PATTERN
+    assert properties["name"]["maxLength"] == AGENT_A_NAME_MAX_LENGTH
+    assert properties["summary"]["maxLength"] == AGENT_A_SUMMARY_MAX_LENGTH
+    assert properties["source_sections"]["minItems"] == 1
+    assert properties["confidence"]["minimum"] == 0
+    assert properties["confidence"]["maximum"] == 1
 
 
 def test_build_agent_client_rejects_unsupported_provider(tmp_path: Path) -> None:

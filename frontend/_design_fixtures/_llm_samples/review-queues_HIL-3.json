@@ -1,0 +1,115 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-3",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 2,
+    "groups": [
+      {
+        "group_id": "reviewer:Linh|feature:F-005|epic:E-DAILY-COMPETITIVE",
+        "reviewer": "Linh",
+        "feature_id": "F-005",
+        "epic_id": "E-DAILY-COMPETITIVE",
+        "item_count": 2,
+        "items": [
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0029",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Positive",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_ccfda2e836b9",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0029",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Positive",
+              "type": "functional",
+              "category": "positive",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the happy path scenario described by the QA task."
+              ],
+              "expected_result": "The happy path scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-29",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "positive",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0030",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Negative",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_33867be5763f",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0030",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Negative",
+              "type": "regression",
+              "category": "negative",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the blocked or invalid action scenario described by the QA task."
+              ],
+              "expected_result": "The blocked or invalid action scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-30",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "negative",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_f7b87d85953e"
+  },
+  "error": null
+}

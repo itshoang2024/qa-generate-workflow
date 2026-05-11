@@ -1,0 +1,167 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-1",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 3,
+    "groups": [
+      {
+        "group_id": "reviewer:QA Lead|feature:F-008|epic:none",
+        "reviewer": "QA Lead",
+        "feature_id": "F-008",
+        "epic_id": null,
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "feature",
+            "target_id": "F-008",
+            "title": "Gameplay Element Extensibility and First Encounter Popups",
+            "reviewer": "QA Lead",
+            "lane": "BLOCK",
+            "review_status": "BLOCKED",
+            "feature_id": "F-008",
+            "epic_id": null,
+            "payload": {
+              "id": "feat_3e1b0704f3ee",
+              "run_id": "run_87a8f69786fc",
+              "feature_id": "F-008",
+              "name": "Gameplay Element Extensibility and First Encounter Popups",
+              "summary": "System designed to support future elements like moving barriers and ice tiles. First encounter with any element triggers a popup with icon, description, and an OK button with pulse animation.",
+              "feature_type": "cross_cutting",
+              "source_sections": [
+                "§3.3",
+                "§5",
+                "§11"
+              ],
+              "key_behaviors": [
+                "Show new element popup on first encounter",
+                "Include icon, description, and animated OK button"
+              ],
+              "dependencies": [
+                "F-003"
+              ],
+              "assignee": "QA Lead",
+              "confidence": 0.95,
+              "delta_status": null,
+              "dedup_flag": false,
+              "cross_cutting_flag": true,
+              "ambiguities": [],
+              "review_status": "BLOCKED",
+              "lane": "BLOCK"
+            }
+          }
+        ]
+      },
+      {
+        "group_id": "reviewer:QA Lead|feature:F-011|epic:none",
+        "reviewer": "QA Lead",
+        "feature_id": "F-011",
+        "epic_id": null,
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "feature",
+            "target_id": "F-011",
+            "title": "Booster Acquisition and Use UX Flow",
+            "reviewer": "QA Lead",
+            "lane": "BLOCK",
+            "review_status": "BLOCKED",
+            "feature_id": "F-011",
+            "epic_id": null,
+            "payload": {
+              "id": "feat_0f1d7707b186",
+              "run_id": "run_87a8f69786fc",
+              "feature_id": "F-011",
+              "name": "Booster Acquisition and Use UX Flow",
+              "summary": "Booster acquisition via IAP, daily missions, daily spin, tournament rewards, and no-ads bundles. First introduction popup shows booster info, followed by tutorial finger pointing to booster button, and usage reduces inventory by one.",
+              "feature_type": "cross_cutting",
+              "source_sections": [
+                "§4.3",
+                "§4.4",
+                "§5"
+              ],
+              "key_behaviors": [
+                "Provide boosters via multiple sources",
+                "Display new booster popup with icon and description",
+                "Trigger tutorial finger animation for booster use",
+                "Deduct from booster inventory on activation"
+              ],
+              "dependencies": [
+                "F-009",
+                "F-010"
+              ],
+              "assignee": "QA Lead",
+              "confidence": 0.98,
+              "delta_status": null,
+              "dedup_flag": false,
+              "cross_cutting_flag": true,
+              "ambiguities": [],
+              "review_status": "BLOCKED",
+              "lane": "BLOCK"
+            }
+          }
+        ]
+      },
+      {
+        "group_id": "reviewer:QA Lead|feature:F-016|epic:none",
+        "reviewer": "QA Lead",
+        "feature_id": "F-016",
+        "epic_id": null,
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "feature",
+            "target_id": "F-016",
+            "title": "Daily Systems: Missions, Spin, Challenges, Rewards, and Video Bar",
+            "reviewer": "QA Lead",
+            "lane": "BLOCK",
+            "review_status": "BLOCKED",
+            "feature_id": "F-016",
+            "epic_id": null,
+            "payload": {
+              "id": "feat_a83c6a0da989",
+              "run_id": "run_87a8f69786fc",
+              "feature_id": "F-016",
+              "name": "Daily Systems: Missions, Spin, Challenges, Rewards, and Video Bar",
+              "summary": "Includes daily missions with tiered rewards, one free spin with ad-based extras, a unique daily challenge puzzle, daily login rewards, and progressive ad watching bar for increasing rewards.",
+              "feature_type": "cross_cutting",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.3",
+                "§8.4",
+                "§8.5"
+              ],
+              "key_behaviors": [
+                "Daily mission assignment and reset",
+                "Daily spin with animation and rewards",
+                "Daily unique challenge level and replay",
+                "Login bonuses with animations",
+                "Ad-based progressive reward system"
+              ],
+              "dependencies": [
+                "F-015"
+              ],
+              "assignee": "QA Lead",
+              "confidence": 0.99,
+              "delta_status": null,
+              "dedup_flag": false,
+              "cross_cutting_flag": true,
+              "ambiguities": [],
+              "review_status": "BLOCKED",
+              "lane": "BLOCK"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_462a27e00206"
+  },
+  "error": null
+}

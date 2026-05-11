@@ -1,0 +1,1412 @@
+{
+  "data": [
+    {
+      "id": "tc_55e7382b0dac",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0001",
+      "title": "Verify clear-path snake exits and is removed - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-001 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify clear-path snake exits and is removed.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-001",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01-TC-01",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-001-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_25cefad97ca6",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0002",
+      "title": "Verify clear-path snake exits and is removed - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-001 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify clear-path snake exits and is removed.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-001",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01-TC-02",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-001-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_24cb40bd1b6e",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0003",
+      "title": "Verify clear-path snake exits and is removed - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-001 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify clear-path snake exits and is removed.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-001",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01-TC-03",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-001-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_dda53b391647",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0004",
+      "title": "Verify clear-path snake exits and is removed - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-001 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify clear-path snake exits and is removed.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify clear-path snake exits and is removed matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-001",
+      "source_sections": [
+        "§2.3",
+        "§2.5"
+      ],
+      "external_id": "snake-escape-F-001-T-01-TC-04",
+      "confidence": 0.92,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-001-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_116c323574b0",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0005",
+      "title": "Verify blocked snake costs health once - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-002 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify blocked snake costs health once.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-002",
+      "source_sections": [
+        "§2.3",
+        "§2.4"
+      ],
+      "external_id": "snake-escape-F-001-T-02-TC-05",
+      "confidence": 0.91,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-001-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_2b0bb5f453a2",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0006",
+      "title": "Verify blocked snake costs health once - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-002 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify blocked snake costs health once.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-002",
+      "source_sections": [
+        "§2.3",
+        "§2.4"
+      ],
+      "external_id": "snake-escape-F-001-T-02-TC-06",
+      "confidence": 0.91,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-001-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_a0cfea18dd65",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0007",
+      "title": "Verify blocked snake costs health once - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-002 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify blocked snake costs health once.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-002",
+      "source_sections": [
+        "§2.3",
+        "§2.4"
+      ],
+      "external_id": "snake-escape-F-001-T-02-TC-07",
+      "confidence": 0.91,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-001-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_cf3012a3f9ea",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0008",
+      "title": "Verify blocked snake costs health once - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-002 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify blocked snake costs health once.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify blocked snake costs health once matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-002",
+      "source_sections": [
+        "§2.3",
+        "§2.4"
+      ],
+      "external_id": "snake-escape-F-001-T-02-TC-08",
+      "confidence": 0.91,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-001-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_0dbaa2504684",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0009",
+      "title": "Verify Wall countdown and collision behavior - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-003 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Wall countdown and collision behavior.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-003",
+      "source_sections": [
+        "§3.1"
+      ],
+      "external_id": "snake-escape-F-002-T-01-TC-09",
+      "confidence": 0.89,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-002-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_f9e2e42b1b96",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0010",
+      "title": "Verify Wall countdown and collision behavior - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-003 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Wall countdown and collision behavior.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-003",
+      "source_sections": [
+        "§3.1"
+      ],
+      "external_id": "snake-escape-F-002-T-01-TC-10",
+      "confidence": 0.89,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-002-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_cb47f691e904",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0011",
+      "title": "Verify Wall countdown and collision behavior - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-003 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Wall countdown and collision behavior.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-003",
+      "source_sections": [
+        "§3.1"
+      ],
+      "external_id": "snake-escape-F-002-T-01-TC-11",
+      "confidence": 0.89,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-002-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_c2a098e274de",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0012",
+      "title": "Verify Wall countdown and collision behavior - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-003 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Wall countdown and collision behavior.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify Wall countdown and collision behavior matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-003",
+      "source_sections": [
+        "§3.1"
+      ],
+      "external_id": "snake-escape-F-002-T-01-TC-12",
+      "confidence": 0.89,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-002-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_a00bdace9863",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0013",
+      "title": "Verify Black Hole portal transfer - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-004 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Black Hole portal transfer.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-004",
+      "source_sections": [
+        "§3.2"
+      ],
+      "external_id": "snake-escape-F-002-T-02-TC-13",
+      "confidence": 0.88,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-002-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_f81e9f36b26a",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0014",
+      "title": "Verify Black Hole portal transfer - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-004 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Black Hole portal transfer.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-004",
+      "source_sections": [
+        "§3.2"
+      ],
+      "external_id": "snake-escape-F-002-T-02-TC-14",
+      "confidence": 0.88,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-002-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_6f6f844d1b03",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0015",
+      "title": "Verify Black Hole portal transfer - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-004 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Black Hole portal transfer.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-004",
+      "source_sections": [
+        "§3.2"
+      ],
+      "external_id": "snake-escape-F-002-T-02-TC-15",
+      "confidence": 0.88,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-002-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_b426240f782f",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0016",
+      "title": "Verify Black Hole portal transfer - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-004 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Black Hole portal transfer.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify Black Hole portal transfer matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-004",
+      "source_sections": [
+        "§3.2"
+      ],
+      "external_id": "snake-escape-F-002-T-02-TC-16",
+      "confidence": 0.88,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-002-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_5f70ba772b01",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0017",
+      "title": "Verify Hint booster cost and effect - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-005 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Hint booster cost and effect.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-005",
+      "source_sections": [
+        "§4.1",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-01-TC-17",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-003-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_b0c6f6edbf25",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0018",
+      "title": "Verify Hint booster cost and effect - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-005 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Hint booster cost and effect.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-005",
+      "source_sections": [
+        "§4.1",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-01-TC-18",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-003-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_65c422b32b60",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0019",
+      "title": "Verify Hint booster cost and effect - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-005 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Hint booster cost and effect.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-005",
+      "source_sections": [
+        "§4.1",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-01-TC-19",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-003-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_6d14f5bfe00a",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0020",
+      "title": "Verify Hint booster cost and effect - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-005 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Hint booster cost and effect.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify Hint booster cost and effect matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-005",
+      "source_sections": [
+        "§4.1",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-01-TC-20",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-003-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_29111669247f",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0021",
+      "title": "Verify Grid Vision booster cost and arrows - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-006 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Grid Vision booster cost and arrows.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-006",
+      "source_sections": [
+        "§4.2",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-02-TC-21",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-003-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_33bd0975fbf1",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0022",
+      "title": "Verify Grid Vision booster cost and arrows - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-006 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Grid Vision booster cost and arrows.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-006",
+      "source_sections": [
+        "§4.2",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-02-TC-22",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-003-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_d603c75f10f4",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0023",
+      "title": "Verify Grid Vision booster cost and arrows - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-006 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Grid Vision booster cost and arrows.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-006",
+      "source_sections": [
+        "§4.2",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-02-TC-23",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-003-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_9f1343eb2e8e",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0024",
+      "title": "Verify Grid Vision booster cost and arrows - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-006 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Grid Vision booster cost and arrows.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify Grid Vision booster cost and arrows matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-006",
+      "source_sections": [
+        "§4.2",
+        "§7.3"
+      ],
+      "external_id": "snake-escape-F-003-T-02-TC-24",
+      "confidence": 0.87,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-003-T-02"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_14a3ce874fdd",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0025",
+      "title": "Review booster first-introduction overlay flow - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-007 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review booster first-introduction overlay flow.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-007",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01-TC-25",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-004-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_67abe0005b2d",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0026",
+      "title": "Review booster first-introduction overlay flow - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-007 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review booster first-introduction overlay flow.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-007",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01-TC-26",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-004-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_a182dfa34e4c",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0027",
+      "title": "Review booster first-introduction overlay flow - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-007 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review booster first-introduction overlay flow.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-007",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01-TC-27",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-004-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_43817dcabde4",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0028",
+      "title": "Review booster first-introduction overlay flow - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-007 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review booster first-introduction overlay flow.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-007",
+      "source_sections": [
+        "§4.4",
+        "§5"
+      ],
+      "external_id": "snake-escape-F-004-T-01-TC-28",
+      "confidence": 0.8,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-004-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_ccfda2e836b9",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0029",
+      "title": "Review Daily Mission and Daily Spin reward mapping - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-008 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-008",
+      "source_sections": [
+        "§8.1",
+        "§8.2",
+        "§8.4",
+        "§8.5"
+      ],
+      "external_id": "snake-escape-F-005-T-01-TC-29",
+      "confidence": 0.78,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-005-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_33867be5763f",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0030",
+      "title": "Review Daily Mission and Daily Spin reward mapping - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-008 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-008",
+      "source_sections": [
+        "§8.1",
+        "§8.2",
+        "§8.4",
+        "§8.5"
+      ],
+      "external_id": "snake-escape-F-005-T-01-TC-30",
+      "confidence": 0.78,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-005-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_5300c9593f29",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0031",
+      "title": "Review Daily Mission and Daily Spin reward mapping - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-008 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-008",
+      "source_sections": [
+        "§8.1",
+        "§8.2",
+        "§8.4",
+        "§8.5"
+      ],
+      "external_id": "snake-escape-F-005-T-01-TC-31",
+      "confidence": 0.78,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-005-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_84389fc17104",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0032",
+      "title": "Review Daily Mission and Daily Spin reward mapping - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-008 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-008",
+      "source_sections": [
+        "§8.1",
+        "§8.2",
+        "§8.4",
+        "§8.5"
+      ],
+      "external_id": "snake-escape-F-005-T-01-TC-32",
+      "confidence": 0.78,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-005-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "NEEDS_REVIEW",
+      "lane": "BATCH"
+    },
+    {
+      "id": "tc_8235206577e9",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0033",
+      "title": "Verify Tournament unlock, scoring, and reward lifecycle - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-009 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-009",
+      "source_sections": [
+        "§9.1",
+        "§12.3"
+      ],
+      "external_id": "snake-escape-F-006-T-01-TC-33",
+      "confidence": 0.86,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-006-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_d7d18dc56e4b",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0034",
+      "title": "Verify Tournament unlock, scoring, and reward lifecycle - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-009 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-009",
+      "source_sections": [
+        "§9.1",
+        "§12.3"
+      ],
+      "external_id": "snake-escape-F-006-T-01-TC-34",
+      "confidence": 0.86,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-006-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_bd0e73f20c85",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0035",
+      "title": "Verify Tournament unlock, scoring, and reward lifecycle - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-009 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-009",
+      "source_sections": [
+        "§9.1",
+        "§12.3"
+      ],
+      "external_id": "snake-escape-F-006-T-01-TC-35",
+      "confidence": 0.86,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-006-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_3a75356e6570",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0036",
+      "title": "Verify Tournament unlock, scoring, and reward lifecycle - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P0",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-009 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify Tournament unlock, scoring, and reward lifecycle.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify Tournament unlock, scoring, and reward lifecycle matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-009",
+      "source_sections": [
+        "§9.1",
+        "§12.3"
+      ],
+      "external_id": "snake-escape-F-006-T-01-TC-36",
+      "confidence": 0.86,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-006-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_61ac770da1f4",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0037",
+      "title": "Verify screen inventory, navigation, localisation, and theme variants - Positive",
+      "type": "functional",
+      "category": "positive",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-010 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+        "Execute the happy path scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The happy path scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-010",
+      "source_sections": [
+        "§10.1",
+        "§10.2",
+        "§10.3"
+      ],
+      "external_id": "snake-escape-F-007-T-01-TC-37",
+      "confidence": 0.85,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "positive",
+        "source_task_external_id": "snake-escape-F-007-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_8f1024d96049",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0038",
+      "title": "Verify screen inventory, navigation, localisation, and theme variants - Negative",
+      "type": "regression",
+      "category": "negative",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-010 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+        "Execute the blocked or invalid action scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The blocked or invalid action scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-010",
+      "source_sections": [
+        "§10.1",
+        "§10.2",
+        "§10.3"
+      ],
+      "external_id": "snake-escape-F-007-T-01-TC-38",
+      "confidence": 0.85,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "negative",
+        "source_task_external_id": "snake-escape-F-007-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_92c4dbbc236e",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0039",
+      "title": "Verify screen inventory, navigation, localisation, and theme variants - Edge",
+      "type": "functional",
+      "category": "edge",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-010 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+        "Execute the boundary condition scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The boundary condition scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-010",
+      "source_sections": [
+        "§10.1",
+        "§10.2",
+        "§10.3"
+      ],
+      "external_id": "snake-escape-F-007-T-01-TC-39",
+      "confidence": 0.85,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "edge",
+        "source_task_external_id": "snake-escape-F-007-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "tc_12472a19a8fe",
+      "run_id": "run_87a8f69786fc",
+      "test_case_id": "TC-0040",
+      "title": "Verify screen inventory, navigation, localisation, and theme variants - Integration",
+      "type": "integration",
+      "category": "integration",
+      "priority": "P1",
+      "preconditions": [
+        "Snake Escape demo project is loaded.",
+        "QA task T-010 is ready for test case generation."
+      ],
+      "steps": [
+        "Open the feature area for Verify screen inventory, navigation, localisation, and theme variants.",
+        "Execute the linked feature flow scenario described by the QA task.",
+        "Record the observed result and compare it with the expected behavior."
+      ],
+      "expected_result": "The linked feature flow scenario for Verify screen inventory, navigation, localisation, and theme variants matches the GDD-backed acceptance criteria without unsupported behavior.",
+      "related_task_id": "T-010",
+      "source_sections": [
+        "§10.1",
+        "§10.2",
+        "§10.3"
+      ],
+      "external_id": "snake-escape-F-007-T-01-TC-40",
+      "confidence": 0.85,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "test_data": {
+        "category": "integration",
+        "source_task_external_id": "snake-escape-F-007-T-01"
+      },
+      "status": "Not Run",
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    }
+  ],
+  "meta": {
+    "request_id": "req_a2805f20c479"
+  },
+  "error": null
+}

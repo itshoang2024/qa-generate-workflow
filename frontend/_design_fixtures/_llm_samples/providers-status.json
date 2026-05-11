@@ -1,0 +1,20 @@
+{
+  "data": {
+    "ai": {
+      "provider": "openai",
+      "credentials_ready": true
+    },
+    "notion": {
+      "provider": "real",
+      "credentials_ready": true
+    },
+    "repository": {
+      "provider": "supabase",
+      "credentials_ready": true
+    }
+  },
+  "meta": {
+    "request_id": "req_25521d4b2007"
+  },
+  "error": null
+}

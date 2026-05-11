@@ -1,0 +1,391 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-0",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 14,
+    "groups": [
+      {
+        "group_id": "reviewer:QA Lead|feature:none|epic:none",
+        "reviewer": "QA Lead",
+        "feature_id": null,
+        "epic_id": null,
+        "item_count": 14,
+        "items": [
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_10_9",
+            "title": "UI/UX Specification",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_10_9",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§10",
+              "title": "UI/UX Specification",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_12_10",
+            "title": "Backend & Infrastructure Requirements",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_12_10",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§12",
+              "title": "Backend & Infrastructure Requirements",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_14_11",
+            "title": "Level Design Pipeline",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_14_11",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§14",
+              "title": "Level Design Pipeline",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_15_12",
+            "title": "Scope Summary",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_15_12",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§15",
+              "title": "Scope Summary",
+              "reason": "flagged_note",
+              "question": "IMPORTANT: Daily Challenge (Epic 10) has extensive UI assets (Calendar, Trophy Room, Results) but minimal GDD text. Formal specs align to the existing art direction documented here.",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_15_13",
+            "title": "Scope Summary",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_15_13",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§15",
+              "title": "Scope Summary",
+              "reason": "flagged_note",
+              "question": "NOTE: Daily Reward (login bonus / chest animation) exists in art assets but had no prior GDD section. It is now captured in §8.4 and Epic 12.",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_15_14",
+            "title": "Scope Summary",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_15_14",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§15",
+              "title": "Scope Summary",
+              "reason": "flagged_note",
+              "question": "TIP: Dark Mode and Landscape variants are present in art assets. These should be scoped as explicit Epic 12 stories to ensure implementation coverage.",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_2_1",
+            "title": "Core Gameplay Mechanics",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_2_1",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§2",
+              "title": "Core Gameplay Mechanics",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_3_2",
+            "title": "Obstacles & Support Elements",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_3_2",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§3",
+              "title": "Obstacles & Support Elements",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_4_3",
+            "title": "Booster System",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_4_3",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§4",
+              "title": "Booster System",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_6_4",
+            "title": "Progression System",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_6_4",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§6",
+              "title": "Progression System",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_7_1_6",
+            "title": "Currency",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_7_1_6",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§7.1",
+              "title": "Currency",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_7_5",
+            "title": "Economy & Monetization",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_7_5",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§7",
+              "title": "Economy & Monetization",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_8_7",
+            "title": "Daily Engagement Loops",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_8_7",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§8",
+              "title": "Daily Engagement Loops",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          },
+          {
+            "target_type": "hil0_question",
+            "target_id": "hil0_run_87a8f69786fc_9_8",
+            "title": "Competitive Features",
+            "reviewer": "QA Lead",
+            "lane": "BATCH",
+            "review_status": "OPEN",
+            "feature_id": null,
+            "epic_id": null,
+            "payload": {
+              "id": "hil0_run_87a8f69786fc_9_8",
+              "run_id": "run_87a8f69786fc",
+              "section_id": "§9",
+              "title": "Competitive Features",
+              "reason": "thin_section",
+              "question": "Section has limited detail. Proceed with a confidence flag?",
+              "allowed_actions": [
+                "provide_artifact",
+                "proceed_with_flag",
+                "skip_section"
+              ],
+              "status": "OPEN",
+              "resolved_action": null,
+              "created_at": "2026-05-11T05:48:03.750693Z"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_0e9f16694f22"
+  },
+  "error": null
+}

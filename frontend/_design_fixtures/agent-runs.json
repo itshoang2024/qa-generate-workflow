@@ -1,0 +1,173 @@
+{
+  "data": [
+    {
+      "id": "agent_61bdc2bbe452",
+      "run_id": "run_87a8f69786fc",
+      "agent_name": "Agent A - GDD Analyzer",
+      "stage": "S2_AGENT_A",
+      "input_snapshot": {
+        "section_count": 55
+      },
+      "output_snapshot": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": []
+          },
+          {
+            "attempt": 2,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§12.8"
+            ]
+          },
+          {
+            "attempt": 3,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§2.1"
+            ]
+          }
+        ],
+        "ambiguities": [],
+        "attempt_count": 3,
+        "feature_count": 26,
+        "coverage_report": {
+          "covered_sections": [
+            "§10.1",
+            "§10.2",
+            "§10.3",
+            "§11",
+            "§12.1",
+            "§12.2",
+            "§12.3",
+            "§12.4",
+            "§12.5",
+            "§12.6",
+            "§12.7",
+            "§14.1",
+            "§14.2",
+            "§14.4",
+            "§2.1",
+            "§2.2",
+            "§2.3",
+            "§2.4",
+            "§2.5",
+            "§3.1",
+            "§3.2",
+            "§3.3",
+            "§4.1",
+            "§4.2",
+            "§4.3",
+            "§4.4",
+            "§5",
+            "§6.1",
+            "§6.2",
+            "§6.3",
+            "§7.2",
+            "§7.3",
+            "§7.5",
+            "§8.1",
+            "§8.2",
+            "§8.3",
+            "§8.4",
+            "§8.5",
+            "§9.1",
+            "§9.2"
+          ],
+          "uncovered_sections": [
+            "§12.8"
+          ],
+          "total_input_sections": 41
+        },
+        "retry_exhausted": true
+      },
+      "provider": "openai",
+      "created_at": "2026-05-11T05:48:59.997433Z"
+    },
+    {
+      "id": "agent_acbf57360065",
+      "run_id": "run_87a8f69786fc",
+      "agent_name": "Agent B - QA Planner",
+      "stage": "S4_AGENT_B",
+      "input_snapshot": {
+        "hil_1": {
+          "held_feature_ids": [
+            "F-008",
+            "F-011",
+            "F-016"
+          ],
+          "approved_feature_ids": [
+            "F-001",
+            "F-002",
+            "F-003",
+            "F-004",
+            "F-005",
+            "F-006",
+            "F-007",
+            "F-009",
+            "F-010",
+            "F-012",
+            "F-013",
+            "F-014",
+            "F-015",
+            "F-017",
+            "F-018",
+            "F-019",
+            "F-020",
+            "F-021",
+            "F-022",
+            "F-023",
+            "F-024",
+            "F-025",
+            "F-026"
+          ],
+          "epic_candidate_count": 7,
+          "review_queue_feature_ids": [
+            "F-008",
+            "F-011",
+            "F-016"
+          ]
+        }
+      },
+      "output_snapshot": {
+        "epic_count": 5,
+        "task_count": 10,
+        "story_count": 5
+      },
+      "provider": "mock",
+      "created_at": "2026-05-11T05:49:02.229473Z"
+    },
+    {
+      "id": "agent_45b4d2d8dcad",
+      "run_id": "run_87a8f69786fc",
+      "agent_name": "Agent C - Test Case Generator",
+      "stage": "S6_AGENT_C",
+      "input_snapshot": {
+        "task_count": 10
+      },
+      "output_snapshot": {
+        "test_case_count": 40
+      },
+      "provider": "mock",
+      "created_at": "2026-05-11T05:49:03.892804Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_977e5ab497a8"
+  },
+  "error": null
+}

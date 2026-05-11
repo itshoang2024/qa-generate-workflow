@@ -65,6 +65,43 @@ def test_process_env_overrides_backend_env_file(
     assert settings.repository_provider == "memory"
 
 
+def test_provider_values_are_trimmed_and_normalized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_env(monkeypatch)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "AI_PROVIDER=OpenAI ",
+                "NOTION_PROVIDER=MOCK ",
+                "REPOSITORY_PROVIDER=Memory ",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    settings = get_settings(env_file=env_file)
+
+    assert settings.ai_provider == "openai"
+    assert settings.notion_provider == "mock"
+    assert settings.repository_provider == "memory"
+
+
+def test_blank_upload_dir_uses_runtime_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_env(monkeypatch)
+    env_file = tmp_path / ".env"
+    env_file.write_text("UPLOAD_DIR=", encoding="utf-8")
+
+    settings = get_settings(env_file=env_file)
+
+    assert settings.upload_dir == settings.project_root / "backend" / ".runtime" / "uploads"
+
+
 def test_relative_snake_gdd_path_resolves_from_project_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

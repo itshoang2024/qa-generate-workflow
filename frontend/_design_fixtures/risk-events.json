@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "id": "risk_67237cf3be99",
+      "run_id": "run_87a8f69786fc",
+      "severity": "S2",
+      "code": "uncovered_actionable_section",
+      "summary": "Scope drift: actionable GDD section is not covered by a feature.",
+      "target_type": "section",
+      "target_id": "§12.8",
+      "owner_action": "QA Lead should decide whether to rerun Agent A or mark the section skipped.",
+      "created_at": "2026-05-11T05:49:00.895724Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_b97445dab74f"
+  },
+  "error": null
+}

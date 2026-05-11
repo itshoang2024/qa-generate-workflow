@@ -1,0 +1,211 @@
+{
+  "data": {
+    "id": "run_87a8f69786fc",
+    "project_id": "snake-escape",
+    "mode": "NEW_GAME",
+    "status": "COMPLETED",
+    "current_stage": "FINAL_COVERAGE",
+    "session_memory": {
+      "mode": "NEW_GAME",
+      "hil_1": {
+        "source": "HIL-1",
+        "approval_mode": "demo_auto_approve",
+        "epic_structure": {
+          "epics": [
+            {
+              "title": "Gameplay Logic Scope",
+              "epic_id": "HIL1-GAMEPLAY-LOGIC",
+              "feature_ids": [
+                "F-001",
+                "F-002"
+              ]
+            },
+            {
+              "title": "Tutorial Scope",
+              "epic_id": "HIL1-TUTORIAL",
+              "feature_ids": [
+                "F-012"
+              ]
+            }
+          ],
+          "source": "feature_type_grouping"
+        },
+        "held_feature_ids": [
+          "F-008",
+          "F-011"
+        ],
+        "approved_features": [
+          {
+            "lane": "AUTO",
+            "name": "Dot-Grid Board System",
+            "summary": "Implements a dot-grid board where dots define snake positions and bend paths. Board sizes range from a minimum of 3x3 to a maximum of 40x40 dots. Supports pinch-to-zoom gesture for larger boards using two fingers.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.95,
+            "feature_id": "F-001",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.1"
+            ]
+          },
+          {
+            "lane": "AUTO",
+            "name": "Snake Representation and Directional Behavior",
+            "summary": "Snakes occupy sequences of dots with a facing direction (Left, Right, Up, Down). Direction determines the exit trajectory when tapped. Snake rendering includes curved bends along dot paths.",
+            "assignee": "Ngoc Anh",
+            "confidence": 0.99,
+            "feature_id": "F-002",
+            "delta_status": null,
+            "feature_type": "gameplay_logic",
+            "review_status": "AUTO_APPROVED",
+            "source_sections": [
+              "§2.2"
+            ]
+          }
+        ],
+        "approved_feature_ids": [
+          "F-001",
+          "F-002"
+        ],
+        "review_queue_feature_ids": [
+          "F-008",
+          "F-011"
+        ]
+      },
+      "gdd_file": "D:\\Code\\SUNS-RISER\\qa-generate-workflow\\data\\GDD_Sample_Snake_Escape.docx",
+      "project_id": "snake-escape",
+      "kill_switch": {
+        "tripped": false,
+        "threshold": 3,
+        "s1_risk_count": 0
+      },
+      "context_loaded": true,
+      "gdd_document_id": "gdd_63ecb1ddfa2e",
+      "source_version_id": "v3",
+      "agent_a_validation": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": []
+          },
+          {
+            "attempt": 2,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§12.8"
+            ]
+          }
+        ],
+        "attempt_count": 3,
+        "retry_exhausted": true
+      },
+      "hil_0_question_count": 14,
+      "actionable_section_count": 41
+    },
+    "gdd_document_id": "gdd_63ecb1ddfa2e",
+    "source_version_id": "v3",
+    "source_metadata": {
+      "origin": "local_reference",
+      "sha256": "d9ea45a6c51d266687e05e5abf1dec7e67059b301bb02c91d2319fd6f909e8d9",
+      "file_name": "GDD_Sample_Snake_Escape.docx",
+      "size_bytes": 169243,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    "delta_report": null,
+    "coverage_report": {
+      "sign_off": {
+        "signed_off": false,
+        "signed_off_at": null,
+        "signed_off_by": null
+      },
+      "task_count": 10,
+      "risk_summary": {
+        "total": 1,
+        "by_code": {
+          "uncovered_actionable_section": 1
+        },
+        "by_severity": {
+          "S2": 1
+        }
+      },
+      "sync_summary": {
+        "total": 50,
+        "by_phase": {
+          "Sync-A": 10,
+          "Sync-B": 8,
+          "Sync-C": 32
+        },
+        "by_status": {
+          "SUCCESS": 50
+        }
+      },
+      "feature_count": 26,
+      "total_sections": 55,
+      "test_case_count": 40,
+      "covered_sections": [
+        "§10.1",
+        "§10.2"
+      ],
+      "tasks_by_assignee": {
+        "Huy": 2,
+        "Linh": 3,
+        "Minh": 2,
+        "Quan": 1,
+        "Ngoc Anh": 2
+      },
+      "tasks_by_priority": {
+        "P0": 4,
+        "P1": 6
+      },
+      "uncovered_sections": [
+        "§12.8"
+      ],
+      "actionable_sections": 41,
+      "gdd_version_metadata": {
+        "gdd_document_id": "gdd_63ecb1ddfa2e",
+        "source_metadata": {
+          "origin": "local_reference",
+          "sha256": "d9ea45a6c51d266687e05e5abf1dec7e67059b301bb02c91d2319fd6f909e8d9",
+          "file_name": "GDD_Sample_Snake_Escape.docx",
+          "size_bytes": 169243,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        },
+        "source_version_id": "v3"
+      },
+      "validation_issue_count": 15
+    },
+    "timeline": [
+      {
+        "stage": "S0_TRIGGER",
+        "status": "ok",
+        "message": "Triggered NEW_GAME run for project 'Snake Escape'.",
+        "created_at": "2026-05-11T05:48:02.513398Z"
+      },
+      {
+        "stage": "S1_CONTEXT_LOADER",
+        "status": "ok",
+        "message": "Registered v3 and parsed 55 GDD sections.",
+        "created_at": "2026-05-11T05:48:04.145921Z"
+      }
+    ],
+    "signed_off_by": null,
+    "signed_off_at": null,
+    "created_at": "2026-05-11T05:48:02.368865Z",
+    "updated_at": "2026-05-11T05:49:06.780245Z",
+    "finished_at": "2026-05-11T05:49:06.780245Z"
+  },
+  "meta": {
+    "request_id": "req_b5e13b2bf048"
+  },
+  "error": null
+}

@@ -1,0 +1,59 @@
+{
+  "data": [
+    {
+      "id": "feat_ac8d1d2a2b14",
+      "run_id": "run_87a8f69786fc",
+      "feature_id": "F-001",
+      "name": "Dot-Grid Board System",
+      "summary": "Implements a dot-grid board where dots define snake positions and bend paths. Board sizes range from a minimum of 3x3 to a maximum of 40x40 dots. Supports pinch-to-zoom gesture for larger boards using two fingers.",
+      "feature_type": "gameplay_logic",
+      "source_sections": [
+        "§2.1"
+      ],
+      "key_behaviors": [
+        "Defines snake positions by dots on a grid",
+        "Allows bends in snake paths at dots"
+      ],
+      "dependencies": [],
+      "assignee": "Ngoc Anh",
+      "confidence": 0.95,
+      "delta_status": null,
+      "dedup_flag": false,
+      "cross_cutting_flag": false,
+      "ambiguities": [],
+      "review_status": "AUTO_APPROVED",
+      "lane": "AUTO"
+    },
+    {
+      "id": "feat_3e1b0704f3ee",
+      "run_id": "run_87a8f69786fc",
+      "feature_id": "F-008",
+      "name": "Gameplay Element Extensibility and First Encounter Popups",
+      "summary": "System designed to support future elements like moving barriers and ice tiles. First encounter with any element triggers a popup with icon, description, and an OK button with pulse animation.",
+      "feature_type": "cross_cutting",
+      "source_sections": [
+        "§3.3",
+        "§5"
+      ],
+      "key_behaviors": [
+        "Show new element popup on first encounter",
+        "Include icon, description, and animated OK button"
+      ],
+      "dependencies": [
+        "F-003"
+      ],
+      "assignee": "QA Lead",
+      "confidence": 0.95,
+      "delta_status": null,
+      "dedup_flag": false,
+      "cross_cutting_flag": true,
+      "ambiguities": [],
+      "review_status": "BLOCKED",
+      "lane": "BLOCK"
+    }
+  ],
+  "meta": {
+    "request_id": "req_d8410fbdba8a"
+  },
+  "error": null
+}

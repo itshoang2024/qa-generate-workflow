@@ -1,0 +1,87 @@
+{
+  "data": [
+    {
+      "id": "agent_61bdc2bbe452",
+      "run_id": "run_87a8f69786fc",
+      "agent_name": "Agent A - GDD Analyzer",
+      "stage": "S2_AGENT_A",
+      "input_snapshot": {
+        "section_count": 55
+      },
+      "output_snapshot": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": []
+          },
+          {
+            "attempt": 2,
+            "message": null,
+            "outcome": "validation_retry",
+            "issue_codes": [
+              "uncovered_actionable_section"
+            ],
+            "target_section_ids": [
+              "§12.8"
+            ]
+          }
+        ],
+        "ambiguities": [],
+        "attempt_count": 3,
+        "feature_count": 26,
+        "coverage_report": {
+          "covered_sections": [
+            "§10.1",
+            "§10.2"
+          ],
+          "uncovered_sections": [
+            "§12.8"
+          ],
+          "total_input_sections": 41
+        },
+        "retry_exhausted": true
+      },
+      "provider": "openai",
+      "created_at": "2026-05-11T05:48:59.997433Z"
+    },
+    {
+      "id": "agent_acbf57360065",
+      "run_id": "run_87a8f69786fc",
+      "agent_name": "Agent B - QA Planner",
+      "stage": "S4_AGENT_B",
+      "input_snapshot": {
+        "hil_1": {
+          "held_feature_ids": [
+            "F-008",
+            "F-011"
+          ],
+          "approved_feature_ids": [
+            "F-001",
+            "F-002"
+          ],
+          "epic_candidate_count": 7,
+          "review_queue_feature_ids": [
+            "F-008",
+            "F-011"
+          ]
+        }
+      },
+      "output_snapshot": {
+        "epic_count": 5,
+        "task_count": 10,
+        "story_count": 5
+      },
+      "provider": "mock",
+      "created_at": "2026-05-11T05:49:02.229473Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_977e5ab497a8"
+  },
+  "error": null
+}

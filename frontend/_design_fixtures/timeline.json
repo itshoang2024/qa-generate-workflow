@@ -1,0 +1,62 @@
+{
+  "data": [
+    {
+      "stage": "S0_TRIGGER",
+      "status": "ok",
+      "message": "Triggered NEW_GAME run for project 'Snake Escape'.",
+      "created_at": "2026-05-11T05:48:02.513398Z"
+    },
+    {
+      "stage": "S1_CONTEXT_LOADER",
+      "status": "ok",
+      "message": "Registered v3 and parsed 55 GDD sections.",
+      "created_at": "2026-05-11T05:48:04.145921Z"
+    },
+    {
+      "stage": "S2_AGENT_A",
+      "status": "ok",
+      "message": "Generated 26 features after 3 attempt(s).",
+      "created_at": "2026-05-11T05:49:00.295224Z"
+    },
+    {
+      "stage": "S3_VALIDATION_A",
+      "status": "ok",
+      "message": "Feature validation produced 5 issues.",
+      "created_at": "2026-05-11T05:49:01.047176Z"
+    },
+    {
+      "stage": "S4_AGENT_B",
+      "status": "ok",
+      "message": "Generated 5 epics, 5 stories, and 10 tasks.",
+      "created_at": "2026-05-11T05:49:02.360790Z"
+    },
+    {
+      "stage": "S5_VALIDATION_B_SYNC",
+      "status": "ok",
+      "message": "Task validation produced 2 issues; Sync-A wrote 10 records; Sync-B wrote 8 task records.",
+      "created_at": "2026-05-11T05:49:03.113897Z"
+    },
+    {
+      "stage": "S6_AGENT_C",
+      "status": "ok",
+      "message": "Generated 40 test cases.",
+      "created_at": "2026-05-11T05:49:04.039501Z"
+    },
+    {
+      "stage": "S7_VALIDATION_C_SYNC",
+      "status": "ok",
+      "message": "Test-case validation produced 8 issues; synced 32 mock Notion records.",
+      "created_at": "2026-05-11T05:49:05.145808Z"
+    },
+    {
+      "stage": "FINAL_COVERAGE",
+      "status": "ok",
+      "message": "Coverage report is ready.",
+      "created_at": "2026-05-11T05:49:06.780245Z"
+    }
+  ],
+  "meta": {
+    "request_id": "req_81ca5f6494f0"
+  },
+  "error": null
+}

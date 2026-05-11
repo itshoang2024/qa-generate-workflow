@@ -652,11 +652,12 @@ class PipelineService:
 
     def _build_hil0_questions(self, run_id: str, sections: list[GDDSection]) -> list[HIL0Question]:
         questions: list[HIL0Question] = []
+        run_key = _safe_id(run_id)
         for section in sections:
             for flag in section.flags:
                 questions.append(
                     HIL0Question(
-                        id=f"hil0_{_safe_id(section.section_id)}_{len(questions) + 1}",
+                        id=f"hil0_{run_key}_{_safe_id(section.section_id)}_{len(questions) + 1}",
                         run_id=run_id,
                         section_id=section.section_id,
                         title=section.title,
@@ -672,7 +673,7 @@ class PipelineService:
             if section.actionability_reason == "insufficient_text":
                 questions.append(
                     HIL0Question(
-                        id=f"hil0_{_safe_id(section.section_id)}_{len(questions) + 1}",
+                        id=f"hil0_{run_key}_{_safe_id(section.section_id)}_{len(questions) + 1}",
                         run_id=run_id,
                         section_id=section.section_id,
                         title=section.title,

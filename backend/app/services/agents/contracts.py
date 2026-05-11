@@ -17,13 +17,17 @@ from app.domain.qa_roster import QA_ASSIGNEE_BY_FEATURE_TYPE
 
 AmbiguityAction = Literal["ask_user", "skip", "proceed_with_flag"]
 
+AGENT_A_NAME_MAX_LENGTH = 80
+AGENT_A_SUMMARY_MAX_LENGTH = 300
+AGENT_A_FEATURE_ID_PATTERN = r"^F-[0-9]{3}$"
+
 
 class AgentAFeatureOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    feature_id: str
-    name: str = Field(max_length=80)
-    summary: str = Field(max_length=300)
+    feature_id: str = Field(pattern=AGENT_A_FEATURE_ID_PATTERN)
+    name: str = Field(max_length=AGENT_A_NAME_MAX_LENGTH)
+    summary: str = Field(max_length=AGENT_A_SUMMARY_MAX_LENGTH)
     feature_type: FeatureType
     source_sections: list[str] = Field(min_length=1)
     key_behaviors: list[str] = Field(default_factory=list)
@@ -102,6 +106,8 @@ Hard rules:
 4. Missing or vague information belongs in ambiguities, not in invented features.
 5. If one feature spans 3 or more sections and 2 or more feature types, classify it as cross_cutting.
 6. In DELTA mode, set delta_status for every feature. In NEW_GAME mode, set delta_status to null.
+7. Keep each feature name at or under 80 characters and each summary at or under 300 characters.
+8. Feature IDs must be sequential and zero-padded as F-001, F-002, F-003, ...
 """
 
 
@@ -113,9 +119,18 @@ AGENT_A_RESPONSE_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "feature_id": {"type": "string"},
-                    "name": {"type": "string"},
-                    "summary": {"type": "string"},
+                    "feature_id": {
+                        "type": "string",
+                        "pattern": AGENT_A_FEATURE_ID_PATTERN,
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": AGENT_A_NAME_MAX_LENGTH,
+                    },
+                    "summary": {
+                        "type": "string",
+                        "maxLength": AGENT_A_SUMMARY_MAX_LENGTH,
+                    },
                     "feature_type": {
                         "type": "string",
                         "enum": [feature_type.value for feature_type in FeatureType],
@@ -123,6 +138,7 @@ AGENT_A_RESPONSE_SCHEMA: dict[str, Any] = {
                     "source_sections": {
                         "type": "array",
                         "items": {"type": "string"},
+                        "minItems": 1,
                     },
                     "key_behaviors": {
                         "type": "array",
@@ -132,7 +148,11 @@ AGENT_A_RESPONSE_SCHEMA: dict[str, Any] = {
                         "type": "array",
                         "items": {"type": "string"},
                     },
-                    "confidence": {"type": "number"},
+                    "confidence": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                    },
                     "delta_status": {
                         "type": ["string", "null"],
                         "enum": [status.value for status in DeltaStatus] + [None],

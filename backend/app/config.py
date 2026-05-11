@@ -38,9 +38,10 @@ def get_settings(env_file: Path | None = None) -> Settings:
         if configured_gdd
         else _default_snake_gdd_path(project_root)
     )
+    configured_upload_dir = _env_value("UPLOAD_DIR", env_values)
     upload_dir = Path(
         _resolve_configured_path(
-            _env_value("UPLOAD_DIR", env_values, str(backend_root / ".runtime" / "uploads")),
+            configured_upload_dir or str(backend_root / ".runtime" / "uploads"),
             project_root,
         )
     )
@@ -48,9 +49,9 @@ def get_settings(env_file: Path | None = None) -> Settings:
     return Settings(
         app_env=_env_value("APP_ENV", env_values, "local"),
         api_prefix=_env_value("API_PREFIX", env_values, "/api/v1"),
-        ai_provider=_env_value("AI_PROVIDER", env_values, "mock"),
-        notion_provider=_env_value("NOTION_PROVIDER", env_values, "mock"),
-        repository_provider=_env_value("REPOSITORY_PROVIDER", env_values, "memory"),
+        ai_provider=_env_value("AI_PROVIDER", env_values, "mock").lower(),
+        notion_provider=_env_value("NOTION_PROVIDER", env_values, "mock").lower(),
+        repository_provider=_env_value("REPOSITORY_PROVIDER", env_values, "memory").lower(),
         openai_api_key=_env_value("OPENAI_API_KEY", env_values) or None,
         openai_model=_env_value("OPENAI_MODEL", env_values, "gpt-4.1-mini"),
         anthropic_api_key=_env_value("ANTHROPIC_API_KEY", env_values) or None,
@@ -74,8 +75,8 @@ def _load_env_file(env_file: Path) -> dict[str, str]:
 
 def _env_value(key: str, env_values: dict[str, str], default: str = "") -> str:
     if key in os.environ:
-        return os.environ[key]
-    return env_values.get(key, default)
+        return os.environ[key].strip()
+    return env_values.get(key, default).strip()
 
 
 def _resolve_configured_path(

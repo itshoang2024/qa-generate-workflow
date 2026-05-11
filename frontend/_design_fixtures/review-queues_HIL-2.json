@@ -1,0 +1,106 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-2",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 2,
+    "groups": [
+      {
+        "group_id": "reviewer:Linh|feature:F-005|epic:E-DAILY-COMPETITIVE",
+        "reviewer": "Linh",
+        "feature_id": "F-005",
+        "epic_id": "E-DAILY-COMPETITIVE",
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "task",
+            "target_id": "T-008",
+            "title": "Review Daily Mission and Daily Spin reward mapping",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "task_2b5cdba264ea",
+              "run_id": "run_87a8f69786fc",
+              "task_id": "T-008",
+              "story_id": "S-004",
+              "epic_id": "E-DAILY-COMPETITIVE",
+              "feature_id": "F-005",
+              "title": "Review Daily Mission and Daily Spin reward mapping",
+              "description": "Check Daily Mission tiers, Daily Spin outcomes, Daily Reward, and Daily Video Bar reward progression.",
+              "assignee": "Linh",
+              "priority": "P1",
+              "estimate": "M",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.4",
+                "§8.5"
+              ],
+              "external_id": "snake-escape-F-005-T-01",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "status": "Ready for Test Cases",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          }
+        ]
+      },
+      {
+        "group_id": "reviewer:Minh|feature:F-004|epic:E-BOOSTERS",
+        "reviewer": "Minh",
+        "feature_id": "F-004",
+        "epic_id": "E-BOOSTERS",
+        "item_count": 1,
+        "items": [
+          {
+            "target_type": "task",
+            "target_id": "T-007",
+            "title": "Review booster first-introduction overlay flow",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {
+              "id": "task_583aa2ca7067",
+              "run_id": "run_87a8f69786fc",
+              "task_id": "T-007",
+              "story_id": "S-003",
+              "epic_id": "E-BOOSTERS",
+              "feature_id": "F-004",
+              "title": "Review booster first-introduction overlay flow",
+              "description": "Review popup, OK transition, dark overlay, finger animation, activation, and inventory decrement in the first booster tutorial.",
+              "assignee": "Minh",
+              "priority": "P1",
+              "estimate": "M",
+              "source_sections": [
+                "§4.4",
+                "§5"
+              ],
+              "external_id": "snake-escape-F-004-T-01",
+              "confidence": 0.8,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "status": "Ready for Test Cases",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_ef14f3870b9a"
+  },
+  "error": null
+}

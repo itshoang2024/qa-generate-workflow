@@ -1,0 +1,404 @@
+{
+  "data": {
+    "run_id": "run_87a8f69786fc",
+    "hil_tier": "HIL-3",
+    "group_by": [
+      "reviewer",
+      "feature_id",
+      "epic_id"
+    ],
+    "item_count": 8,
+    "groups": [
+      {
+        "group_id": "reviewer:Linh|feature:F-005|epic:E-DAILY-COMPETITIVE",
+        "reviewer": "Linh",
+        "feature_id": "F-005",
+        "epic_id": "E-DAILY-COMPETITIVE",
+        "item_count": 4,
+        "items": [
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0029",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Positive",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_ccfda2e836b9",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0029",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Positive",
+              "type": "functional",
+              "category": "positive",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the happy path scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The happy path scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.4",
+                "§8.5"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-29",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "positive",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0030",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Negative",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_33867be5763f",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0030",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Negative",
+              "type": "regression",
+              "category": "negative",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the blocked or invalid action scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The blocked or invalid action scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.4",
+                "§8.5"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-30",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "negative",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0031",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Edge",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_5300c9593f29",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0031",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Edge",
+              "type": "functional",
+              "category": "edge",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the boundary condition scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The boundary condition scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.4",
+                "§8.5"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-31",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "edge",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0032",
+            "title": "Review Daily Mission and Daily Spin reward mapping - Integration",
+            "reviewer": "Linh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-005",
+            "epic_id": "E-DAILY-COMPETITIVE",
+            "payload": {
+              "id": "tc_84389fc17104",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0032",
+              "title": "Review Daily Mission and Daily Spin reward mapping - Integration",
+              "type": "integration",
+              "category": "integration",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-008 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review Daily Mission and Daily Spin reward mapping.",
+                "Execute the linked feature flow scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The linked feature flow scenario for Review Daily Mission and Daily Spin reward mapping matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-008",
+              "source_sections": [
+                "§8.1",
+                "§8.2",
+                "§8.4",
+                "§8.5"
+              ],
+              "external_id": "snake-escape-F-005-T-01-TC-32",
+              "confidence": 0.78,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "integration",
+                "source_task_external_id": "snake-escape-F-005-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          }
+        ]
+      },
+      {
+        "group_id": "reviewer:Minh|feature:F-004|epic:E-BOOSTERS",
+        "reviewer": "Minh",
+        "feature_id": "F-004",
+        "epic_id": "E-BOOSTERS",
+        "item_count": 4,
+        "items": [
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0025",
+            "title": "Review booster first-introduction overlay flow - Positive",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {
+              "id": "tc_14a3ce874fdd",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0025",
+              "title": "Review booster first-introduction overlay flow - Positive",
+              "type": "functional",
+              "category": "positive",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-007 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review booster first-introduction overlay flow.",
+                "Execute the happy path scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The happy path scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-007",
+              "source_sections": [
+                "§4.4",
+                "§5"
+              ],
+              "external_id": "snake-escape-F-004-T-01-TC-25",
+              "confidence": 0.8,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "positive",
+                "source_task_external_id": "snake-escape-F-004-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0026",
+            "title": "Review booster first-introduction overlay flow - Negative",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {
+              "id": "tc_67abe0005b2d",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0026",
+              "title": "Review booster first-introduction overlay flow - Negative",
+              "type": "regression",
+              "category": "negative",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-007 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review booster first-introduction overlay flow.",
+                "Execute the blocked or invalid action scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The blocked or invalid action scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-007",
+              "source_sections": [
+                "§4.4",
+                "§5"
+              ],
+              "external_id": "snake-escape-F-004-T-01-TC-26",
+              "confidence": 0.8,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "negative",
+                "source_task_external_id": "snake-escape-F-004-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0027",
+            "title": "Review booster first-introduction overlay flow - Edge",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {
+              "id": "tc_a182dfa34e4c",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0027",
+              "title": "Review booster first-introduction overlay flow - Edge",
+              "type": "functional",
+              "category": "edge",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-007 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review booster first-introduction overlay flow.",
+                "Execute the boundary condition scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The boundary condition scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-007",
+              "source_sections": [
+                "§4.4",
+                "§5"
+              ],
+              "external_id": "snake-escape-F-004-T-01-TC-27",
+              "confidence": 0.8,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "edge",
+                "source_task_external_id": "snake-escape-F-004-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          },
+          {
+            "target_type": "test_case",
+            "target_id": "TC-0028",
+            "title": "Review booster first-introduction overlay flow - Integration",
+            "reviewer": "Minh",
+            "lane": "BATCH",
+            "review_status": "NEEDS_REVIEW",
+            "feature_id": "F-004",
+            "epic_id": "E-BOOSTERS",
+            "payload": {
+              "id": "tc_43817dcabde4",
+              "run_id": "run_87a8f69786fc",
+              "test_case_id": "TC-0028",
+              "title": "Review booster first-introduction overlay flow - Integration",
+              "type": "integration",
+              "category": "integration",
+              "priority": "P1",
+              "preconditions": [
+                "Snake Escape demo project is loaded.",
+                "QA task T-007 is ready for test case generation."
+              ],
+              "steps": [
+                "Open the feature area for Review booster first-introduction overlay flow.",
+                "Execute the linked feature flow scenario described by the QA task.",
+                "Record the observed result and compare it with the expected behavior."
+              ],
+              "expected_result": "The linked feature flow scenario for Review booster first-introduction overlay flow matches the GDD-backed acceptance criteria without unsupported behavior.",
+              "related_task_id": "T-007",
+              "source_sections": [
+                "§4.4",
+                "§5"
+              ],
+              "external_id": "snake-escape-F-004-T-01-TC-28",
+              "confidence": 0.8,
+              "dedup_flag": false,
+              "cross_cutting_flag": false,
+              "test_data": {
+                "category": "integration",
+                "source_task_external_id": "snake-escape-F-004-T-01"
+              },
+              "status": "Not Run",
+              "review_status": "NEEDS_REVIEW",
+              "lane": "BATCH"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "request_id": "req_f7b87d85953e"
+  },
+  "error": null
+}

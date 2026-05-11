@@ -22,23 +22,21 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Final Coverage / Risk / Sign-Off | 4 / 5 | Coverage report includes risk/sync/GDD/sign-off state; RiskEvent model, kill switch, and sign-off endpoint shipped. Learning-loop corrections still open. |
 | Final Backend Verification | 2 / 6 | Backend pytest + ruff pass after the Notion + risk slice. Manual Swagger/Supabase checks still open. |
 
-## Next Implementation Slice — NotionSyncClient + Sync-A/B/C Separation + RiskEvent Model
+## Next Implementation Slice — Hand-off To Frontend (Phase 3)
 
-S0/S1 are split, lane routing is wired through validators / domain / queues, and HIL-0..HIL-3 queues work. The next slice should harden the Notion side and stand up the Task 4 risk loop so the prototype can demonstrate Task 3 + Task 4 contractually, still in mock mode.
+Backend is now feature-complete for the homework narrative. Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A (with structured-output OpenAI adapter + bounded retry/repair), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
 
-Order within this slice:
+The biggest reviewer-facing gap is now the absence of a UI. A reviewer cannot see the workflow without `curl`. The next slice is **frontend scaffolding** — owned by root `TASKS.md` Phase 3, not backend `TASKS.md`. Backend work that can run in parallel:
 
-1. Extract `app/services/notion/__init__.py` (`NotionSyncClient` abstract base, mirror of `app/services/agents/__init__.py`). Move `MockNotionSyncClient` to `app/services/notion/mock.py`; keep method signatures stable. Verify: existing `pytest tests/test_pipeline.py` + `tests/test_api.py` stay green.
-2. Separate sync into three pipeline events:
-   - Sync-A: emit after Agent B + Validation B but *before* Sync-B. Persist `external_id → notion_page_id` mapping per epic/story on the mock client.
-   - Sync-B: emit per task once it leaves Router B (AUTO) or HIL-2 (APPROVED). Use the page-id map for the `epic` / `story` relation properties.
-   - Sync-C: emit per test case once it leaves Router C / HIL-3, and flip the parent task's `status` from `Ready for Test Cases` to `Test Cases Ready`.
-3. Add `RiskEvent` Pydantic model (severity = Task 4 S1/S2/S3, code, summary, target_type/id, owner_action) + repo create/list + `GET /api/v1/runs/{run_id}/risk-events`. Emit deterministic events from existing validators (hallucination → `missing_source_section`, scope-drift → `uncovered_actionable_section`, assignee → `invalid_assignee`, dedup → `duplicate_task_candidate`).
-4. Add a `KillSwitchState` counter in `session_memory` (current run only) and a `_should_abort_run()` guard before Agent C. Tripping the kill switch sets `RunStatus.FAILED` and emits a final `RiskEvent`.
-5. Add `POST /api/v1/runs/{run_id}/sign-off` + `signed_off_by` / `signed_off_at` on `Run`. Surface in the coverage report.
-6. Extend the coverage report to include `risk_summary`, `sync_summary` (count by `SyncStatus`), `gdd_version_metadata`, and `sign_off`. Update `docs/contracts/pipeline-contract.md`.
+1. **Real Agent B adapter** (`OpenAIAgentClient.plan_qa_tasks`): mirror the Agent A pattern with a `plan_qa_tasks` JSON schema in `agents/contracts.py`. Must call `QA_ASSIGNEE_BY_FEATURE_TYPE` post-LLM rather than trusting model output. Useful but not blocking — Agent A alone is enough to demonstrate the Task 2 contract pattern.
+2. **Real Agent C adapter** (`OpenAIAgentClient.generate_test_cases`): same shape, plus forbidden-vague-phrase guard. Mock already emits the four categories deterministically — real adapter is incremental value.
+3. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
+4. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
+5. **DELTA task behavior** in Agent B mock: today `Feature.delta_status` is set to `UNCHANGED` for all DELTA runs. Make the mock emit `NEW` / `MODIFIED` / `UNCHANGED` / `REMOVED` per the S1 `delta_report.buckets` so Agent B can branch on it.
+6. **Forbidden-vague-phrase / one-assertion / repeatability validators** in `validate_test_cases`.
+7. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
 
-Once this slice is green, move on to real Agent B/C adapters and real Notion adapter (Phase S5b task 4). Frontend scaffolding can run in parallel with either.
+Pick (3) if the homework grader wants to see real Notion working; pick (5)+(6)+(7) if you want demo realism without external dependencies; otherwise skip directly to the frontend and treat the rest as Phase 4 polish.
 
 ## Phase 0 Items From Root Plan
 
