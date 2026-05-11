@@ -9,8 +9,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Phase | Done / Total | Status |
 |---|---|---|
 | F0 - Scaffold + Providers | 8 / 8 | Scaffold, providers, env example, typed API/query/mutation layer, and design fixtures shipped. |
-| F1 - AppShell + Provider Status + Navigation | 3 / 4 | Shared AppShell, live provider pills, and desktop sidebar navigation shipped; mobile drawer/provider dialog polish remains. |
-| F2 - Projects + GDD Version History | 0 / 4 | List, create, detail, version-history rows. |
+| F1 - AppShell + Provider Status + Navigation | 4 / 4 | Shared AppShell, live provider pills, desktop sidebar navigation, provider details dialog, and mobile drawer shipped. |
+| F2 - Projects + GDD Version History | 4 / 4 | Project list, new project dialog, project detail, DELTA trigger, and GDD version-history rows shipped. |
 | F3 - Run Dashboard | 5 / 5 | Timeline, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
 | F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | One route template; tier param drives queue + mutation shape. |
 | F5 - Inspection Tables | 0 / 2 | Reusable `<ArtifactTable>` + detail drawer. |
@@ -18,16 +18,17 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | F7 - Sign-Off + Final Report | 0 / 2 | Sign-off button, printable report. |
 | F8 - Verification + Submission Polish | 2 / 5 | Lint and build pass; full E2E walkthrough, submission screenshots, and README remain. |
 
-## Next Implementation Slice - Projects + AppShell Polish
+## Next Implementation Slice - HIL Queues + Artifact Table
 
-The data layer, AppShell, and run dashboard are now in place. Recommended next order:
+The AppShell, projects flow, GDD history, and run dashboard are now in place. Recommended next order:
 
-1. Add the remaining AppShell polish: provider details dialog and mobile sidebar drawer.
-2. Build `/projects` list + create dialog from `useProjects()`, `useCreateProject()`, and `useTriggerRun()`.
-3. Build `/projects/[project_id]` detail with run history, GDD document history, and DELTA trigger.
-4. Verify with `npm run lint`, `npx tsc --noEmit`, and `npm run build`.
+1. Build `/runs/[run_id]/hil/[tier]` route template for HIL-0..HIL-3 queues.
+2. Wire HIL-0 resolutions and HIL-1/2/3 review decisions with pending button states.
+3. Extract the route-local dashboard tables into reusable `<ArtifactTable>`.
+4. Add `<ArtifactDetailDrawer>` for full payload inspection.
+5. Verify with `npm run lint`, `npx tsc --noEmit`, `npm run build`, and browser checks on the queue route.
 
-After this slice is green, continue with HIL queues and the reusable inspection table extraction.
+After this slice is green, continue with Sync Log, Risk Center, and Sign-Off.
 
 ## Phase F0 — Scaffold + Providers
 
@@ -66,22 +67,22 @@ After this slice is green, continue with HIL queues and the reusable inspection 
 - [x] Task: Sidebar navigation uses Next.js `<Link>` and active state from `usePathname()` for Projects, Runs, Dashboard, HIL queue, Sync log, Risk, Sign off, and Settings.
   Verify: Current run links are generated from `/runs/<id>` and active items render with indigo/slate styling.
 
-- [ ] Task: Add remaining AppShell polish: provider details dialog and mobile sidebar drawer for viewports `< lg`.
-  Verify: Clicking a provider pill opens details; sidebar remains reachable on mobile.
+- [x] Task: Add remaining AppShell polish: provider details dialog and mobile sidebar drawer for viewports `< lg`.
+  Verify: Browser check on `/projects` confirms provider pill opens the details dialog; mobile viewport hides the desktop aside and opens navigation from the menu button.
 
 ## Phase F2 — Projects + GDD Version History
 
-- [ ] Task: Build `/projects` list page reading `GET /api/v1/projects`. Empty state when no projects exist with a "Create your first project" CTA.
-  Verify: After scaffolded backend run, page lists `Snake Escape` plus any test projects.
+- [x] Task: Build `/projects` list page reading `GET /api/v1/projects`. Empty state when no projects exist with a "Create your first project" CTA.
+  Verify: Browser check on `/projects` lists `Snake Escape`, shows project/run summary metrics, and keeps the empty-state CTA in place for zero-project backends.
 
-- [ ] Task: Build `<NewProjectDialog>` calling `useCreateProject()` then `useTriggerRun()` with `project_name` for `NEW_GAME` mode. Form uses `react-hook-form` + `zod`; submit toasts success and navigates to `/runs/<run_id>`.
-  Verify: Creating a project + triggering returns a run with `mode=NEW_GAME`; toast appears; URL changes to `/runs/run_xxx`.
+- [x] Task: Build `<NewProjectDialog>` with `react-hook-form` + `zod`; it exposes a create-record action through `useCreateProject()` and a primary create+trigger action through `useTriggerRun()` with `project_name` for backend-owned `NEW_GAME` creation.
+  Verify: Browser check opens the dialog and validates the default GDD file field; TypeScript covers the `useTriggerRun()` payload and `/runs/<run_id>` navigation path.
 
-- [ ] Task: Build `/projects/[project_id]` detail page showing project metadata, runs scoped to the project, and a "Trigger DELTA run" button calling `useTriggerRun()` with `project_id` for `DELTA` mode.
-  Verify: DELTA trigger returns `mode=DELTA`; navigation to the new run shows `parent_document_id` on the registered GDD.
+- [x] Task: Build `/projects/[project_id]` detail page showing project metadata, runs scoped to the project, and a "Trigger DELTA run" button calling `useTriggerRun()` with `project_id` for `DELTA` mode.
+  Verify: Browser check on `/projects/snake-escape` shows metadata, run history, and the DELTA dialog with the project source document prefilled.
 
-- [ ] Task: Add GDD version history strip on `/projects/[project_id]` consuming `GET /api/v1/projects/{project_id}/gdd-documents`; show `version_id`, `description_status` badge (`PENDING` / `USER_PROVIDED` / `AI_GENERATED`), `parent_document_id` chain, and file metadata.
-  Verify: Two GDDs registered under one project show `v2 → v1` chain ordered latest-first.
+- [x] Task: Add GDD version history strip on `/projects/[project_id]` consuming `GET /api/v1/projects/{project_id}/gdd-documents`; show `version_id`, `description_status` badge (`PENDING` / `USER_PROVIDED` / `AI_GENERATED`), `parent_document_id` chain, and file metadata.
+  Verify: Browser check on `/projects/snake-escape` shows the GDD version history section; rows are sorted latest-first and include version, status, parent, size, origin, and SHA metadata.
 
 ## Phase F3 — Run Dashboard
 

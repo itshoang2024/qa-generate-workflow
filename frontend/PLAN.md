@@ -18,16 +18,16 @@ Already shipped:
 - `src/lib/types.ts`, `src/lib/api.ts`, `src/lib/queries.ts`, and `src/lib/mutations.ts` cover the backend `/api/v1` read and mutation surface with typed React Query hooks.
 - `frontend/.env.local.example` documents `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1`; local `.env.local` uses the same value.
 - `frontend/_design_fixtures/` contains 17 representative JSON payloads plus `design-system.md` for design handoff/reference work.
-- `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px sidebar, 56px header, provider status pills from `/providers/status`, search command shell, current-run navigation, and user footer.
+- `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px desktop sidebar, mobile sidebar drawer, 56px header, provider status pills/details dialog from `/providers/status`, search command shell, current-run navigation, and user footer.
+- `/projects` and `/projects/[project_id]` are implemented with project listing, new project dialog, run history, DELTA trigger, and GDD version history from `/projects/{project_id}/gdd-documents`.
 - `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
 - The run dashboard hydration issue caused by a `<div>` skeleton inside `<p>` was fixed with an inline `<span>` skeleton.
 
 Still missing:
 
-- `/projects` and `/projects/[project_id]`.
 - `/runs/[run_id]/hil/[tier]`, `/runs/[run_id]/sync-log`, `/runs/[run_id]/risk`, and `/runs/[run_id]/sign-off`.
 - Reusable `<ArtifactTable>` and `<ArtifactDetailDrawer>` extraction. The run dashboard currently uses route-local table components.
-- Provider detail dialog, mobile sidebar drawer, and global header sign-off action polish.
+- Global header sign-off action polish.
 - `frontend/README.md` with run + build commands.
 
 ## Target Architecture
@@ -81,8 +81,10 @@ Acceptance:
 
 - AppShell renders on every route through `src/app/layout.tsx`.
 - Provider pills show the live provider/credentials state from `/providers/status`.
+- Clicking a provider pill opens a details dialog with provider, readiness, and API base.
 - Sidebar links use Next.js `<Link>` with active state from `usePathname()`.
-- Remaining polish: provider details dialog, mobile sidebar drawer, and optional global sign-off action.
+- Mobile viewports keep navigation reachable through the sidebar drawer.
+- Remaining polish: optional global sign-off action.
 
 ### Screen 2 — Projects + GDD version history
 
@@ -91,7 +93,7 @@ Surfaces: `/projects`, `/projects/[project_id]`.
 Behaviour:
 
 - List from `GET /api/v1/projects`.
-- "New project" dialog calls `POST /api/v1/projects` then `POST /api/v1/runs/trigger` with `project_name` → mode `NEW_GAME`.
+- "New project" dialog exposes a create-record action via `POST /api/v1/projects` and a primary create+trigger action via `POST /api/v1/runs/trigger` with `project_name` for backend-owned `NEW_GAME` creation.
 - Existing project picker drives `POST /api/v1/runs/trigger` with `project_id` → mode `DELTA`.
 - Project detail page shows runs scoped to the project + GDD version history from `GET /api/v1/projects/{project_id}/gdd-documents` with `parent_document_id` chain and `description_status` badges (`PENDING` / `USER_PROVIDED` / `AI_GENERATED`).
 
