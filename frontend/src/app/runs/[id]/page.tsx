@@ -98,6 +98,15 @@ function IdChip({ children }: { children: React.ReactNode }) {
   );
 }
 
+function InlineSkeleton({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("inline-block animate-pulse rounded-md bg-muted", className)}
+    />
+  );
+}
+
 function LaneBadge({ lane }: { lane: string }) {
   return (
     <span
@@ -1369,7 +1378,7 @@ export default function RunDashboardPage() {
           <h1 className="text-[24px] font-semibold tracking-tight text-slate-100 flex items-center flex-wrap gap-2.5">
             Run Dashboard
             {runPending ? (
-              <Skeleton className="h-5 w-24 inline-block" />
+              <InlineSkeleton className="h-5 w-24" />
             ) : (
               <>
                 <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-indigo-500/18 text-indigo-300">
@@ -1380,9 +1389,9 @@ export default function RunDashboardPage() {
             )}
           </h1>
 
-          <p className="mt-1.5 text-[13px] text-slate-400">
+          <div className="mt-1.5 text-[13px] text-slate-400">
             {runPending ? (
-              <Skeleton className="h-3 w-64 inline-block" />
+              <InlineSkeleton className="h-3 w-64" />
             ) : (
               <>
                 {run?.session_memory &&
@@ -1402,7 +1411,7 @@ export default function RunDashboardPage() {
                     : "—"}
               </>
             )}
-          </p>
+          </div>
         </div>
 
         <div className="flex gap-2 shrink-0">

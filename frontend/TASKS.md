@@ -8,29 +8,26 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 
 | Phase | Done / Total | Status |
 |---|---|---|
-| F0 - Scaffold + Providers | 5 / 8 | Next.js + shadcn + Providers (QueryClient + Theme + Toaster + Devtools) shipped; `lib/api.ts`, `lib/queries.ts`, `lib/mutations.ts`, `_design_fixtures/`, `.env.local.example` pending. |
-| F1 - AppShell + Provider Status + Navigation | 0 / 3 | Foundation for every other screen. |
+| F0 - Scaffold + Providers | 8 / 8 | Scaffold, providers, env example, typed API/query/mutation layer, and design fixtures shipped. |
+| F1 - AppShell + Provider Status + Navigation | 3 / 4 | Shared AppShell, live provider pills, and desktop sidebar navigation shipped; mobile drawer/provider dialog polish remains. |
 | F2 - Projects + GDD Version History | 0 / 4 | List, create, detail, version-history rows. |
-| F3 - Run Dashboard | 0 / 4 | Timeline, coverage, agent runs, inspection tabs. |
+| F3 - Run Dashboard | 5 / 5 | Timeline, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
 | F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | One route template; tier param drives queue + mutation shape. |
 | F5 - Inspection Tables | 0 / 2 | Reusable `<ArtifactTable>` + detail drawer. |
 | F6 - Sync Log + Risk Center | 0 / 3 | Sync log, risk grouped table, kill-switch banner. |
 | F7 - Sign-Off + Final Report | 0 / 2 | Sign-off button, printable report. |
-| F8 - Verification + Submission Polish | 0 / 5 | Lint, build, end-to-end walkthrough, screenshots, README. |
+| F8 - Verification + Submission Polish | 2 / 5 | Lint and build pass; full E2E walkthrough, submission screenshots, and README remain. |
 
-## Next Implementation Slice — `lib/api.ts` + `lib/queries.ts` + `lib/mutations.ts` + `_design_fixtures/`
+## Next Implementation Slice - Projects + AppShell Polish
 
-Before opening Claude Design for any screen, the data layer needs to be in place so each generated artifact has hooks to wire against during the Claude Code handoff. Recommended order in one implementation slice:
+The data layer, AppShell, and run dashboard are now in place. Recommended next order:
 
-1. Add `frontend/.env.local.example` and document `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1`. Copy to `.env.local`.
-2. Write `frontend/src/lib/types.ts` mirroring backend Pydantic models: `Run`, `Project`, `GDDDocument`, `Feature` (with `lane` + `delta_status`), `Epic`, `Story`, `QATask`, `TestCase`, `ValidationIssue`, `RiskEvent`, `SyncEvent`, `AgentRun`, `ReviewDecision`, `ReviewQueueItem` / `ReviewQueueGroup` / `ReviewQueue`, `StageEvent`, `HIL0Question`, `HIL0Resolution`.
-3. Write `frontend/src/lib/api.ts` envelope-aware fetch wrapper that throws on `error` and returns `data` typed as `T`.
-4. Write `frontend/src/lib/queries.ts` with one `useXxx` hook per endpoint (about 20 hooks). Centralise query keys in a `queryKeys` constant for invalidation symmetry.
-5. Write `frontend/src/lib/mutations.ts` with hooks for `useTriggerRun`, `useLoadContext`, `useCreateProject`, `useCreateReviewDecision`, `useResolveHil0Question`, `useSignOffRun`, `useReplaySync`. Each mutation invalidates the relevant query keys.
-6. Dump representative JSON for every endpoint into `frontend/_design_fixtures/` (trim each file to 2–3 records + 1 edge case). Add `frontend/_design_fixtures/design-system.md` cheat sheet for Claude Design.
-7. Verify: `npm run lint` + `npx tsc --noEmit` clean from `frontend/`.
+1. Add the remaining AppShell polish: provider details dialog and mobile sidebar drawer.
+2. Build `/projects` list + create dialog from `useProjects()`, `useCreateProject()`, and `useTriggerRun()`.
+3. Build `/projects/[project_id]` detail with run history, GDD document history, and DELTA trigger.
+4. Verify with `npm run lint`, `npx tsc --noEmit`, and `npm run build`.
 
-After this slice is green, F1 (AppShell) opens in Claude Design with the linked codebase + fixture context.
+After this slice is green, continue with HIL queues and the reusable inspection table extraction.
 
 ## Phase F0 — Scaffold + Providers
 
@@ -49,25 +46,28 @@ After this slice is green, F1 (AppShell) opens in Claude Design with the linked 
 - [x] Task: Wire `frontend/src/app/layout.tsx` to mount `<Providers>` around `{children}`, set product metadata, and `suppressHydrationWarning` on `<html>` for `next-themes`.
   Verify: `npx tsc --noEmit` passes; `npm run dev` renders the default Next.js page through `<Providers>`.
 
-- [ ] Task: Add `frontend/.env.local.example` documenting `NEXT_PUBLIC_API_BASE` and instructing the reader to copy to `.env.local`.
+- [x] Task: Add `frontend/.env.local.example` documenting `NEXT_PUBLIC_API_BASE` and instructing the reader to copy to `.env.local`.
   Verify: `frontend/.env.local.example` exists; `frontend/.gitignore` ignores `.env.local` but not the example.
 
-- [ ] Task: Write `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/queries.ts`, `frontend/src/lib/mutations.ts` covering every `/api/v1` endpoint listed in `backend/app/api/v1/routes.py`.
+- [x] Task: Write `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/queries.ts`, `frontend/src/lib/mutations.ts` covering every `/api/v1` endpoint listed in `backend/app/api/v1/routes.py`.
   Verify: `npx tsc --noEmit` from `frontend/` passes; every route in `routes.py` has a corresponding `useXxx` hook.
 
-- [ ] Task: Dump representative JSON for every endpoint into `frontend/_design_fixtures/` (trimmed to 2–3 records + 1 edge case per file) and add `frontend/_design_fixtures/design-system.md`.
-  Verify: `ls frontend/_design_fixtures/*.json | wc -l` returns ≥ 16 (matches `backend/app/api/v1/routes.py` GET endpoints + key POST samples).
+- [x] Task: Dump representative JSON for every endpoint into `frontend/_design_fixtures/` (trimmed to 2–3 records + 1 edge case per file) and add `frontend/_design_fixtures/design-system.md`.
+  Verify: `Get-ChildItem frontend/_design_fixtures -Filter *.json` returns 17 JSON files and `frontend/_design_fixtures/design-system.md` exists.
 
 ## Phase F1 — AppShell + Provider Status + Navigation
 
-- [ ] Task: Generate `<AppShell>` in Claude Design (linked subdirectory: `frontend/`), handoff to Claude Code, port into `frontend/src/components/app-shell.tsx`. Header (56px) with breadcrumbs from `usePathname()`, provider pills, "Sign off run" button. Left sidebar (256px) with Projects, Runs, HIL Queues (collapsible HIL-0..HIL-3), Sync Log, Risk Center, Settings.
-  Verify: Every route renders through `<AppShell>`; `npm run lint` clean.
+- [x] Task: Port `<AppShell>` into `frontend/src/components/app-shell.tsx` and mount it from `frontend/src/app/layout.tsx`. Header is 56px with provider pills + search; sidebar is 256px with workspace/current-run/settings navigation.
+  Verify: Browser check on `/runs/run_87a8f69786fc` shows `header` height `56px`, `aside` width `256px`, and `npm run lint` clean.
 
-- [ ] Task: Implement `<ProviderStatusPills>` reading `GET /api/v1/providers/status` via `useProvidersStatus()`; pill colour reflects `credentials_ready`. Click opens a dialog with provider details and a link to `frontend/README.md` env section.
-  Verify: With `AI_PROVIDER=mock NOTION_PROVIDER=mock REPOSITORY_PROVIDER=memory`, all three pills show green; with `NOTION_PROVIDER=real NOTION_TOKEN=""`, Notion pill shows red.
+- [x] Task: Implement `<ProviderStatusPills>` reading `GET /api/v1/providers/status` via `useProvidersStatus()`; pill colour reflects `credentials_ready`.
+  Verify: Browser check on the running backend shows live pills such as `AI openai`, `Notion real`, and `repo supabase`; unavailable credentials render the red pill style.
 
-- [ ] Task: Sidebar navigation uses Next.js `<Link>`; active item highlighted by indigo-500 left border + slate-800 background; collapsible on viewports `< lg`.
-  Verify: Navigating between `/projects` and `/runs/<id>` is client-side (no full reload visible in DevTools Network).
+- [x] Task: Sidebar navigation uses Next.js `<Link>` and active state from `usePathname()` for Projects, Runs, Dashboard, HIL queue, Sync log, Risk, Sign off, and Settings.
+  Verify: Current run links are generated from `/runs/<id>` and active items render with indigo/slate styling.
+
+- [ ] Task: Add remaining AppShell polish: provider details dialog and mobile sidebar drawer for viewports `< lg`.
+  Verify: Clicking a provider pill opens details; sidebar remains reachable on mobile.
 
 ## Phase F2 — Projects + GDD Version History
 
@@ -85,17 +85,20 @@ After this slice is green, F1 (AppShell) opens in Claude Design with the linked 
 
 ## Phase F3 — Run Dashboard
 
-- [ ] Task: Build `/runs/[run_id]` page with vertical timeline from `GET /api/v1/runs/{run_id}/timeline`; each `StageEvent` rendered as a card with stage name, status, timestamp, message.
+- [x] Task: Build `/runs/[run_id]` page with vertical timeline from `GET /api/v1/runs/{run_id}/timeline`; each `StageEvent` rendered as a card with stage name, status, timestamp, message.
   Verify: Snake Escape demo timeline shows 9 stages from `S0_TRIGGER` to `FINAL_COVERAGE`.
 
-- [ ] Task: Build coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`.
-  Verify: Demo coverage shows `task_count: 11`, `test_case_count: 44`, `risk_summary.total > 0`, `sync_summary.by_phase` containing `Sync-A`, `Sync-B`, `Sync-C`.
+- [x] Task: Build coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`.
+  Verify: `/runs/run_87a8f69786fc` renders coverage percentage, total/actionable sections, generated artifact counts, risk by severity/code, sync by phase, GDD metadata, and sign-off state.
 
-- [ ] Task: Build agent runs panel from `GET /api/v1/runs/{run_id}/agent-runs`. Agent A row exposes `output_snapshot.attempt_count` + `retry_exhausted`; expand button shows the `attempts[]` log.
-  Verify: With a demo run, Agent A row shows `attempt_count=1, retry_exhausted=false`; with a fixture forcing retries, the row shows >1 attempts in the log.
+- [x] Task: Build agent runs panel from `GET /api/v1/runs/{run_id}/agent-runs`. Agent A row exposes `output_snapshot.attempt_count` + `retry_exhausted`; expand button shows the `attempts[]` log.
+  Verify: `/runs/run_87a8f69786fc` shows Agent A attempt count/retry state and expandable attempt log.
 
-- [ ] Task: Add inspection tabs (Features / Epics / Stories / Tasks / Test Cases / Validation Issues) consuming the reusable `<ArtifactTable>` (Phase F5).
-  Verify: Switching tabs does not re-fetch — react-query cache covers all six artifact types after dashboard load.
+- [x] Task: Add inspection tabs (Features / Epics / Stories / Tasks / Test Cases / Validation Issues) with route-local table components.
+  Verify: All six tabs consume their typed query hooks and render backend payloads; reusable `<ArtifactTable>` extraction remains tracked in Phase F5.
+
+- [x] Task: Align dashboard visual shell with `ui-design/qa-runs-dashboard` and fix invalid HTML hydration warning.
+  Verify: Browser check shows Inter font, slate/indigo tokens, AppShell/sidebar/header, and no `<div>`-inside-`<p>` hydration warning.
 
 ## Phase F4 — HIL Queues
 
@@ -140,10 +143,10 @@ After this slice is green, F1 (AppShell) opens in Claude Design with the linked 
 - [ ] Task: Manual end-to-end walkthrough — create project → trigger NEW_GAME → walk HIL-0..HIL-3 → approve at least one task → see Sync-A/B/C in sync log → see risk events → sign off → second run on same project triggers DELTA + version history shows `v1, v2`.
   Verify: All eight steps complete without console errors.
 
-- [ ] Task: `npm run lint` clean from `frontend/`.
+- [x] Task: `npm run lint` clean from `frontend/`.
   Verify: Exit code 0.
 
-- [ ] Task: `npm run build` clean from `frontend/`.
+- [x] Task: `npm run build` clean from `frontend/`.
   Verify: Exit code 0; `.next/` build output present.
 
 - [ ] Task: Capture six submission screenshots — AppShell with provider pills, Run dashboard with timeline + coverage, HIL-2 queue, Sync log filtered by Sync-B, Risk center, signed-off coverage report. Store under `docs/screenshots/`.

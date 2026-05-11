@@ -14,17 +14,20 @@ Already shipped:
 - Dependencies installed: `@tanstack/react-query` + devtools, `next-themes`, `sonner`, `lucide-react`, `react-hook-form` + `@hookform/resolvers`, `zod`, `clsx`, `tailwind-merge`, `class-variance-authority`.
 - shadcn/ui primitives added: button, card, badge, table, tabs, dialog, input, input-group, select, textarea, separator, skeleton, sonner, dropdown-menu, sheet, command.
 - `src/app/providers.tsx` wraps `QueryClientProvider` (singleton browser client + per-request SSR client), `ThemeProvider` (default `dark`, attribute `class`), Sonner `<Toaster>` (bottom-right, richColors), and `<ReactQueryDevtools>` (dev-only, bottom-left).
-- `src/app/layout.tsx` mounts `<Providers>` around children with `suppressHydrationWarning` on `<html>` and an updated `<Metadata>` title/description.
+- `src/app/layout.tsx` mounts `<Providers>` and the shared `<AppShell>` around all routes with `suppressHydrationWarning` on `<html>` and an updated `<Metadata>` title/description.
+- `src/lib/types.ts`, `src/lib/api.ts`, `src/lib/queries.ts`, and `src/lib/mutations.ts` cover the backend `/api/v1` read and mutation surface with typed React Query hooks.
+- `frontend/.env.local.example` documents `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1`; local `.env.local` uses the same value.
+- `frontend/_design_fixtures/` contains 17 representative JSON payloads plus `design-system.md` for design handoff/reference work.
+- `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px sidebar, 56px header, provider status pills from `/providers/status`, search command shell, current-run navigation, and user footer.
+- `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
+- The run dashboard hydration issue caused by a `<div>` skeleton inside `<p>` was fixed with an inline `<span>` skeleton.
 
 Still missing:
 
-- `src/lib/api.ts` envelope-aware fetch wrapper.
-- `src/lib/queries.ts` typed query keys + `useQuery` hooks covering every backend endpoint.
-- `src/lib/mutations.ts` typed `useMutation` hooks for `POST /review-decisions`, `POST /runs/{id}/hil-0/resolutions`, `POST /runs/{id}/sign-off`, `POST /runs/{id}/sync-replay`, `POST /runs/trigger`, `POST /runs/{id}/context`, `POST /projects`.
-- `frontend/_design_fixtures/` JSON dump from a representative mock run plus the `design-system.md` cheat sheet that Claude Design reads at project setup.
-- `frontend/.env.local` with `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000/api/v1` (committed as `.env.local.example`).
-- AppShell + ProviderStatusPills + sidebar navigation.
-- The 7 screens listed in the per-screen plan below.
+- `/projects` and `/projects/[project_id]`.
+- `/runs/[run_id]/hil/[tier]`, `/runs/[run_id]/sync-log`, `/runs/[run_id]/risk`, and `/runs/[run_id]/sign-off`.
+- Reusable `<ArtifactTable>` and `<ArtifactDetailDrawer>` extraction. The run dashboard currently uses route-local table components.
+- Provider detail dialog, mobile sidebar drawer, and global header sign-off action polish.
 - `frontend/README.md` with run + build commands.
 
 ## Target Architecture
@@ -33,7 +36,7 @@ Still missing:
 Next.js 16 App Router (src/app)
     │
     ├── layout.tsx ─── Providers (QueryClient + Theme + Toaster + Devtools)
-    │       └── AppShell (header + sidebar + breadcrumbs + provider pills)
+    │       └── AppShell (header + sidebar + provider pills + search)
     │
     ├── projects/                 → list + create dialog
     │   └── [project_id]/         → GDD version history + trigger run + run list
@@ -70,15 +73,16 @@ Surfaces: every page. Built first because all other screens nest inside it.
 
 Behaviour:
 
-- Top header (56px): breadcrumbs from `usePathname()`, provider pills from `GET /api/v1/providers/status` (AI / Notion / Repository with `credentials_ready` colour), and a `Sign off run` button enabled only on run routes.
-- Left sidebar (256px): Projects, Runs, HIL Queues (collapsible HIL-0..HIL-3), Sync Log, Risk Center, Settings.
+- Top header (56px): provider pills from `GET /api/v1/providers/status` (AI / Notion / Repository with `credentials_ready` colour) and a search command shell.
+- Left sidebar (256px): Projects, Runs, Current run dashboard, HIL queue, Sync log, Risk, Sign off, Settings, and the QA Lead footer.
 - Dark mode default with light toggle in the user menu (Sonner inherits theme via `useTheme()`).
 
 Acceptance:
 
-- AppShell renders on every route.
+- AppShell renders on every route through `src/app/layout.tsx`.
 - Provider pills show the live provider/credentials state from `/providers/status`.
-- Sidebar links navigate without full-page reloads (Next.js `<Link>`).
+- Sidebar links use Next.js `<Link>` with active state from `usePathname()`.
+- Remaining polish: provider details dialog, mobile sidebar drawer, and optional global sign-off action.
 
 ### Screen 2 — Projects + GDD version history
 
@@ -106,13 +110,14 @@ Behaviour:
 - Vertical timeline from `GET /api/v1/runs/{run_id}/timeline` showing every `StageEvent` S0..FINAL_COVERAGE with status + message.
 - Coverage cards from `GET /api/v1/runs/{run_id}/coverage`: section counts, feature/task/test-case counts, `risk_summary` (by severity + by code), `sync_summary` (by status + by phase), `gdd_version_metadata`, `sign_off` block.
 - Agent runs panel from `GET /api/v1/runs/{run_id}/agent-runs` with Agent A's `attempt_count`, `retry_exhausted`, and expandable `attempts[]` log from the input/output snapshots.
-- Tabs below: Features, Epics, Stories, Tasks, Test Cases, Validation Issues. Each tab consumes the inspection table component (Screen 5).
+- Tabs below: Features, Epics, Stories, Tasks, Test Cases, Validation Issues. The current implementation uses route-local tables; Screen 5 remains responsible for extracting a reusable inspection table and drawer.
 
 Acceptance:
 
 - Demo run shows timeline with 9 stage events (S0 → FINAL_COVERAGE).
-- Coverage cards match the values asserted in `test_demo_pipeline_generates_complete_execution_plan` (8 features, 11 tasks, 44 test cases).
+- Coverage cards show the live backend coverage payload, including section counts, generated artifact counts, risk summary, sync summary, GDD metadata, and sign-off state.
 - Agent A row exposes attempt log when expanded.
+- `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass after the dashboard/AppShell implementation.
 
 ### Screen 4 — HIL queues (tiers 0/1/2/3)
 

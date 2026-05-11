@@ -44,6 +44,12 @@ Last updated: 2026-05-11
 - [x] Chạy verification cuối.
   Verify: `npm run lint`, `npx tsc --noEmit`, `npm run build` đều pass; screenshot kiểm tra lưu tại `.next/dashboard-appshell-check.png`.
 
+- [x] Fix invalid loading markup that caused Next.js hydration warnings.
+  Verify: route header loading uses inline `<span>` skeletons, the subtitle wrapper is a `<div>`, and browser console no longer reports `<div>` inside `<p>`.
+
+- [x] Sync global tracking docs after implementation.
+  Verify: `frontend/PLAN.md` and `frontend/TASKS.md` reflect shipped data layer, AppShell, provider pills, sidebar navigation, run dashboard, and remaining open work.
+
 ## Notes
 
 - Provider pill text dùng dữ liệu thật từ `/providers/status`, nên có thể khác mock text trong ảnh thiết kế nếu backend đang chạy với provider khác.
