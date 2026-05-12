@@ -37,6 +37,7 @@ from app.domain.models import (
     S1ContextRequest,
     StageEvent,
     Story,
+    TestCase,
     ValidationIssue,
     ValidationSeverity,
     utc_now,
@@ -844,8 +845,9 @@ class PipelineService:
 
     def _stage_s6_agent_c(self, run: Run, *, auto_approve: bool) -> Run:
         tasks = self.repository.list_tasks(run.id)
+        features = self.repository.list_features(run.id)
         sections = self.repository.list_sections(run.id)
-        test_cases = self.agent_client.generate_test_cases(run.id, tasks)
+        test_cases = self._generate_test_cases(run, tasks, features, sections)
         self.repository.set_test_cases(run.id, test_cases)
         self.repository.add_agent_run(
             AgentRun(
@@ -886,6 +888,25 @@ class PipelineService:
                 f"synced {len(test_case_sync_events)} mock Notion records."
             ),
         )
+
+    def _generate_test_cases(
+        self,
+        run: Run,
+        tasks: list[QATask],
+        features: list[Feature],
+        sections: list[GDDSection],
+    ) -> list[TestCase]:
+        try:
+            return self.agent_client.generate_test_cases(
+                run.id,
+                tasks,
+                features=features,
+                sections=sections,
+            )
+        except TypeError as exc:
+            if "unexpected keyword argument" not in str(exc):
+                raise
+            return self.agent_client.generate_test_cases(run.id, tasks)
 
     def _stage_finalize(self, run: Run, *, auto_approve: bool) -> Run:
         coverage_report = self._coverage_report(run.id)

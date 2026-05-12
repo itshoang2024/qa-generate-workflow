@@ -257,6 +257,67 @@ def test_validate_test_cases_requires_all_categories() -> None:
     assert any(issue.code == "missing_test_case_category" for issue in issues)
 
 
+def test_validate_test_cases_flags_vague_phrases_and_unseeded_rng() -> None:
+    sections = [
+        GDDSection(id="sec_1", run_id="run_1", section_id="Â§2.3", title="Tap", level=2),
+    ]
+    tasks = [_task("T-001", "Verify daily challenge", "Ngoc Anh")]
+    test_cases = [
+        DomainTestCase(
+            id="tc_1",
+            run_id="run_1",
+            test_case_id="TC-0001",
+            title="Daily random level loads",
+            type=DomainTestType.FUNCTIONAL,
+            category=DomainTestCategory.POSITIVE,
+            priority=Priority.P0,
+            preconditions=["Player account is in a valid state"],
+            steps=["Open daily challenge", "Start the random level"],
+            expected_result="The daily challenge level loads.",
+            related_task_id="T-001",
+            source_sections=["Â§2.3"],
+            external_id="snake-escape-F-001-T-01-TC-01",
+            test_data={"board": "5x5"},
+        )
+    ]
+
+    issues = validate_test_cases("run_1", test_cases, tasks, sections)
+
+    assert {issue.code for issue in issues} >= {
+        "forbidden_vague_phrase",
+        "rng_without_seed",
+    }
+
+
+def test_validate_test_cases_flags_multi_assertion_expected_result() -> None:
+    sections = [
+        GDDSection(id="sec_1", run_id="run_1", section_id="Â§2.3", title="Tap", level=2),
+    ]
+    tasks = [_task("T-001", "Verify blocked tap", "Ngoc Anh")]
+    test_cases = [
+        DomainTestCase(
+            id="tc_1",
+            run_id="run_1",
+            test_case_id="TC-0001",
+            title="Blocked tap failure flow",
+            type=DomainTestType.FUNCTIONAL,
+            category=DomainTestCategory.POSITIVE,
+            priority=Priority.P0,
+            preconditions=["health=1", "snake_A blocked"],
+            steps=["Tap snake_A"],
+            expected_result="Health decreases to 0 and the failed popup appears.",
+            related_task_id="T-001",
+            source_sections=["Â§2.3"],
+            external_id="snake-escape-F-001-T-01-TC-01",
+            test_data={"health": 1, "snake": "snake_A"},
+        )
+    ]
+
+    issues = validate_test_cases("run_1", test_cases, tasks, sections)
+
+    assert "one_assertion_expected_result" in {issue.code for issue in issues}
+
+
 def _feature(feature_id: str, name: str, confidence: float) -> Feature:
     return Feature(
         id=f"feat_{feature_id}",

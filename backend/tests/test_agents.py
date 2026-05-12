@@ -7,7 +7,15 @@ import httpx
 from pydantic import ValidationError
 
 from app.config import get_settings
-from app.domain.models import GDDSection, ReviewStatus, RunMode, TaskDeltaStatus
+from app.domain.models import (
+    Estimate,
+    GDDSection,
+    Priority,
+    QATask,
+    ReviewStatus,
+    RunMode,
+    TaskDeltaStatus,
+)
 from app.services.agents import AgentClient
 from app.services.agents.contracts import (
     AGENT_A_FEATURE_ID_PATTERN,
@@ -18,6 +26,8 @@ from app.services.agents.contracts import (
     AGENT_B2_RESPONSE_SCHEMA,
     AGENT_B3_RESPONSE_SCHEMA,
     AGENT_B_RESPONSE_SCHEMA,
+    AGENT_C_RESPONSE_SCHEMA,
+    AgentCOutput,
     AgentBOutput,
     AgentAOutput,
     build_agent_b1_input,
@@ -179,6 +189,31 @@ def test_agent_b_response_schema_requires_task_contract_fields() -> None:
     assert "delta_status" in task_schema["required"]
 
 
+def test_agent_c_response_schema_requires_concrete_case_fields() -> None:
+    case_schema = AGENT_C_RESPONSE_SCHEMA["properties"]["test_cases"]["items"]
+    step_schema = case_schema["properties"]["steps"]["items"]
+
+    assert case_schema["properties"]["test_case_id"]["pattern"] == "^TC-[0-9]{4,}$"
+    assert case_schema["properties"]["title"]["maxLength"] == 100
+    assert case_schema["properties"]["source_sections"]["minItems"] == 1
+    assert case_schema["properties"]["test_data"]["minProperties"] == 1
+    assert "test_data" in case_schema["required"]
+    assert step_schema["required"] == ["step_number", "action"]
+
+    invalid_case = {
+        key: value
+        for key, value in _agent_c_payload()["test_cases"][0].items()
+        if key != "test_data"
+    }
+    with pytest.raises(ValidationError):
+        AgentCOutput.model_validate(
+            {
+                **_agent_c_payload(),
+                "test_cases": [invalid_case],
+            }
+        )
+
+
 def test_agent_b_contract_normalizes_assignee_from_feature_mapping() -> None:
     agent_output = AgentBOutput.model_validate(_agent_b_payload(assignee="Minh"))
 
@@ -217,7 +252,7 @@ def test_build_agent_client_requires_openai_key(tmp_path: Path) -> None:
         build_agent_client(settings)
 
 
-def test_build_agent_client_returns_openai_agent_a_with_mock_fallback(tmp_path: Path) -> None:
+def test_build_agent_client_returns_openai_agent_with_structured_adapters(tmp_path: Path) -> None:
     settings = replace(
         get_settings(env_file=tmp_path / ".env"),
         ai_provider="openai",
@@ -229,7 +264,7 @@ def test_build_agent_client_returns_openai_agent_a_with_mock_fallback(tmp_path: 
     assert isinstance(client, OpenAIAgentClient)
     assert client.provider_for("analyze_gdd") == "openai"
     assert client.provider_for("plan_qa_tasks") == "openai"
-    assert client.provider_for("generate_test_cases") == "mock"
+    assert client.provider_for("generate_test_cases") == "openai"
 
 
 def test_mock_agent_b_consumes_hil1_approved_feature_ids() -> None:
@@ -402,6 +437,45 @@ def test_openai_agent_b_uses_structured_contract_and_normalized_assignee() -> No
     assert output["tasks"][0].priority_justification == "Core gameplay loop."
 
 
+def test_openai_agent_c_uses_per_task_structured_contract() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    http_client = _FakeOpenAIHTTPClient(_agent_c_payload(related_task_id="T-WRONG"))
+    client = OpenAIAgentClient(
+        api_key="sk-test",
+        model="gpt-test",
+        fallback=MockAgentClient(fixture_path),
+        http_client=http_client,
+    )
+    task = _qa_task()
+
+    output = client.generate_test_cases(
+        "run_1",
+        [task],
+        sections=[
+            GDDSection(
+                id="sec_1",
+                run_id="run_1",
+                section_id="\u00a72.3",
+                title="Tap",
+                level=2,
+                text="Tap snake_A at (2,2). health decreases from 3 to 2.",
+                actionable=True,
+            )
+        ],
+    )
+
+    request_payload = http_client.requests[0]
+    user_payload = json.loads(request_payload["input"][1]["content"])
+    assert request_payload["text"]["format"]["name"] == "agent_c_output"
+    assert request_payload["text"]["format"]["schema"] == AGENT_C_RESPONSE_SCHEMA
+    assert user_payload["task"]["task_id"] == "T-001"
+    assert user_payload["source_sections_text"]["\u00a72.3"]
+    assert output[0].test_case_id == "TC-0001"
+    assert output[0].related_task_id == "T-001"
+    assert output[0].external_id == "snake-escape-F-001-T-01-TC-01"
+    assert client.provider_for("generate_test_cases") == "openai"
+
+
 def test_openai_agent_b1_streaming_uses_final_output_text_once() -> None:
     fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
     http_client = _StreamingOpenAIHTTPClient(_agent_b1_payload())
@@ -571,6 +645,56 @@ def _agent_b1_payload() -> dict[str, object]:
             }
         ]
     }
+
+
+def _agent_c_payload(related_task_id: str = "T-001") -> dict[str, object]:
+    categories = ["positive", "negative", "edge", "integration"]
+    return {
+        "test_cases": [
+            {
+                "test_case_id": f"TC-{index:04d}",
+                "title": f"{category.title()} clear path behavior",
+                "type": "integration" if category == "integration" else "functional",
+                "category": category,
+                "priority": "P0",
+                "preconditions": ["board=5x5", "health=3", "snake_A at (2,2)"],
+                "test_data": {"board": "5x5", "health": 3, "snake": "snake_A"},
+                "steps": [{"step_number": 1, "action": "Tap snake_A at (2,2)"}],
+                "expected_result": "snake_A follows the clear path.",
+                "related_task_id": related_task_id,
+                "source_sections": ["\u00a72.3"],
+            }
+            for index, category in enumerate(categories, start=1)
+        ],
+        "coverage_check": {
+            "positive_count": 1,
+            "negative_count": 1,
+            "edge_count": 1,
+            "integration_count": 1,
+            "notes": [],
+        },
+    }
+
+
+def _qa_task() -> QATask:
+    return QATask(
+        id="task_1",
+        run_id="run_1",
+        task_id="T-001",
+        story_id="S-001",
+        epic_id="E-CORE",
+        feature_id="F-001",
+        title="Verify clear-path snake exits",
+        description="Validate the clear-path behavior.",
+        assignee="Ngoc Anh",
+        priority=Priority.P0,
+        priority_justification="Core gameplay loop.",
+        estimate=Estimate.S,
+        source_sections=["\u00a72.3"],
+        external_id="snake-escape-F-001-T-01",
+        confidence=0.91,
+        review_status=ReviewStatus.AUTO_APPROVED,
+    )
 
 
 def _approved_feature(

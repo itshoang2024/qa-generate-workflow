@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from app.domain.models import (
     DeltaStatus,
+    Feature,
     GDDSection,
     QATask,
     ReviewStatus,
@@ -156,7 +157,15 @@ class MockAgentClient(AgentClient):
         tasks = [task for task in plan["tasks"] if task.story_id == story_id]
         return {"story_id": story_id, "tasks": tasks}
 
-    def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
+    def generate_test_cases(
+        self,
+        run_id: str,
+        tasks: list[QATask],
+        *,
+        features: list[Feature] | None = None,
+        sections: list[GDDSection] | None = None,
+    ) -> list[TestCase]:
+        _ = features, sections
         test_cases: list[TestCase] = []
         sequence = 1
         for task in tasks:

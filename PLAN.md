@@ -60,7 +60,6 @@ Closed before final walkthrough:
 - **Agent B coverage gap in real-provider mode**: run `run_1cefe76fe58c` showed Agent A + HIL-1 approved features across multiple feature types and deterministic epic candidates, but real Agent B returned only one `Gameplay Logic Scope` epic. The backend now validates approved-feature and HIL-1 epic coverage, retries Agent B with feedback, and blocks Sync-A/B on exhausted coverage retry.
 
 Still missing for the final prototype:
-- Real Agent C adapter using the Task 2 structured JSON contract; Agent A/B are real-provider capable, while Agent C still uses mock fallback.
 - Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
 - Correction memory for the Task 4 learning loop.
@@ -136,8 +135,8 @@ Architecture rules:
 
 - S0: implement trigger + mode detection from GDD upload and project selection, create `run_id`, initialize session memory, output `{run_id, project_id, gdd_file, mode}`. ✅ shipped.
 - S1: implement raw GDD loading, `GDDDocument` version registration, structural parse, QA-actionability filter, HIL-0 preflight questions, and DELTA diff. ✅ shipped.
-- S2/S4/S6: add AgentClient interfaces and real adapters using Task 2 structured JSON contracts. ✅ Agent A/B shipped; Agent C still mock-only.
-- S3/S5/S7: expand validators and routers using Task 1 and Task 4 failure handling. ✅ shipped.
+- S2/S4/S6: add AgentClient interfaces and real adapters using Task 2 structured JSON contracts. ✅ Agent A/B/C shipped.
+- S3/S5/S7: expand validators and routers using Task 1 and Task 4 failure handling. ✅ shipped, including Validation C repeatability and one-assertion checks.
 - HIL-1/HIL-2/HIL-3: expose review queues and decision endpoints. ✅ read + decision endpoints + blocking-gate enforcement shipped.
 - S5b/S7b: implement Task 3 Sync-A/B/C semantics with idempotent `external_id`, throttling, retry, and replay. ✅ mock semantics shipped.
 - Final: expand coverage, risk dashboard, and sign-off report. ✅ shipped.

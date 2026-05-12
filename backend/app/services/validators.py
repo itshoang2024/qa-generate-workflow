@@ -21,6 +21,28 @@ from app.domain.models import (
 )
 from app.domain.qa_roster import QA_MEMBERS
 
+FORBIDDEN_TEST_CASE_PHRASES = (
+    "valid state",
+    "appropriate setup",
+    "typical conditions",
+    "and so on",
+)
+RNG_TEST_CASE_KEYWORDS = (
+    "random",
+    "rng",
+    "procedural",
+    "shuffle",
+    "lucky",
+    "daily challenge",
+)
+RNG_SEED_KEYS = {"rng_seed", "seed"}
+EXPECTED_RESULT_ASSERTION_JOINERS = (
+    " and ",
+    " then ",
+    " và ",
+    ";",
+)
+
 
 def validate_features(
     run_id: str,
@@ -537,6 +559,48 @@ def validate_test_cases(
                     PipelineStage.S7_VALIDATION_C_SYNC,
                 )
             )
+        if phrase := _forbidden_test_case_phrase(test_case):
+            issues.append(
+                _issue(
+                    run_id,
+                    "test_case",
+                    test_case.test_case_id,
+                    ValidationSeverity.S2_RECOVERABLE,
+                    "forbidden_vague_phrase",
+                    f"Test case uses vague setup wording: '{phrase}'.",
+                    PipelineStage.S7_VALIDATION_C_SYNC,
+                )
+            )
+        if _mentions_rng(test_case) and not _has_repeatability_marker(test_case):
+            issues.append(
+                _issue(
+                    run_id,
+                    "test_case",
+                    test_case.test_case_id,
+                    ValidationSeverity.S2_RECOVERABLE,
+                    "rng_without_seed",
+                    (
+                        "Test case references random/RNG-dependent behavior without "
+                        "test_data.rng_seed or a [NON-DET] title marker."
+                    ),
+                    PipelineStage.S7_VALIDATION_C_SYNC,
+                )
+            )
+        if joiner := _expected_result_assertion_joiner(test_case):
+            issues.append(
+                _issue(
+                    run_id,
+                    "test_case",
+                    test_case.test_case_id,
+                    ValidationSeverity.S2_RECOVERABLE,
+                    "one_assertion_expected_result",
+                    (
+                        "Test case expected_result appears to chain multiple assertions "
+                        f"with '{joiner.strip()}'. Split it into separate test cases."
+                    ),
+                    PipelineStage.S7_VALIDATION_C_SYNC,
+                )
+            )
 
     required_categories = set(TestCategory)
     for task_id in known_tasks:
@@ -555,6 +619,70 @@ def validate_test_cases(
             )
 
     return issues
+
+
+def _forbidden_test_case_phrase(test_case: TestCase) -> str | None:
+    haystack = " ".join(_test_case_text_parts(test_case)).lower()
+    for phrase in FORBIDDEN_TEST_CASE_PHRASES:
+        if phrase in haystack:
+            return phrase
+    return None
+
+
+def _mentions_rng(test_case: TestCase) -> bool:
+    haystack = " ".join(_test_case_text_parts(test_case)).lower()
+    return any(keyword in haystack for keyword in RNG_TEST_CASE_KEYWORDS)
+
+
+def _has_repeatability_marker(test_case: TestCase) -> bool:
+    if test_case.title.strip().lower().startswith("[non-det]"):
+        return True
+    return _has_any_key(test_case.test_data, RNG_SEED_KEYS)
+
+
+def _expected_result_assertion_joiner(test_case: TestCase) -> str | None:
+    expected_result = f" {test_case.expected_result.strip().lower()} "
+    for joiner in EXPECTED_RESULT_ASSERTION_JOINERS:
+        if joiner in expected_result:
+            return joiner
+    return None
+
+
+def _has_any_key(value: object, keys: set[str]) -> bool:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if str(key).lower() in keys and nested not in (None, ""):
+                return True
+            if _has_any_key(nested, keys):
+                return True
+    if isinstance(value, list):
+        return any(_has_any_key(item, keys) for item in value)
+    return False
+
+
+def _test_case_text_parts(test_case: TestCase) -> list[str]:
+    parts = [
+        test_case.title,
+        *test_case.preconditions,
+        *test_case.steps,
+        test_case.expected_result,
+        *_json_text_parts(test_case.test_data),
+    ]
+    return [part for part in parts if part]
+
+
+def _json_text_parts(value: object) -> list[str]:
+    if isinstance(value, dict):
+        parts: list[str] = []
+        for key, nested in value.items():
+            parts.append(str(key))
+            parts.extend(_json_text_parts(nested))
+        return parts
+    if isinstance(value, list):
+        return [part for item in value for part in _json_text_parts(item)]
+    if value is None:
+        return []
+    return [str(value)]
 
 
 def validate_test_cases_with_routing(

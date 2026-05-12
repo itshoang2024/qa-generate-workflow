@@ -70,6 +70,21 @@ RISK_RULES = {
         "Duplicate task candidate detected across Agent B3 epic fan-out.",
         "QA Lead should inspect whether this should be a shared cross-cutting task.",
     ),
+    "forbidden_vague_phrase": (
+        RiskSeverity.S2,
+        "Test case contains vague setup wording that weakens repeatability.",
+        "Assignee should replace vague setup with concrete state, coordinates, or values.",
+    ),
+    "rng_without_seed": (
+        RiskSeverity.S2,
+        "Test case references random behavior without a repeatable seed.",
+        "Assignee should add test_data.rng_seed or mark the case [NON-DET] with rationale.",
+    ),
+    "one_assertion_expected_result": (
+        RiskSeverity.S2,
+        "Test case expected result appears to contain multiple assertions.",
+        "Assignee should split the expected result into one assertion per test case.",
+    ),
 }
 
 KILL_SWITCH_S1_THRESHOLD = 3

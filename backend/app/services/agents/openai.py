@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from app.domain.models import GDDSection, QATask, RunMode, TestCase
+from app.domain.models import Feature, GDDSection, QATask, RunMode, TestCase
 from app.services.agents import AgentClient, AgentOutputValidationError
 from app.services.agents.contracts import (
     AGENT_A_RESPONSE_SCHEMA,
@@ -20,17 +20,21 @@ from app.services.agents.contracts import (
     AGENT_B3_SYSTEM_PROMPT,
     AGENT_B_RESPONSE_SCHEMA,
     AGENT_B_SYSTEM_PROMPT,
+    AGENT_C_RESPONSE_SCHEMA,
+    AGENT_C_SYSTEM_PROMPT,
     AgentB1Output,
     AgentB2Output,
     AgentB3Output,
     AgentAOutput,
     AgentBOutput,
+    AgentCOutput,
     agent_b_feature_context_by_id,
     build_agent_b1_input,
     build_agent_b2_input,
     build_agent_b3_input,
     build_agent_a_input,
     build_agent_b_input,
+    build_agent_c_input,
 )
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -46,7 +50,7 @@ class OpenAIProviderHTTPError(RuntimeError):
 
 
 class OpenAIAgentClient(AgentClient):
-    """OpenAI structured-output adapter with mock-backed Agent C until its contract ships."""
+    """OpenAI structured-output adapter for Agent A/B/C with mock transient fallback."""
 
     provider = "openai"
 
@@ -94,6 +98,7 @@ class OpenAIAgentClient(AgentClient):
             "plan_epics",
             "plan_stories",
             "plan_tasks",
+            "generate_test_cases",
         }
         if operation in openai_operations:
             return self.provider
@@ -370,8 +375,82 @@ class OpenAIAgentClient(AgentClient):
             ),
         }
 
-    def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
-        return self.fallback.generate_test_cases(run_id, tasks)
+    def generate_test_cases(
+        self,
+        run_id: str,
+        tasks: list[QATask],
+        *,
+        features: list[Feature] | None = None,
+        sections: list[GDDSection] | None = None,
+    ) -> list[TestCase]:
+        feature_by_id = {
+            feature.feature_id: feature.model_dump(mode="json")
+            for feature in features or []
+        }
+        section_text_by_id = {
+            section.section_id: section.text
+            for section in sections or []
+            if section.text
+        }
+        test_cases: list[TestCase] = []
+        try:
+            for task in tasks:
+                feature_context = feature_by_id.get(
+                    task.feature_id,
+                    {
+                        "feature_id": task.feature_id,
+                        "source_sections": task.source_sections,
+                    },
+                )
+                related_features = _related_features_for_agent_c(
+                    task,
+                    feature_by_id,
+                )
+                request_payload = self._build_request_payload(
+                    build_agent_c_input(
+                        task=task.model_dump(mode="json"),
+                        feature_context=feature_context,
+                        source_text={
+                            source_id: section_text_by_id[source_id]
+                            for source_id in task.source_sections
+                            if source_id in section_text_by_id
+                        },
+                        related_features=related_features,
+                        test_case_seq_offset=len(test_cases) + 1,
+                    ),
+                    system_prompt=AGENT_C_SYSTEM_PROMPT,
+                    schema_name="agent_c_output",
+                    schema=AGENT_C_RESPONSE_SCHEMA,
+                )
+                response_payload = self._post_response(request_payload, "OpenAI Agent C")
+                agent_output = AgentCOutput.model_validate(
+                    _extract_structured_json(response_payload, "OpenAI Agent C")
+                )
+                test_cases.extend(
+                    agent_output.to_domain_test_cases(
+                        run_id,
+                        task=task,
+                        test_case_seq_offset=len(test_cases) + 1,
+                    )
+                )
+        except OpenAIProviderHTTPError as exc:
+            if exc.status_code not in TRANSIENT_STATUS_CODES:
+                raise
+            self._last_provider_by_operation["generate_test_cases"] = (
+                "mock_after_openai_transient_error"
+            )
+            return self.fallback.generate_test_cases(run_id, tasks)
+        except httpx.HTTPError:
+            self._last_provider_by_operation["generate_test_cases"] = (
+                "mock_after_openai_network_error"
+            )
+            return self.fallback.generate_test_cases(run_id, tasks)
+        except (AgentOutputValidationError, ValidationError):
+            self._last_provider_by_operation["generate_test_cases"] = self.provider
+            raise
+
+        self._last_provider_by_operation["generate_test_cases"] = self.provider
+        return test_cases
 
     def _build_request_payload(
         self,
@@ -546,3 +625,19 @@ def _decode_json(value: str, operation_label: str) -> dict[str, Any]:
     if not isinstance(decoded, dict):
         raise AgentOutputValidationError(f"{operation_label} response must be a JSON object.")
     return decoded
+
+
+def _related_features_for_agent_c(
+    task: QATask,
+    feature_by_id: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    task_sources = set(task.source_sections)
+    related: list[dict[str, Any]] = []
+    for feature_id, feature in feature_by_id.items():
+        if feature_id == task.feature_id:
+            continue
+        raw_sources = feature.get("source_sections", [])
+        feature_sources = set(raw_sources if isinstance(raw_sources, list) else [])
+        if task_sources & feature_sources:
+            related.append(feature)
+    return related

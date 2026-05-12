@@ -18,8 +18,8 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | **Phase 1.8 — Agent B Hierarchical Decomposition** | **21 / 24 implementation** | Domain stages, AgentBJob persistence, B1/B2/B3 contracts/adapters, functional sub-stages, endpoints, validators, Sync-A1/A2, settings, and streaming response handling shipped. Remaining: transactional external-id allocator, legacy wrapper refactor, per-call timing/token usage. |
 | S5 Validation B + Router B + HIL-2 | 6 / 6 | Validators, lanes, HIL-2 decisions, approved-feature coverage, HIL-1 epic coverage, and Sync-A/B blocking on exhausted coverage retry shipped. |
 | S5b Notion Sync-A/B | 3 / 4 | `NotionSyncClient` interface + mock implementation shipped; Sync-A/B separated with mock page-id mappings. Real schema preflight / retry / dead-letter still open. |
-| S6 Agent C | 1 / 3 | Mock Agent C is behind the shared `AgentClient` and generates 4 cases per task. Real adapter and "concrete test data + repeatability" rules still open. |
-| S7 Validation C + HIL-3 | 1 / 2 | Category coverage + source traceability + low-confidence validators ship; HIL-3 queue exists. Forbidden-vague-phrase and one-assertion-expected-result validators still open. |
+| S6 Agent C | 3 / 3 | Agent C has mock + OpenAI structured-output adapters; concrete test data and repeatability guardrails ship. |
+| S7 Validation C + HIL-3 | 2 / 2 | Category coverage, source traceability, low-confidence, forbidden-vague-phrase, RNG repeatability, one-assertion expected-result validators, and HIL-3 queue ship. |
 | S7b Notion Sync-C | 2 / 2 | Sync-C emits separate test-case sync events and transitions eligible parent tasks to `Test Cases Ready`. |
 | Final Coverage / Risk / Sign-Off | 4 / 5 | Coverage report includes risk/sync/GDD/sign-off state; RiskEvent model, kill switch, and sign-off endpoint shipped. Learning-loop corrections still open. |
 | Final Backend Verification | 4 / 6 | Backend pytest + ruff pass in the `qa-generator` env; mock fallback remains test-covered. Manual Swagger/Supabase checks still open. |
@@ -34,15 +34,13 @@ Recently completed:
 2. **Agent B retry loop** - retry with validation feedback that names missing feature IDs / epic candidates, bounded like Agent A retry.
 3. **Sync safety** - do not persist/sync a partial plan when coverage remains incomplete; return `agent_b_coverage_exhausted` with validation/risk evidence.
 
-Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A/B (with structured-output OpenAI adapter + bounded validation retry where needed), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
+Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A/B/C (with structured-output OpenAI adapter + bounded validation retry where needed), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
 
 The reviewer-facing stage UI is now wired. Backend work that can run in parallel with frontend polish:
 
-1. **Real Agent C adapter** (`OpenAIAgentClient.generate_test_cases`): same shape as Agent A/B, plus forbidden-vague-phrase guard. Mock already emits the four categories deterministically — real adapter is incremental value.
-2. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
-3. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
-4. **Forbidden-vague-phrase / one-assertion / repeatability validators** in `validate_test_cases`.
-5. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
+1. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
+2. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
+3. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
 
 Pick real Notion if the homework grader needs external-provider proof; pick correction memory and validator polish for demo realism without external dependencies; otherwise keep those items as Phase 4 polish.
 
@@ -316,16 +314,16 @@ This phase implements the design in `backend/PLAN.md` "Phase 1.8" section. Mock 
 - [x] Task: Move Agent C behind the shared `AgentClient` interface.
   Verify: `MockAgentClient.generate_test_cases()` produces 44 cases (4 per task × 11 tasks). Covered by `test_demo_pipeline_generates_complete_execution_plan`.
 
-- [ ] Task: Implement Task 2 Agent C structured JSON contract.
-  Verify: Each approved task receives positive, negative, edge, and integration coverage where applicable. (Mock already emits the four categories deterministically; real LLM adapter with per-task triggering still missing — today all tasks are batched in one call regardless of approval state.)
+- [x] Task: Implement Task 2 Agent C structured JSON contract.
+  Verify: Each approved task receives positive, negative, edge, and integration coverage where applicable. Covered by `test_openai_agent_c_uses_per_task_structured_contract` and `test_agent_c_response_schema_requires_concrete_case_fields`.
 
-- [ ] Task: Enforce concrete test data and repeatability rules.
+- [x] Task: Enforce concrete test data and repeatability rules.
   Verify: Vague phrases and RNG without seed create validation issues. Add `forbidden_vague_phrase` and `rng_without_seed` codes to `validate_test_cases`.
 
 ## Phase S7 - Validation C + HIL-3
 
-- [ ] Task: Validate schema, source traceability, category coverage, one-assertion expected result, forbidden vague phrases, repeatability, and task links.
-  Verify: `validate_test_cases` covers `unknown_related_task`, `test_case_missing_source_section`, `low_confidence_test_case`, `missing_test_case_category`. Covered by `test_validate_test_cases_requires_all_categories`. `one_assertion_expected_result`, `forbidden_vague_phrase`, and `rng_without_seed` codes still open.
+- [x] Task: Validate schema, source traceability, category coverage, one-assertion expected result, forbidden vague phrases, repeatability, and task links.
+  Verify: `validate_test_cases` covers `unknown_related_task`, `test_case_missing_source_section`, `low_confidence_test_case`, `missing_test_case_category`, `forbidden_vague_phrase`, `rng_without_seed`, and `one_assertion_expected_result`. Covered by `test_validate_test_cases_requires_all_categories`, `test_validate_test_cases_flags_vague_phrases_and_unseeded_rng`, and `test_validate_test_cases_flags_multi_assertion_expected_result`.
 
 - [x] Task: Add HIL-3 decisions for test case approval, edit request, and rejection.
   Verify: Generic `POST /api/v1/review-decisions` accepts `test_case` targets; `GET /api/v1/runs/{run_id}/review-queues/HIL-3` lists pending cases grouped by reviewer/feature/epic with each task's assignee as the reviewer for BATCH-lane items.

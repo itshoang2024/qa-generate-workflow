@@ -11,7 +11,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Phase 1.5 - Stage Orchestration Endpoints | 7 / 7 | Per-stage endpoints, blocking HIL gates, bulk HIL-0 resolution, and regression tests shipped. |
 | Phase 1.6 - Agent B Coverage Guard | 5 / 5 | Real Agent B cannot persist/sync a partial plan that omits approved HIL-1 features or epic candidates. |
 | **Phase 1.8 - Agent B Hierarchical Decomposition** | **9 / 9 docs, implementation shipped with polish remaining** | B1 epic / B2 stories / B3 tasks, AgentBJobBoard, EpicReviewPanel edit/merge/split, Sync-A1/A2, OpenAI streaming adapters, validators, and API wiring shipped. Remaining polish is tracked in backend/frontend task files. |
-| Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B adapters shipped. Real Agent C, real Notion adapter, Notion schema preflight/rate limit/dead-letter still open. |
+| Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B/C adapters shipped. Real Notion adapter, Notion schema preflight/rate limit/dead-letter, and GDD description generation still open. |
 | Phase 3 - Frontend | 10 / 12 | Stage-aware dashboard CTA, stage mutation hooks, inline HIL approval, bulk HIL-0, and offline font build support shipped; deep-link HIL routes and sync/risk pages remain. |
 | Phase 4 - Verification & Submission | 4 / 8 | Backend tests/lint and frontend lint/typecheck/build pass; screenshots, README polish, browser walkthrough capture, and real Notion smoke remain. |
 
@@ -26,13 +26,12 @@ Remaining implementation and polish should focus on:
 1. **Manual browser walkthrough capture** - drive `Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B Epics -> Agent B Stories -> Agent B Tasks -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off` against the running stack and record screenshots.
 2. **Frontend deep-link routes** - `/runs/[run_id]/hil/[tier]`, `/sync-log`, `/risk`, and `/sign-off` remain useful for screenshots and reviewer navigation, even though the inline dashboard flow can complete the pipeline.
 3. **README/submission polish** - document both `/demo-runs` batch mode and the stepped UI walkthrough, plus offline `next/font/google` build behavior.
-4. **Real providers** - real Agent C and real Notion remain follow-up work; mock mode is the stable local demo path.
+4. **Real providers** - real Notion remains follow-up work; mock mode is the stable local demo path and OpenAI Agent C is wired for credentialed runs.
 
 Lower-priority follow-ups (do **after** the walkthrough works):
 
-- Real Agent C OpenAI adapter analogous to `OpenAIAgentClient.analyze_gdd` / `plan_qa_tasks`.
 - Real Notion adapter (`NotionSyncClient` httpx implementation) with schema preflight, rate-limit/backoff, dead-letter queue, and a `POST /sync-replay` producer that actually moves `SyncStatus.FAILED` → `REPLAYED`.
-- Per-task Agent C triggering (Task 1 says C should fire per approved task as parallel jobs; today C is one batch call).
+- Per-task Agent C job orchestration (Task 1 says C should fire as parallel jobs as each task is approved; current stage endpoint runs the eligible set in one stage).
 - Final English-only pass over `Task-1..4.md` for the submission package.
 
 ## Known Conventions Not Yet Documented
@@ -190,7 +189,7 @@ This bugfix slice prevents real Agent B from silently producing a partial plan l
   Verify: Abstract base is at `app/services/agents/__init__.py`; `MockAgentClient` + `OpenAIAgentClient` implement it. Covered by `test_mock_agent_client_implements_agent_client_contract`.
 
 - [x] Task: Add real LLM adapter using Task 2 structured JSON contracts.
-  Verify: `OpenAIAgentClient.analyze_gdd` and `OpenAIAgentClient.plan_qa_tasks` POST to `/v1/responses` with strict JSON schemas (`AGENT_A_RESPONSE_SCHEMA`, `AGENT_B_RESPONSE_SCHEMA`). Output validates via `AgentAOutput` / `AgentBOutput` Pydantic models before persistence. Agent C still falls back to mock — `provider_for(operation)` reflects this. `build_agent_client(settings)` in `agents/factory.py` selects mock/openai/real.
+  Verify: `OpenAIAgentClient.analyze_gdd`, `plan_qa_tasks`, and `generate_test_cases` POST to `/v1/responses` with strict JSON schemas (`AGENT_A_RESPONSE_SCHEMA`, `AGENT_B_RESPONSE_SCHEMA`, `AGENT_C_RESPONSE_SCHEMA`). Output validates via `AgentAOutput` / `AgentBOutput` / `AgentCOutput` Pydantic models before persistence. `build_agent_client(settings)` selects mock/openai/real.
 
 - [x] Task: Add JSON repair/retry policy for invalid AI output.
   Verify: `run_agent_a_with_retries` in `app/services/agent_a_retry.py` retries on schema failure + traceability gap + uncovered actionable sections up to `MAX_AGENT_A_ATTEMPTS=3`, then emits `agent_a_retry_exhausted` and blocks suspect features. Covered by `test_agent_a_retry_*` (5 tests).

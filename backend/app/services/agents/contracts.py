@@ -18,6 +18,9 @@ from app.domain.models import (
     RunMode,
     Story,
     TaskDeltaStatus,
+    TestCase,
+    TestCategory,
+    TestType,
 )
 from app.domain.qa_roster import QA_ASSIGNEE_BY_FEATURE_TYPE, QA_MEMBERS
 
@@ -29,6 +32,8 @@ AGENT_A_FEATURE_ID_PATTERN = r"^F-[0-9]{3}$"
 AGENT_B_STORY_ID_PATTERN = r"^S-[0-9]{3,}$"
 AGENT_B_TASK_ID_PATTERN = r"^T-[0-9]{3,}$"
 AGENT_B_TASK_TITLE_MAX_LENGTH = 100
+AGENT_C_TEST_CASE_ID_PATTERN = r"^TC-[0-9]{4,}$"
+AGENT_C_TITLE_MAX_LENGTH = 100
 
 
 class AgentAFeatureOutput(BaseModel):
@@ -243,6 +248,89 @@ class AgentBOutput(BaseModel):
                     )
 
         return {"epics": epics, "stories": stories, "tasks": tasks}
+
+
+# ---- Agent C - Test Case Generator ---------------------------------------
+
+
+class AgentCStepOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    step_number: int = Field(ge=1)
+    action: str = Field(min_length=1)
+
+
+class AgentCTestCaseOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_case_id: str = Field(pattern=AGENT_C_TEST_CASE_ID_PATTERN)
+    title: str = Field(max_length=AGENT_C_TITLE_MAX_LENGTH)
+    type: TestType
+    category: TestCategory
+    priority: Priority
+    preconditions: list[str] = Field(min_length=1)
+    test_data: dict[str, Any] = Field(min_length=1)
+    steps: list[AgentCStepOutput] = Field(min_length=1)
+    expected_result: str = Field(min_length=1)
+    related_task_id: str = Field(min_length=1)
+    source_sections: list[str] = Field(min_length=1)
+
+
+class AgentCCoverageCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    positive_count: int = Field(ge=1)
+    negative_count: int = Field(ge=1)
+    edge_count: int = Field(ge=1)
+    integration_count: int = Field(ge=0)
+    notes: list[str] = Field(default_factory=list)
+
+
+class AgentCOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_cases: list[AgentCTestCaseOutput] = Field(min_length=4)
+    coverage_check: AgentCCoverageCheck
+
+    def to_domain_test_cases(
+        self,
+        run_id: str,
+        *,
+        task: QATask,
+        test_case_seq_offset: int,
+    ) -> list[TestCase]:
+        test_cases: list[TestCase] = []
+        for index, item in enumerate(self.test_cases, start=test_case_seq_offset):
+            test_cases.append(
+                TestCase(
+                    id=f"tc_{uuid4().hex[:12]}",
+                    run_id=run_id,
+                    test_case_id=f"TC-{index:04d}",
+                    title=item.title,
+                    type=item.type,
+                    category=item.category,
+                    priority=item.priority,
+                    preconditions=item.preconditions,
+                    steps=[step.action for step in item.steps],
+                    expected_result=item.expected_result,
+                    related_task_id=task.task_id,
+                    source_sections=item.source_sections,
+                    external_id=f"{task.external_id}-TC-{index:02d}",
+                    confidence=task.confidence,
+                    dedup_flag=task.dedup_flag,
+                    cross_cutting_flag=task.cross_cutting_flag,
+                    test_data={
+                        **item.test_data,
+                        "source_task_external_id": task.external_id,
+                    },
+                    review_status=(
+                        ReviewStatus.AUTO_APPROVED
+                        if task.review_status == ReviewStatus.AUTO_APPROVED
+                        else ReviewStatus.NEEDS_REVIEW
+                    ),
+                )
+            )
+        return test_cases
 
 
 AGENT_A_SYSTEM_PROMPT = """You are GDD-Analyzer, an AI agent that converts game design document
@@ -514,6 +602,124 @@ AGENT_B_RESPONSE_SCHEMA: dict[str, Any] = {
 }
 
 
+AGENT_C_SYSTEM_PROMPT = """You are Test-Case-Generator, an AI agent that produces concrete,
+executable test cases from an approved QA task.
+
+Hard rules:
+1. Return only JSON that matches the supplied schema.
+2. Every test case must reference the input task's task_id and cite source_sections from the task.
+3. Every expected_result must be traceable to source_sections_text or feature key_behaviors.
+4. Use one assertion per test case. Split chained "and" assertions into separate cases.
+5. Preconditions and test_data must be concrete. Forbidden phrases: "valid state",
+   "appropriate setup", "typical conditions", "and so on".
+6. Steps must be repeatable. If a case depends on RNG, include rng_seed in test_data.
+   If RNG cannot be seeded, prefix the title with "[NON-DET]" and explain why.
+7. Generate at least one positive, negative, and edge case. Generate integration coverage
+   when related_features are provided; otherwise use integration_count=0.
+8. If source is insufficient for a category, output a "[GAP]" placeholder instead of
+   inventing behavior.
+"""
+
+
+AGENT_C_RESPONSE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "test_cases": {
+            "type": "array",
+            "minItems": 4,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "test_case_id": {
+                        "type": "string",
+                        "pattern": AGENT_C_TEST_CASE_ID_PATTERN,
+                    },
+                    "title": {"type": "string", "maxLength": AGENT_C_TITLE_MAX_LENGTH},
+                    "type": {
+                        "type": "string",
+                        "enum": [case_type.value for case_type in TestType],
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": [category.value for category in TestCategory],
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": [priority.value for priority in Priority],
+                    },
+                    "preconditions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                    "test_data": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {
+                            "type": ["string", "number", "integer", "boolean", "null"],
+                        },
+                    },
+                    "steps": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "step_number": {"type": "integer", "minimum": 1},
+                                "action": {"type": "string", "minLength": 1},
+                            },
+                            "required": ["step_number", "action"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "expected_result": {"type": "string", "minLength": 1},
+                    "related_task_id": {"type": "string", "minLength": 1},
+                    "source_sections": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                },
+                "required": [
+                    "test_case_id",
+                    "title",
+                    "type",
+                    "category",
+                    "priority",
+                    "preconditions",
+                    "test_data",
+                    "steps",
+                    "expected_result",
+                    "related_task_id",
+                    "source_sections",
+                ],
+                "additionalProperties": False,
+            },
+        },
+        "coverage_check": {
+            "type": "object",
+            "properties": {
+                "positive_count": {"type": "integer", "minimum": 1},
+                "negative_count": {"type": "integer", "minimum": 1},
+                "edge_count": {"type": "integer", "minimum": 1},
+                "integration_count": {"type": "integer", "minimum": 0},
+                "notes": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": [
+                "positive_count",
+                "negative_count",
+                "edge_count",
+                "integration_count",
+                "notes",
+            ],
+            "additionalProperties": False,
+        },
+    },
+    "required": ["test_cases", "coverage_check"],
+    "additionalProperties": False,
+}
+
+
 def build_agent_a_input(
     *,
     mode: RunMode,
@@ -545,6 +751,28 @@ def build_agent_a_input(
         payload["validation_feedback"] = validation_feedback
     if target_section_ids:
         payload["target_section_ids"] = target_section_ids
+    return payload
+
+
+def build_agent_c_input(
+    *,
+    task: dict[str, Any],
+    feature_context: dict[str, Any],
+    source_text: dict[str, str],
+    test_case_seq_offset: int,
+    related_features: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "task": _compact_task_for_agent_c(task),
+        "feature_context": _compact_feature_for_agent_b(feature_context),
+        "source_sections_text": _compact_source_text(source_text),
+        "test_case_seq_offset": test_case_seq_offset,
+    }
+    if related_features:
+        payload["related_features"] = [
+            _compact_feature_for_agent_b(feature)
+            for feature in related_features
+        ]
     return payload
 
 
@@ -1163,6 +1391,27 @@ def _compact_story_for_agent_b(story: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(criteria, str)
             ],
             "external_id": story.get("external_id"),
+        }
+    )
+
+
+def _compact_task_for_agent_c(task: dict[str, Any]) -> dict[str, Any]:
+    return _compact(
+        {
+            "task_id": task.get("task_id"),
+            "story_id": task.get("story_id"),
+            "epic_id": task.get("epic_id"),
+            "feature_id": task.get("feature_id"),
+            "title": _truncate(task.get("title"), 120),
+            "description": _truncate(task.get("description"), 600),
+            "assignee": task.get("assignee"),
+            "priority": _enum_value(task.get("priority")),
+            "priority_justification": _truncate(task.get("priority_justification"), 240),
+            "estimate": _enum_value(task.get("estimate")),
+            "source_sections": task.get("source_sections", []),
+            "external_id": task.get("external_id"),
+            "delta_status": _enum_value(task.get("delta_status")),
+            "confidence": task.get("confidence"),
         }
     )
 
