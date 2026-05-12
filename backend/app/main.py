@@ -28,6 +28,16 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix=settings.api_prefix)
 
 
+@app.get("/")
+def root() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "service": "QA Generate Workflow API",
+        "docs": "/docs",
+        "health": f"{settings.api_prefix}/health",
+    }
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
     if isinstance(exc.detail, dict) and "code" in exc.detail:

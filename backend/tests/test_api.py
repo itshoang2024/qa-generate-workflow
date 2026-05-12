@@ -29,6 +29,18 @@ def _snake_gdd_path() -> Path:
     return Path(__file__).resolve().parents[2] / "data" / "GDD_Sample_Snake_Escape.docx"
 
 
+def test_root_endpoint_points_to_api_docs_and_health() -> None:
+    client = TestClient(app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["docs"] == "/docs"
+    assert body["health"] == "/api/v1/health"
+
+
 def test_demo_run_api_produces_enveloped_response() -> None:
     client = TestClient(app)
 
