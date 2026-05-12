@@ -17,3 +17,10 @@ class NotionSyncClient(ABC):
 
     @abstractmethod
     def upsert_test_case(self, test_case: TestCase) -> SyncEvent: ...
+
+    def upsert_epics_batch(self, epics: list[Epic]) -> list[SyncEvent]:
+        return [self.upsert_epic(epic) for epic in epics]
+
+    def upsert_stories_for_epic(self, epic: Epic, stories: list[Story]) -> list[SyncEvent]:
+        _ = epic
+        return [self.upsert_story(story) for story in stories]

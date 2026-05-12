@@ -14,6 +14,9 @@ from app.domain.models import (
     TestType as DomainTestType,
 )
 from app.services.validators import (
+    validate_agent_b1_epic_coverage,
+    validate_agent_b2_story_coverage,
+    validate_agent_b3_full_plan,
     validate_agent_b_plan_coverage,
     validate_features,
     validate_features_with_routing,
@@ -160,6 +163,70 @@ def test_validate_agent_b_plan_coverage_flags_missing_approved_features_and_epic
         ("missing_agent_b_epic_coverage", "epic", "HIL1-UI-LAYOUT"),
         ("missing_agent_b_epic_coverage", "epic", "HIL1-ECONOMY"),
     }
+
+
+def test_validate_agent_b1_epic_coverage_flags_missing_and_unknown_features() -> None:
+    epics = [_epic("E-CORE", ["F-001", "F-999"])]
+    hil1_context = {
+        "approved_feature_ids": ["F-001", "F-002"],
+        "approved_features": [
+            _approved_feature("F-001", "gameplay_logic"),
+            _approved_feature("F-002", "ui_layout"),
+        ],
+    }
+
+    issues = validate_agent_b1_epic_coverage("run_1", epics, hil1_context)
+
+    assert {
+        (issue.code, issue.target_type, issue.target_id)
+        for issue in issues
+    } >= {
+        ("missing_b1_feature_coverage", "feature", "F-002"),
+        ("unknown_b1_feature_reference", "epic", "E-CORE"),
+    }
+
+
+def test_validate_agent_b2_story_coverage_flags_missing_feature_story() -> None:
+    epic = _epic("E-CORE", ["F-001", "F-002"])
+    features = [_feature("F-001", "One", 0.9), _feature("F-002", "Two", 0.9)]
+    stories = [_story("S-001", "E-CORE", "F-001")]
+
+    issues = validate_agent_b2_story_coverage("run_1", epic, stories, features)
+
+    assert {issue.code for issue in issues} >= {
+        "missing_b2_story_for_feature",
+        "b2_story_count_out_of_range",
+    }
+
+
+def test_validate_agent_b3_full_plan_flags_cross_story_duplicates() -> None:
+    sections = [
+        GDDSection(id="sec_1", run_id="run_1", section_id="Â§2.3", title="Tap", level=2),
+    ]
+    epics = [_epic("E-CORE", ["F-001"])]
+    stories = [
+        _story("S-001", "E-CORE", "F-001"),
+        _story("S-002", "E-CORE", "F-001"),
+    ]
+    features = [_feature("F-001", "Feature", 0.9)]
+    tasks = [
+        _task("T-001", "Verify Hint booster cost", "Ngoc Anh"),
+        _task("T-002", "Verify Hint booster costs", "Ngoc Anh").model_copy(
+            update={"story_id": "S-002"}
+        ),
+    ]
+
+    issues = validate_agent_b3_full_plan(
+        "run_1",
+        epics=epics,
+        stories=stories,
+        tasks=tasks,
+        features=features,
+        sections=sections,
+    )
+
+    assert "duplicate_task_cross_story" in {issue.code for issue in issues}
+    assert {task.review_status for task in tasks} == {ReviewStatus.BLOCKED}
 
 
 def test_validate_test_cases_requires_all_categories() -> None:

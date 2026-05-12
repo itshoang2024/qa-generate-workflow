@@ -6,10 +6,20 @@ import mimetypes
 from pathlib import Path
 import re
 from typing import Any
+from uuid import uuid4
 
 from app.domain.models import (
+    AgentBJob,
+    AgentBJobRetryRequest,
+    AgentBJobStatus,
+    AgentBScope,
     AgentRun,
     DemoRunRequest,
+    Epic,
+    EpicMergeRequest,
+    EpicPatchRequest,
+    EpicSplitRequest,
+    Feature,
     GDDDescriptionStatus,
     GDDDocument,
     GDDSection,
@@ -18,6 +28,7 @@ from app.domain.models import (
     PipelineStage,
     Project,
     ProjectCreateRequest,
+    QATask,
     ReviewStatus,
     Run,
     RunMode,
@@ -25,6 +36,9 @@ from app.domain.models import (
     S0TriggerRequest,
     S1ContextRequest,
     StageEvent,
+    Story,
+    ValidationIssue,
+    ValidationSeverity,
     utc_now,
 )
 from app.repositories.workflow_repository import WorkflowRepository
@@ -42,6 +56,9 @@ from app.services.risk_events import (
 )
 from app.services.review_queues import build_review_queue
 from app.services.validators import (
+    validate_agent_b1_epic_coverage,
+    validate_agent_b2_story_coverage,
+    validate_agent_b3_full_plan,
     validate_tasks_with_routing,
     validate_test_cases_with_routing,
 )
@@ -67,6 +84,8 @@ class PipelineService:
         max_upload_bytes: int = 10 * 1024 * 1024,
         agent_client: AgentClient | None = None,
         notion_sync_client: NotionSyncClient | None = None,
+        agent_b2_parallelism: int = 3,
+        agent_b3_parallelism: int = 5,
     ) -> None:
         self.repository = repository
         self.project_root = fixture_path.parents[1]
@@ -76,6 +95,8 @@ class PipelineService:
         self.max_upload_bytes = max_upload_bytes
         self.agent_client = agent_client or MockAgentClient(fixture_path)
         self.notion_sync = notion_sync_client or MockNotionSyncClient()
+        self.agent_b2_parallelism = agent_b2_parallelism
+        self.agent_b3_parallelism = agent_b3_parallelism
 
     def create_project(self, request: ProjectCreateRequest) -> Project:
         name = request.name.strip()
@@ -194,6 +215,207 @@ class PipelineService:
         self._assert_stage(run, PipelineStage.S3_VALIDATION_A)
         self._assert_hil_gate_clear(run.id, "HIL-1")
         return self._stage_s4_agent_b(run, auto_approve=False)
+
+    def run_agent_b_epics(self, run_id: str) -> dict[str, Any]:
+        run = self._require_run(run_id)
+        if run.current_stage == PipelineStage.S4_1_AGENT_B_EPICS:
+            return {"run": run, "epics": self.repository.list_epics(run.id)}
+        self._assert_stage(run, PipelineStage.S3_VALIDATION_A)
+        self._assert_hil_gate_clear(run.id, "HIL-1")
+        run = self._stage_s4_1_epics(run, auto_approve=False)
+        return {"run": run, "epics": self.repository.list_epics(run.id)}
+
+    def run_agent_b_stories(self, run_id: str) -> dict[str, Any]:
+        run = self._require_run(run_id)
+        if run.current_stage == PipelineStage.S4_2_AGENT_B_STORIES:
+            return {
+                "run": run,
+                "stories": self.repository.list_stories(run.id),
+                "jobs": self.repository.list_agent_b_jobs(run.id),
+            }
+        self._assert_stage(run, PipelineStage.S4_1_AGENT_B_EPICS)
+        run = self._stage_s4_2_stories(run)
+        return {
+            "run": run,
+            "stories": self.repository.list_stories(run.id),
+            "jobs": self.repository.list_agent_b_jobs(run.id),
+        }
+
+    def run_agent_b_tasks(self, run_id: str) -> dict[str, Any]:
+        run = self._require_run(run_id)
+        self._assert_stage(run, PipelineStage.S4_2_AGENT_B_STORIES)
+        run = self._stage_s4_3_tasks(run)
+        return {
+            "run": run,
+            "tasks": self.repository.list_tasks(run.id),
+            "jobs": self.repository.list_agent_b_jobs(run.id),
+        }
+
+    def retry_agent_b_job(
+        self,
+        run_id: str,
+        job_id: str,
+        payload: AgentBJobRetryRequest | None = None,
+    ) -> AgentBJob:
+        _ = payload
+        run = self._require_run(run_id)
+        job = self.repository.get_agent_b_job(job_id)
+        if job is None or job.run_id != run_id:
+            raise LookupError(f"Agent B job not found: {job_id}")
+        if not job.is_retryable:
+            raise PipelineConflictError(
+                "agent_b_job_not_retryable",
+                "Only failed or timeout Agent B jobs can be retried.",
+                {"run_id": run_id, "job_id": job_id, "status": job.status.value},
+            )
+
+        features_by_id = {feature.feature_id: feature for feature in self.repository.list_features(run.id)}
+        sections = self.repository.list_sections(run.id)
+        if job.scope_type == AgentBScope.EPIC:
+            epic = self._require_epic(run.id, job.scope_id)
+            updated_job, stories, issues, events = self._run_agent_b_story_job(
+                run,
+                job,
+                epic,
+                features_by_id,
+                sections,
+                self._next_story_sequence(run.id),
+            )
+            if stories:
+                existing = [
+                    story for story in self.repository.list_stories(run.id)
+                    if story.epic_id != epic.epic_id
+                ]
+                self.repository.set_stories(run.id, [*existing, *stories])
+                self.repository.add_validation_issues(issues)
+                self._record_risk_events(issues)
+                self.repository.add_sync_events(events)
+            if self._all_agent_b_jobs_success(run.id, AgentBScope.EPIC):
+                self._mark_agent_b_status(run, "s4_2_status", "COMPLETE")
+                self._stage(run, PipelineStage.S4_2_AGENT_B_STORIES, "Agent B2 retry completed.")
+            return updated_job
+
+        story = self._require_story(run.id, job.scope_id)
+        updated_job, tasks = self._run_agent_b_task_job(
+            run,
+            job,
+            story,
+            features_by_id,
+            sections,
+            self._next_task_sequence(run.id, story.feature_id),
+        )
+        if tasks:
+            existing = [
+                task for task in self.repository.list_tasks(run.id)
+                if task.story_id != story.story_id
+            ]
+            self.repository.set_tasks(run.id, self._renumber_tasks([*existing, *tasks]))
+        if self._all_agent_b_jobs_success(run.id, AgentBScope.STORY):
+            self._complete_agent_b_tasks_stage(run)
+        return updated_job
+
+    def patch_epic(self, run_id: str, epic_id: str, payload: EpicPatchRequest) -> Epic:
+        run = self._require_run(run_id)
+        self._assert_epic_edit_open(run)
+        epics = self.repository.list_epics(run_id)
+        index, epic = self._find_epic(epics, epic_id)
+        update = payload.model_dump(exclude_none=True)
+        feature_ids = update.get("feature_ids")
+        if feature_ids is not None:
+            self._validate_epic_feature_ids(run_id, feature_ids)
+        updated = epic.model_copy(update={key: value for key, value in update.items() if key != "rationale"})
+        epics[index] = updated
+        self.repository.set_epics(run_id, epics)
+        self._record_epic_edit(run, "patch", {"epic_id": epic_id, "patch": update})
+        return updated
+
+    def merge_epics(self, run_id: str, payload: EpicMergeRequest) -> Epic:
+        run = self._require_run(run_id)
+        self._assert_epic_edit_open(run)
+        epics = self.repository.list_epics(run_id)
+        source_epics = [self._require_epic(run_id, epic_id) for epic_id in payload.source_epic_ids]
+        merged_feature_ids = sorted(
+            {feature_id for epic in source_epics for feature_id in epic.feature_ids}
+        )
+        self._validate_epic_feature_ids(run_id, merged_feature_ids)
+        source_ids = {epic.epic_id for epic in source_epics} | {epic.id for epic in source_epics}
+        remaining = [
+            epic
+            for epic in epics
+            if epic.epic_id not in source_ids and epic.id not in source_ids
+        ]
+        merged = Epic(
+            id=f"epic_{uuid4().hex[:12]}",
+            run_id=run_id,
+            epic_id=self._unique_epic_id(remaining, payload.target_title),
+            title=payload.target_title,
+            description=payload.target_description,
+            feature_ids=merged_feature_ids,
+            external_id=self._epic_external_id(run.project_id, payload.target_title),
+            review_status=ReviewStatus.AUTO_APPROVED,
+        )
+        self.repository.set_epics(run_id, [*remaining, merged])
+        self._record_epic_edit(
+            run,
+            "merge",
+            {
+                "source_epic_ids": payload.source_epic_ids,
+                "target_epic_id": merged.epic_id,
+            },
+        )
+        return merged
+
+    def split_epic(self, run_id: str, payload: EpicSplitRequest) -> list[Epic]:
+        run = self._require_run(run_id)
+        self._assert_epic_edit_open(run)
+        epics = self.repository.list_epics(run_id)
+        _, source_epic = self._find_epic(epics, payload.epic_id)
+        requested_feature_ids = [
+            feature_id for split in payload.splits for feature_id in split.feature_ids
+        ]
+        if sorted(requested_feature_ids) != sorted(set(requested_feature_ids)):
+            raise PipelineConflictError(
+                "epic_edit_feature_coverage",
+                "Split feature_ids must not contain duplicates.",
+                {"run_id": run_id, "epic_id": payload.epic_id},
+            )
+        if set(requested_feature_ids) != set(source_epic.feature_ids):
+            raise PipelineConflictError(
+                "epic_edit_feature_coverage",
+                "Split feature_ids must exactly cover the source epic feature_ids.",
+                {
+                    "run_id": run_id,
+                    "epic_id": payload.epic_id,
+                    "source_feature_ids": source_epic.feature_ids,
+                    "requested_feature_ids": requested_feature_ids,
+                },
+            )
+        remaining = [
+            epic
+            for epic in epics
+            if epic.id != source_epic.id and epic.epic_id != source_epic.epic_id
+        ]
+        new_epics: list[Epic] = []
+        for split in payload.splits:
+            new_epics.append(
+                Epic(
+                    id=f"epic_{uuid4().hex[:12]}",
+                    run_id=run_id,
+                    epic_id=self._unique_epic_id([*remaining, *new_epics], split.title),
+                    title=split.title,
+                    description=split.description,
+                    feature_ids=split.feature_ids,
+                    external_id=self._epic_external_id(run.project_id, split.title),
+                    review_status=ReviewStatus.AUTO_APPROVED,
+                )
+            )
+        self.repository.set_epics(run_id, [*remaining, *new_epics])
+        self._record_epic_edit(
+            run,
+            "split",
+            {"source_epic_id": payload.epic_id, "new_epic_ids": [epic.epic_id for epic in new_epics]},
+        )
+        return new_epics
 
     def run_agent_c(self, run_id: str) -> Run:
         run = self._require_run(run_id)
@@ -347,6 +569,7 @@ class PipelineService:
             )
         self.repository.set_epics(run.id, epics)
         self.repository.set_stories(run.id, stories)
+        tasks = self._renumber_tasks(tasks)
         self.repository.set_tasks(run.id, tasks)
         run = self._stage(
             run,
@@ -361,6 +584,7 @@ class PipelineService:
             *agent_b_result.coverage_issues,
             *validate_tasks_with_routing(run.id, tasks, features, sections),
         ]
+        tasks = self._renumber_tasks(tasks)
         self.repository.set_tasks(run.id, tasks)
         self.repository.add_validation_issues(task_issues)
         self._record_risk_events(task_issues)
@@ -382,6 +606,231 @@ class PipelineService:
                 run.id,
                 run.session_memory["kill_switch"],
             )
+            self.repository.add_risk_events([risk_event])
+            run.status = RunStatus.FAILED
+            run.finished_at = utc_now()
+            run.coverage_report = self._coverage_report(run.id)
+            return self._stage(
+                run,
+                PipelineStage.S5_VALIDATION_B_SYNC,
+                "Kill switch tripped before Agent C.",
+            )
+        return run
+
+    def _stage_s4_1_epics(self, run: Run, *, auto_approve: bool) -> Run:
+        features = self.repository.list_features(run.id)
+        hil1_context = self._build_hil1_context(features, auto_approve=auto_approve)
+        hil1_context = {
+            **hil1_context,
+            "project_id": run.project_id,
+            "mode": run.mode.value,
+            "delta_report": run.delta_report or {},
+        }
+        run.session_memory = {**run.session_memory, "hil_1": hil1_context}
+        run = self.repository.update_run(run)
+
+        output = self.agent_client.plan_epics(run.id, hil_context=hil1_context)
+        epics = self._epics_from_output(output)
+        issues = validate_agent_b1_epic_coverage(run.id, epics, hil1_context)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent B1 - Epic Planner",
+                stage=PipelineStage.S4_1_AGENT_B_EPICS,
+                input_snapshot={"hil_1": self._hil1_agent_input_snapshot(hil1_context)},
+                output_snapshot={
+                    "epic_count": len(epics),
+                    "validation_issue_count": len(issues),
+                    "auto_approve": auto_approve,
+                },
+                provider=self._agent_provider("plan_epics"),
+            )
+        )
+        self.repository.add_validation_issues(issues)
+        self._record_risk_events(issues)
+        if any(issue.severity == ValidationSeverity.S1_CRITICAL for issue in issues):
+            raise PipelineConflictError(
+                "agent_b1_coverage_failed",
+                "Agent B1 epic coverage failed for approved HIL-1 scope.",
+                {
+                    "run_id": run.id,
+                    "issues": [self._issue_detail(issue) for issue in issues],
+                },
+            )
+
+        self.repository.set_epics(run.id, epics)
+        sync_events = self._sync_a1_epics(epics)
+        self.repository.add_sync_events(sync_events)
+        return self._stage(
+            run,
+            PipelineStage.S4_1_AGENT_B_EPICS,
+            f"Agent B1 generated {len(epics)} epics; Sync-A1 wrote {len(sync_events)} records.",
+        )
+
+    def _stage_s4_2_stories(self, run: Run) -> Run:
+        epics = self.repository.list_epics(run.id)
+        features_by_id = {feature.feature_id: feature for feature in self.repository.list_features(run.id)}
+        sections = self.repository.list_sections(run.id)
+        jobs = [
+            AgentBJob(run_id=run.id, scope_type=AgentBScope.EPIC, scope_id=epic.epic_id)
+            for epic in epics
+        ]
+        self.repository.add_agent_b_jobs(jobs)
+
+        stories: list[Story] = []
+        issues: list[ValidationIssue] = []
+        sync_events: list[Any] = []
+        story_seq_offset = 1
+        for job, epic in zip(jobs, epics, strict=True):
+            updated_job, job_stories, job_issues, job_events = self._run_agent_b_story_job(
+                run,
+                job,
+                epic,
+                features_by_id,
+                sections,
+                story_seq_offset,
+            )
+            story_seq_offset += max(len(job_stories), 1)
+            stories.extend(job_stories)
+            issues.extend(job_issues)
+            sync_events.extend(job_events)
+            if updated_job.status != AgentBJobStatus.SUCCESS:
+                continue
+
+        self.repository.set_stories(run.id, stories)
+        self.repository.add_validation_issues(issues)
+        self._record_risk_events(issues)
+        self.repository.add_sync_events(sync_events)
+        failed_jobs = self._failed_agent_b_jobs(run.id, AgentBScope.EPIC)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent B2 - Story Planner",
+                stage=PipelineStage.S4_2_AGENT_B_STORIES,
+                input_snapshot={"epic_count": len(epics), "parallelism": self.agent_b2_parallelism},
+                output_snapshot={
+                    "story_count": len(stories),
+                    "job_count": len(jobs),
+                    "failed_job_count": len(failed_jobs),
+                    "validation_issue_count": len(issues),
+                },
+                provider=self._agent_provider("plan_stories"),
+            )
+        )
+        run = self._mark_agent_b_status(
+            run,
+            "s4_2_status",
+            "PARTIAL" if failed_jobs else "COMPLETE",
+            failed_jobs=failed_jobs,
+        )
+        run = self._stage(
+            run,
+            PipelineStage.S4_2_AGENT_B_STORIES,
+            (
+                f"Agent B2 generated {len(stories)} stories; "
+                f"Sync-A2 wrote {len(sync_events)} records."
+            ),
+        )
+        if failed_jobs:
+            raise self._partial_agent_b_failure(run.id, AgentBScope.EPIC, failed_jobs)
+        return run
+
+    def _stage_s4_3_tasks(self, run: Run) -> Run:
+        stories = self.repository.list_stories(run.id)
+        features_by_id = {feature.feature_id: feature for feature in self.repository.list_features(run.id)}
+        sections = self.repository.list_sections(run.id)
+        jobs = [
+            AgentBJob(run_id=run.id, scope_type=AgentBScope.STORY, scope_id=story.story_id)
+            for story in stories
+        ]
+        self.repository.add_agent_b_jobs(jobs)
+
+        tasks: list[QATask] = []
+        task_seq_by_feature: dict[str, int] = {}
+        for job, story in zip(jobs, stories, strict=True):
+            offset = task_seq_by_feature.get(
+                story.feature_id,
+                self._next_task_sequence(run.id, story.feature_id),
+            )
+            updated_job, job_tasks = self._run_agent_b_task_job(
+                run,
+                job,
+                story,
+                features_by_id,
+                sections,
+                offset,
+            )
+            tasks.extend(job_tasks)
+            for task in job_tasks:
+                task_seq_by_feature[task.feature_id] = (
+                    max(task_seq_by_feature.get(task.feature_id, offset), offset)
+                    + 1
+                )
+            if updated_job.status != AgentBJobStatus.SUCCESS:
+                continue
+
+        tasks = self._renumber_tasks(tasks)
+        self.repository.set_tasks(run.id, tasks)
+        failed_jobs = self._failed_agent_b_jobs(run.id, AgentBScope.STORY)
+        self.repository.add_agent_run(
+            AgentRun(
+                run_id=run.id,
+                agent_name="Agent B3 - Task Planner",
+                stage=PipelineStage.S4_3_AGENT_B_TASKS,
+                input_snapshot={"story_count": len(stories), "parallelism": self.agent_b3_parallelism},
+                output_snapshot={
+                    "task_count": len(tasks),
+                    "job_count": len(jobs),
+                    "failed_job_count": len(failed_jobs),
+                },
+                provider=self._agent_provider("plan_tasks"),
+            )
+        )
+        run = self._mark_agent_b_status(
+            run,
+            "s4_3_status",
+            "PARTIAL" if failed_jobs else "COMPLETE",
+            failed_jobs=failed_jobs,
+        )
+        run = self._stage(
+            run,
+            PipelineStage.S4_3_AGENT_B_TASKS,
+            f"Agent B3 generated {len(tasks)} tasks across {len(jobs)} story jobs.",
+        )
+        if failed_jobs:
+            raise self._partial_agent_b_failure(run.id, AgentBScope.STORY, failed_jobs)
+        return self._complete_agent_b_tasks_stage(run)
+
+    def _complete_agent_b_tasks_stage(self, run: Run) -> Run:
+        features = self.repository.list_features(run.id)
+        sections = self.repository.list_sections(run.id)
+        epics = self.repository.list_epics(run.id)
+        stories = self.repository.list_stories(run.id)
+        tasks = self.repository.list_tasks(run.id)
+        task_issues = validate_agent_b3_full_plan(
+            run.id,
+            epics=epics,
+            stories=stories,
+            tasks=tasks,
+            features=features,
+            sections=sections,
+        )
+        self.repository.set_tasks(run.id, tasks)
+        self.repository.add_validation_issues(task_issues)
+        self._record_risk_events(task_issues)
+        feature_name_by_id = {feature.feature_id: feature.name for feature in features}
+        eligible_tasks = self._eligible_for_sync(tasks)
+        sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
+        self.repository.add_sync_events(sync_b_events)
+        run = self._stage(
+            run,
+            PipelineStage.S5_VALIDATION_B_SYNC,
+            f"Agent B3 validation produced {len(task_issues)} issues; "
+            f"Sync-B wrote {len(sync_b_events)} task records.",
+        )
+        run = self._update_kill_switch_state(run)
+        if self._should_abort_run(run):
+            risk_event = kill_switch_risk_event(run.id, run.session_memory["kill_switch"])
             self.repository.add_risk_events([risk_event])
             run.status = RunStatus.FAILED
             run.finished_at = utc_now()
@@ -650,6 +1099,310 @@ class PipelineService:
                 else None,
             },
         }
+
+    def _run_agent_b_story_job(
+        self,
+        run: Run,
+        job: AgentBJob,
+        epic: Epic,
+        features_by_id: dict[str, Feature],
+        sections: list[GDDSection],
+        story_seq_offset: int,
+    ) -> tuple[AgentBJob, list[Story], list[ValidationIssue], list[Any]]:
+        started = utc_now()
+        job = job.model_copy(
+            update={
+                "status": AgentBJobStatus.RUNNING,
+                "attempt_count": job.attempt_count + 1,
+                "started_at": job.started_at or started,
+                "finished_at": None,
+                "error_code": None,
+                "error_message": None,
+            }
+        )
+        self.repository.update_agent_b_job(job)
+        try:
+            epic_features = [
+                features_by_id[feature_id]
+                for feature_id in epic.feature_ids
+                if feature_id in features_by_id
+            ]
+            output = self.agent_client.plan_stories(
+                run.id,
+                epic={
+                    **epic.model_dump(mode="json"),
+                    "project_id": run.project_id,
+                    "mode": run.mode.value,
+                },
+                features=[self._hil1_feature_snapshot(feature) for feature in epic_features],
+                source_text=self._source_text_for_features(epic_features, sections),
+                story_seq_offset=story_seq_offset,
+            )
+            stories = self._stories_from_output(output)
+            issues = validate_agent_b2_story_coverage(run.id, epic, stories, epic_features)
+            events = self._sync_a2_stories(epic, stories)
+            job = job.model_copy(
+                update={
+                    "status": AgentBJobStatus.SUCCESS,
+                    "finished_at": utc_now(),
+                    "output_summary": {
+                        "story_count": len(stories),
+                        "validation_issue_codes": sorted({issue.code for issue in issues}),
+                    },
+                }
+            )
+            return self.repository.update_agent_b_job(job), stories, issues, events
+        except Exception as exc:
+            failed = self._failed_job(job, exc)
+            return self.repository.update_agent_b_job(failed), [], [], []
+
+    def _run_agent_b_task_job(
+        self,
+        run: Run,
+        job: AgentBJob,
+        story: Story,
+        features_by_id: dict[str, Feature],
+        sections: list[GDDSection],
+        task_seq_offset: int,
+    ) -> tuple[AgentBJob, list[QATask]]:
+        started = utc_now()
+        job = job.model_copy(
+            update={
+                "status": AgentBJobStatus.RUNNING,
+                "attempt_count": job.attempt_count + 1,
+                "started_at": job.started_at or started,
+                "finished_at": None,
+                "error_code": None,
+                "error_message": None,
+            }
+        )
+        self.repository.update_agent_b_job(job)
+        try:
+            feature = features_by_id.get(story.feature_id)
+            if feature is None:
+                raise ValueError(f"Feature not found for story {story.story_id}: {story.feature_id}")
+            output = self.agent_client.plan_tasks(
+                run.id,
+                story={
+                    **story.model_dump(mode="json"),
+                    "project_id": run.project_id,
+                    "mode": run.mode.value,
+                },
+                feature=self._hil1_feature_snapshot(feature),
+                source_text=self._source_text_for_features([feature], sections),
+                task_seq_offset=task_seq_offset,
+            )
+            tasks = self._tasks_from_output(output)
+            job = job.model_copy(
+                update={
+                    "status": AgentBJobStatus.SUCCESS,
+                    "finished_at": utc_now(),
+                    "output_summary": {"task_count": len(tasks)},
+                }
+            )
+            return self.repository.update_agent_b_job(job), tasks
+        except Exception as exc:
+            failed = self._failed_job(job, exc)
+            return self.repository.update_agent_b_job(failed), []
+
+    def _failed_job(self, job: AgentBJob, exc: Exception) -> AgentBJob:
+        exc_name = type(exc).__name__
+        status = (
+            AgentBJobStatus.TIMEOUT
+            if "timeout" in exc_name.lower() or "timeout" in str(exc).lower()
+            else AgentBJobStatus.FAILED
+        )
+        return job.model_copy(
+            update={
+                "status": status,
+                "finished_at": utc_now(),
+                "error_code": exc_name,
+                "error_message": str(exc)[:500],
+            }
+        )
+
+    def _epics_from_output(self, output: dict[str, Any]) -> list[Epic]:
+        epics = output.get("epics")
+        if not isinstance(epics, list) or not all(isinstance(epic, Epic) for epic in epics):
+            raise ValueError("Agent B1 output must include a list of Epic models.")
+        return epics
+
+    def _stories_from_output(self, output: dict[str, Any]) -> list[Story]:
+        stories = output.get("stories")
+        if not isinstance(stories, list) or not all(isinstance(story, Story) for story in stories):
+            raise ValueError("Agent B2 output must include a list of Story models.")
+        return stories
+
+    def _tasks_from_output(self, output: dict[str, Any]) -> list[QATask]:
+        tasks = output.get("tasks")
+        if not isinstance(tasks, list) or not all(isinstance(task, QATask) for task in tasks):
+            raise ValueError("Agent B3 output must include a list of QATask models.")
+        return tasks
+
+    def _source_text_for_features(
+        self,
+        features: list[Feature],
+        sections: list[GDDSection],
+    ) -> dict[str, str]:
+        wanted = {
+            section_id
+            for feature in features
+            for section_id in feature.source_sections
+        }
+        return {
+            section.section_id: section.text
+            for section in sections
+            if section.section_id in wanted and section.text
+        }
+
+    def _sync_a1_epics(self, epics: list[Epic]) -> list[Any]:
+        return self.notion_sync.upsert_epics_batch(epics)
+
+    def _sync_a2_stories(self, epic: Epic, stories: list[Story]) -> list[Any]:
+        return self.notion_sync.upsert_stories_for_epic(epic, stories)
+
+    def _failed_agent_b_jobs(self, run_id: str, scope: AgentBScope) -> list[AgentBJob]:
+        return [
+            job
+            for job in self.repository.list_agent_b_jobs(run_id)
+            if job.scope_type == scope and job.status in {AgentBJobStatus.FAILED, AgentBJobStatus.TIMEOUT}
+        ]
+
+    def _all_agent_b_jobs_success(self, run_id: str, scope: AgentBScope) -> bool:
+        jobs = [
+            job
+            for job in self.repository.list_agent_b_jobs(run_id)
+            if job.scope_type == scope
+        ]
+        return bool(jobs) and all(job.status == AgentBJobStatus.SUCCESS for job in jobs)
+
+    def _partial_agent_b_failure(
+        self,
+        run_id: str,
+        scope: AgentBScope,
+        failed_jobs: list[AgentBJob],
+    ) -> PipelineConflictError:
+        return PipelineConflictError(
+            "agent_b_substage_partial_failure",
+            (
+                f"Agent B {scope.value} fan-out completed with {len(failed_jobs)} "
+                "failed job(s). Retry failed jobs and re-run the substage."
+            ),
+            {
+                "run_id": run_id,
+                "scope_type": scope.value,
+                "failed_jobs": [self._job_detail(job) for job in failed_jobs],
+            },
+        )
+
+    def _job_detail(self, job: AgentBJob) -> dict[str, Any]:
+        return {
+            "job_id": job.id,
+            "scope_type": job.scope_type.value,
+            "scope_id": job.scope_id,
+            "status": job.status.value,
+            "attempt_count": job.attempt_count,
+            "error_code": job.error_code,
+            "error_message": job.error_message,
+        }
+
+    def _issue_detail(self, issue: ValidationIssue) -> dict[str, Any]:
+        return {
+            "code": issue.code,
+            "target_type": issue.target_type,
+            "target_id": issue.target_id,
+            "message": issue.message,
+        }
+
+    def _mark_agent_b_status(
+        self,
+        run: Run,
+        key: str,
+        status: str,
+        *,
+        failed_jobs: list[AgentBJob] | None = None,
+    ) -> Run:
+        run.session_memory = {
+            **run.session_memory,
+            key: {
+                "status": status,
+                "failed_jobs": [self._job_detail(job) for job in failed_jobs or []],
+            },
+        }
+        return self.repository.update_run(run)
+
+    def _next_story_sequence(self, run_id: str) -> int:
+        stories = self.repository.list_stories(run_id)
+        return len(stories) + 1
+
+    def _next_task_sequence(self, run_id: str, feature_id: str) -> int:
+        existing = [
+            task for task in self.repository.list_tasks(run_id)
+            if task.feature_id == feature_id
+        ]
+        return len(existing) + 1
+
+    def _renumber_tasks(self, tasks: list[QATask]) -> list[QATask]:
+        return [
+            task.model_copy(update={"task_id": f"T-{index:03d}"})
+            for index, task in enumerate(tasks, start=1)
+        ]
+
+    def _require_epic(self, run_id: str, epic_id: str) -> Epic:
+        return self._find_epic(self.repository.list_epics(run_id), epic_id)[1]
+
+    def _require_story(self, run_id: str, story_id: str) -> Story:
+        for story in self.repository.list_stories(run_id):
+            if story.id == story_id or story.story_id == story_id:
+                return story
+        raise LookupError(f"Story not found: {story_id}")
+
+    def _find_epic(self, epics: list[Epic], epic_id: str) -> tuple[int, Epic]:
+        for index, epic in enumerate(epics):
+            if epic.id == epic_id or epic.epic_id == epic_id:
+                return index, epic
+        raise LookupError(f"Epic not found: {epic_id}")
+
+    def _assert_epic_edit_open(self, run: Run) -> None:
+        if run.current_stage == PipelineStage.S4_1_AGENT_B_EPICS:
+            return
+        raise PipelineConflictError(
+            "epic_edit_after_lock",
+            "Epics can only be edited between S4.1 and S4.2.",
+            {"run_id": run.id, "current_stage": run.current_stage.value},
+        )
+
+    def _validate_epic_feature_ids(self, run_id: str, feature_ids: list[str]) -> None:
+        known_feature_ids = {feature.feature_id for feature in self.repository.list_features(run_id)}
+        unknown = sorted(set(feature_ids) - known_feature_ids)
+        if unknown:
+            raise PipelineConflictError(
+                "epic_edit_unknown_feature",
+                "Epic edit references feature_ids that do not exist on this run.",
+                {"run_id": run_id, "feature_ids": unknown},
+            )
+
+    def _record_epic_edit(self, run: Run, action: str, payload: dict[str, Any]) -> None:
+        edit_log = list(run.session_memory.get("epic_edit_log", []))
+        edit_log.append({"action": action, "payload": payload, "created_at": utc_now().isoformat()})
+        run.session_memory = {**run.session_memory, "epic_edit_log": edit_log}
+        self.repository.update_run(run)
+
+    def _unique_epic_id(self, existing: list[Epic], title: str) -> str:
+        base = f"E-{_safe_id(title).upper().replace('_', '-')}"
+        candidate = base
+        suffix = 2
+        existing_ids = {epic.epic_id for epic in existing}
+        while candidate in existing_ids:
+            candidate = f"{base}-{suffix}"
+            suffix += 1
+        return candidate
+
+    def _epic_external_id(self, project_id: str, title: str) -> str:
+        return f"{project_id}-{self._unique_external_suffix(title)}"
+
+    def _unique_external_suffix(self, title: str) -> str:
+        return f"E-{_safe_id(title).upper().replace('_', '-')}"
 
     def _sync_a_epics_stories(self, epics: list[Any], stories: list[Any]) -> list[Any]:
         events = [self.notion_sync.upsert_epic(epic) for epic in epics]

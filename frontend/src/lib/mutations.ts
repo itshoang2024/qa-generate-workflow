@@ -18,7 +18,13 @@ import { toast } from "sonner";
 import { api, ApiError } from "./api";
 import { queryKeys } from "./queries";
 import type {
+  AgentBJob,
+  AgentBStageResponse,
   DemoRunRequest,
+  Epic,
+  EpicMergeRequest,
+  EpicPatchRequest,
+  EpicSplitRequest,
   HIL0BulkResolutionRequest,
   HIL0Resolution,
   HIL0ResolutionRequest,
@@ -99,6 +105,7 @@ function invalidateRunSurfaces(
   queryClient.invalidateQueries({ queryKey: queryKeys.testCases(runId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.validationIssues(runId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(runId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.agentBJobs(runId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.syncEvents(runId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.riskEvents(runId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.reviewDecisions(runId) });
@@ -238,6 +245,63 @@ export function useRunAgentB(runId: string, extras?: MutationExtras<Run, void>) 
 }
 
 /** `POST /api/v1/runs/{run_id}/agent-c` — run Agent C + Validation C + Sync-C. */
+function useAdvanceAgentBSubstage(
+  runId: string,
+  path: string,
+  successTitle: string,
+  extras?: MutationExtras<AgentBStageResponse, void>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<AgentBStageResponse, ApiError, void>({
+    mutationFn: () => api<AgentBStageResponse>(path, { method: "POST" }),
+    ...withErrorToast(`${successTitle} failed.`, extras),
+    onSuccess: (result, variables, onMutateResult, context) => {
+      queryClient.setQueryData(queryKeys.run(runId), result.run);
+      invalidateRunSurfaces(queryClient, runId);
+      toast.success(successTitle, {
+        description: `Run advanced to ${result.run.current_stage}.`,
+      });
+      extras?.onSuccess?.(result, variables, onMutateResult, context);
+    },
+  });
+}
+
+export function useRunAgentBEpics(
+  runId: string,
+  extras?: MutationExtras<AgentBStageResponse, void>
+) {
+  return useAdvanceAgentBSubstage(
+    runId,
+    `/runs/${runId}/agent-b/epics`,
+    "Agent B epics completed",
+    extras
+  );
+}
+
+export function useRunAgentBStories(
+  runId: string,
+  extras?: MutationExtras<AgentBStageResponse, void>
+) {
+  return useAdvanceAgentBSubstage(
+    runId,
+    `/runs/${runId}/agent-b/stories`,
+    "Agent B stories completed",
+    extras
+  );
+}
+
+export function useRunAgentBTasks(
+  runId: string,
+  extras?: MutationExtras<AgentBStageResponse, void>
+) {
+  return useAdvanceAgentBSubstage(
+    runId,
+    `/runs/${runId}/agent-b/tasks`,
+    "Agent B tasks completed",
+    extras
+  );
+}
+
 export function useRunAgentC(runId: string, extras?: MutationExtras<Run, void>) {
   return useAdvanceRunStage(
     runId,
@@ -392,6 +456,86 @@ export function useCreateReviewDecision(
         description: `${decision.target_type} ${decision.target_id} → ${decision.decision}.`,
       });
       extras?.onSuccess?.(decision, variables, onMutateResult, context);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Agent B hierarchical jobs + epic editing
+// ---------------------------------------------------------------------------
+
+export function useRetryAgentBJob(
+  runId: string,
+  extras?: MutationExtras<AgentBJob, string>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<AgentBJob, ApiError, string>({
+    mutationFn: (jobId) =>
+      api<AgentBJob>(`/runs/${runId}/agent-b/jobs/${jobId}/retry`, {
+        method: "POST",
+        body: {},
+      }),
+    ...withErrorToast("Agent B retry failed.", extras),
+    onSuccess: (job, variables, onMutateResult, context) => {
+      invalidateRunSurfaces(queryClient, runId);
+      toast.success("Agent B job retried", {
+        description: `${job.scope_type} ${job.scope_id} is ${job.status}.`,
+      });
+      extras?.onSuccess?.(job, variables, onMutateResult, context);
+    },
+  });
+}
+
+export function useUpdateEpic(
+  runId: string,
+  extras?: MutationExtras<Epic, { epicId: string; body: EpicPatchRequest }>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<Epic, ApiError, { epicId: string; body: EpicPatchRequest }>({
+    mutationFn: ({ epicId, body }) =>
+      api<Epic>(`/runs/${runId}/epics/${epicId}`, { method: "PATCH", body }),
+    ...withErrorToast("Epic update failed.", extras),
+    onSuccess: (epic, variables, onMutateResult, context) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics(runId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) });
+      toast.success("Epic updated", { description: epic.title });
+      extras?.onSuccess?.(epic, variables, onMutateResult, context);
+    },
+  });
+}
+
+export function useMergeEpics(
+  runId: string,
+  extras?: MutationExtras<Epic, EpicMergeRequest>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<Epic, ApiError, EpicMergeRequest>({
+    mutationFn: (body) =>
+      api<Epic>(`/runs/${runId}/epics/merge`, { method: "POST", body }),
+    ...withErrorToast("Epic merge failed.", extras),
+    onSuccess: (epic, variables, onMutateResult, context) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics(runId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) });
+      toast.success("Epics merged", { description: epic.title });
+      extras?.onSuccess?.(epic, variables, onMutateResult, context);
+    },
+  });
+}
+
+export function useSplitEpic(
+  runId: string,
+  extras?: MutationExtras<Epic[], EpicSplitRequest>
+) {
+  const queryClient = useQueryClient();
+  return useMutation<Epic[], ApiError, EpicSplitRequest>({
+    mutationFn: (body) =>
+      api<Epic[]>(`/runs/${runId}/epics/split`, { method: "POST", body }),
+    ...withErrorToast("Epic split failed.", extras),
+    onSuccess: (epics, variables, onMutateResult, context) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics(runId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) });
+      toast.success("Epic split", { description: `${epics.length} epics created.` });
+      extras?.onSuccess?.(epics, variables, onMutateResult, context);
     },
   });
 }

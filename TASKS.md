@@ -2,7 +2,7 @@
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 docs pass, awaiting implementation)
+## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 implementation landed)
 
 | Phase | Done / Total | Notes |
 |---|---|---|
@@ -10,7 +10,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Phase 1 - Backend Stage Completion | 16 / 16 | S0/S1 split, Project/GDDDocument APIs, inspection endpoints, `/providers/status`, and router-lane fields all shipped and test-covered. |
 | Phase 1.5 - Stage Orchestration Endpoints | 7 / 7 | Per-stage endpoints, blocking HIL gates, bulk HIL-0 resolution, and regression tests shipped. |
 | Phase 1.6 - Agent B Coverage Guard | 5 / 5 | Real Agent B cannot persist/sync a partial plan that omits approved HIL-1 features or epic candidates. |
-| **Phase 1.8 - Agent B Hierarchical Decomposition** | **9 / 9 docs, 0 / N implementation** | **Docs pass complete (2026-05-12); implementation pending.** Splits Agent B into B1 epic / B2 stories / B3 tasks with fan-out, EpicReviewPanel full-edit, AgentBJobBoard, Sync-A1/A2 split. Unblocks `run_fc5f488fe767` real-provider timeout. |
+| **Phase 1.8 - Agent B Hierarchical Decomposition** | **9 / 9 docs, implementation shipped with polish remaining** | B1 epic / B2 stories / B3 tasks, AgentBJobBoard, EpicReviewPanel edit/merge/split, Sync-A1/A2, OpenAI streaming adapters, validators, and API wiring shipped. Remaining polish is tracked in backend/frontend task files. |
 | Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B adapters shipped. Real Agent C, real Notion adapter, Notion schema preflight/rate limit/dead-letter still open. |
 | Phase 3 - Frontend | 10 / 12 | Stage-aware dashboard CTA, stage mutation hooks, inline HIL approval, bulk HIL-0, and offline font build support shipped; deep-link HIL routes and sync/risk pages remain. |
 | Phase 4 - Verification & Submission | 4 / 8 | Backend tests/lint and frontend lint/typecheck/build pass; screenshots, README polish, browser walkthrough capture, and real Notion smoke remain. |
@@ -19,11 +19,11 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 
 The previous E2E blocker is closed. The backend has per-stage endpoints, the frontend can advance through Agent A/B/C/finalize from `<NextStagePanel>`, HIL-1/2/3 are blocking gates, and HIL-0 bulk resolution prevents the Supabase/http2 disconnect caused by 19 parallel resolution requests.
 
-The real-provider Agent B regression found in `run_1cefe76fe58c` is now covered by a backend guard: Agent B cannot advance to Sync-A/B when it returns only `Gameplay Logic Scope` while approved HIL-1 features / epic candidates remain uncovered.
+The real-provider Agent B timeout regression found in `run_fc5f488fe767` is addressed by Phase 1.8: Agent B now decomposes into B1 epics, B2 per-epic stories, and B3 per-story tasks with smaller payloads, per-job retry, and validation before Sync-B. The older coverage guard for `run_1cefe76fe58c` remains in place for the legacy bundled endpoint.
 
 Remaining implementation and polish should focus on:
 
-1. **Manual browser walkthrough capture** - drive `Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off` against the running stack and record screenshots.
+1. **Manual browser walkthrough capture** - drive `Load Context -> HIL-0 bulk proceed -> Agent A -> HIL-1 -> Agent B Epics -> Agent B Stories -> Agent B Tasks -> HIL-2 -> Agent C -> HIL-3 -> Finalize -> Sign off` against the running stack and record screenshots.
 2. **Frontend deep-link routes** - `/runs/[run_id]/hil/[tier]`, `/sync-log`, `/risk`, and `/sign-off` remain useful for screenshots and reviewer navigation, even though the inline dashboard flow can complete the pipeline.
 3. **README/submission polish** - document both `/demo-runs` batch mode and the stepped UI walkthrough, plus offline `next/font/google` build behavior.
 4. **Real providers** - real Agent C and real Notion remain follow-up work; mock mode is the stable local demo path.
@@ -134,7 +134,7 @@ These tasks unblock the stepped E2E walkthrough. Each per-stage endpoint advance
 
 ## Phase 1.8 - Agent B Hierarchical Decomposition
 
-Docs-only pass at this stage. Implementation tasks will be added once docs land; backend/frontend TASKS files own their detailed implementation checklists.
+Docs were completed first; implementation has now landed across backend and frontend. Backend/frontend TASKS files own the remaining polish items such as transactional external-id allocation, deeper EpicReviewPanel drag/dialog UX, and walkthrough artifacts.
 
 ### Docs
 

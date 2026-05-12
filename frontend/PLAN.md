@@ -6,9 +6,9 @@ Deliver a Next.js demo app that exposes every Task-1..4 capability already imple
 
 The frontend is the last credibility gap before submission: backend is feature-complete in mock mode (S0..S7 + HIL-0..HIL-3 + Sync-A/B/C + RiskEvent + kill switch + sign-off), but a reviewer currently cannot see it without `curl`.
 
-## Current State (2026-05-12 - Phase 1.8 docs landed, F-1.8 frontend implementation pending)
+## Current State (2026-05-12 - Phase 1.8 frontend implementation landed)
 
-> **New work surfacing with backend Phase 1.8.** Agent B is being split into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). The dashboard's `<NextStagePanel>` state machine must accommodate three sub-stages where one used to be. Two new inline components land: `<AgentBJobBoard>` (kanban of per-epic/per-story jobs during S4.2/S4.3) and `<EpicReviewPanel>` (full-edit: rename epic title, drag features between epics, merge two epics, split one epic — all before S4.2 starts). See Screen 3.6 below for the detailed plan. No new top-level routes are required; one optional deep-link route `/runs/[run_id]/agent-b` may follow for screenshots.
+> **Phase 1.8 UI is wired.** Agent B is split into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). The dashboard's `<NextStagePanel>` now drives those substages, `<AgentBJobBoard>` renders per-epic/per-story job progress and retries, and `<EpicReviewPanel>` supports title edit plus merge/split before S4.2 locks the epic set. Drag/drop reassignment and dialog polish remain follow-up work.
 
 ## Current State (2026-05-11 - post stage-flow, bulk HIL-0, and offline font pass)
 
@@ -27,6 +27,7 @@ Already shipped:
 - `src/components/app-shell.tsx` implements the shared dark slate AppShell: 256px desktop sidebar, mobile sidebar drawer, 56px header, provider status pills/details dialog from `/providers/status`, search command shell, current-run navigation, and user footer.
 - `/projects` and `/projects/[project_id]` are implemented with project listing, new project dialog, run history, DELTA trigger, and GDD version history from `/projects/{project_id}/gdd-documents`.
 - `/runs/[run_id]` is implemented in `src/app/runs/[id]/page.tsx` with agent runs, timeline, coverage cards, artifact tabs, `<NextStagePanel>`, inline HIL approvals, loading/error/empty states, and design-token alignment with `ui-design/qa-runs-dashboard`.
+- Phase 1.8 hooks and dashboard surfaces are implemented: Agent B substage mutations, `useAgentBJobs` polling, `<AgentBJobBoard>`, and `<EpicReviewPanel>`.
 - The run dashboard hydration issue caused by a `<div>` skeleton inside `<p>` was fixed with an inline `<span>` skeleton.
 
 Shipped in the latest pass:

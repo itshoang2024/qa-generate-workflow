@@ -5,6 +5,7 @@ from typing import Any, TypeVar
 import httpx
 
 from app.domain.models import (
+    AgentBJob,
     AgentRun,
     Epic,
     Feature,
@@ -214,6 +215,38 @@ class SupabaseWorkflowRepository(WorkflowRepository):
 
     def list_agent_runs(self, run_id: str) -> list[AgentRun]:
         return self._list_run_rows("agent_runs", run_id, AgentRun)
+
+    def add_agent_b_jobs(self, jobs: list[AgentBJob]) -> list[AgentBJob]:
+        if jobs:
+            self.client.table("agent_b_jobs").upsert(
+                [self._dump(job) for job in jobs],
+                on_conflict="id",
+            ).execute()
+        return jobs
+
+    def update_agent_b_job(self, job: AgentBJob) -> AgentBJob:
+        updated = job.model_copy(update={"updated_at": utc_now()})
+        self.client.table("agent_b_jobs").upsert(
+            self._dump(updated),
+            on_conflict="id",
+        ).execute()
+        return updated
+
+    def list_agent_b_jobs(self, run_id: str) -> list[AgentBJob]:
+        rows = (
+            self.client.table("agent_b_jobs")
+            .select("*")
+            .eq("run_id", run_id)
+            .order("created_at")
+            .execute()
+            .data
+        )
+        jobs = [AgentBJob.model_validate(row) for row in rows]
+        return sorted(jobs, key=lambda job: (job.started_at or job.created_at, job.id))
+
+    def get_agent_b_job(self, job_id: str) -> AgentBJob | None:
+        rows = self.client.table("agent_b_jobs").select("*").eq("id", job_id).execute().data
+        return AgentBJob.model_validate(rows[0]) if rows else None
 
     def add_sync_events(self, events: list[SyncEvent]) -> list[SyncEvent]:
         self._bulk_insert("sync_events", events)

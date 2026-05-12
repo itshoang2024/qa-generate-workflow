@@ -25,6 +25,7 @@ import {
   useTimeline,
   useCoverage,
   useAgentRuns,
+  useAgentBJobs,
   useFeatures,
   useEpics,
   useStories,
@@ -43,7 +44,9 @@ import {
   useResolveHil0Question,
   useResolveHil0Questions,
   useRunAgentA,
-  useRunAgentB,
+  useRunAgentBEpics,
+  useRunAgentBStories,
+  useRunAgentBTasks,
   useRunAgentC,
   useSignOffRun,
 } from "@/lib/mutations";
@@ -73,6 +76,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AgentBJobBoard } from "./_components/agent-b-job-board";
+import { EpicReviewPanel } from "./_components/epic-review-panel";
 
 // ─── Local supplemental types ────────────────────────────────────────────────
 
@@ -345,6 +350,9 @@ const STAGE_ICONS: Record<string, React.ElementType> = {
   "SYNC-B": Database,
   "SYNC-C": Database,
   S4_AGENT_B: Workflow,
+  S4_1_AGENT_B_EPICS: Workflow,
+  S4_2_AGENT_B_STORIES: Workflow,
+  S4_3_AGENT_B_TASKS: Workflow,
   S5_VALIDATION_B_SYNC: ShieldAlert,
   S6_AGENT_C: Workflow,
   S7_VALIDATION_C_SYNC: ShieldAlert,
@@ -526,21 +534,13 @@ function AgentRunsPanel({ runId }: { runId: string }) {
   const { data, isPending, isError } = useAgentRuns(runId);
   const runs = (data ?? []) as AgentRun[];
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Track whether we've already fired the one-time auto-expand so that a
-  // user-initiated collapse (which sets expandedId back to null) does not
-  // immediately re-expand the panel on the next render.
-  const autoExpandedRef = useRef(false);
+  const [manualExpanded, setManualExpanded] = useState(false);
 
   const anyRetryExhausted = runs.some((r) => (r.output_snapshot as AgentOutput)?.retry_exhausted);
-
-  // Auto-expand the first retry-exhausted agent — fires at most once per mount.
-  if (!isPending && runs.length > 0 && expandedId === null && !autoExpandedRef.current) {
-    const flagged = runs.find((r) => (r.output_snapshot as AgentOutput)?.retry_exhausted);
-    if (flagged) {
-      autoExpandedRef.current = true;
-      setExpandedId(flagged.id);
-    }
-  }
+  const autoExpandedId = manualExpanded
+    ? null
+    : runs.find((r) => (r.output_snapshot as AgentOutput)?.retry_exhausted)?.id ?? null;
+  const activeExpandedId = expandedId ?? autoExpandedId;
 
   if (isPending) {
     return (
@@ -611,8 +611,11 @@ function AgentRunsPanel({ runId }: { runId: string }) {
         <AgentRunRow
           key={r.id}
           row={r}
-          expanded={expandedId === r.id}
-          onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
+          expanded={activeExpandedId === r.id}
+          onToggle={() => {
+            setManualExpanded(true);
+            setExpandedId(activeExpandedId === r.id ? null : r.id);
+          }}
         />
       ))}
     </div>
@@ -1502,12 +1505,15 @@ function NextStagePanel({ run }: { run: Run }) {
   const hil0Questions = useHil0Questions(run.id, {
     enabled: stage === "S1_CONTEXT_LOADER",
   });
+  const agentBJobs = useAgentBJobs(run.id, {
+    enabled: stage === "S4_2_AGENT_B_STORIES" || stage === "S4_3_AGENT_B_TASKS",
+  });
   const hil1Queue = useReviewQueue(run.id, "HIL-1", { enabled: hil1Enabled });
   const hil2Queue = useReviewQueue(run.id, "HIL-2", { enabled: hil2Enabled });
   const hil3Queue = useReviewQueue(run.id, "HIL-3", { enabled: hil3Enabled });
 
   const handleStageError = (error: ApiError) => {
-    if (error.code === "hil_gate_blocked") {
+    if (error.code === "hil_gate_blocked" || error.code === "agent_b_substage_partial_failure") {
       window.setTimeout(() => queueRef.current?.scrollIntoView({ block: "center" }), 0);
     }
     if (error.code === "wrong_stage") {
@@ -1521,7 +1527,13 @@ function NextStagePanel({ run }: { run: Run }) {
   const runAgentA = useRunAgentA(run.id, {
     onError: (error) => handleStageError(error),
   });
-  const runAgentB = useRunAgentB(run.id, {
+  const runAgentBEpics = useRunAgentBEpics(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const runAgentBStories = useRunAgentBStories(run.id, {
+    onError: (error) => handleStageError(error),
+  });
+  const runAgentBTasks = useRunAgentBTasks(run.id, {
     onError: (error) => handleStageError(error),
   });
   const runAgentC = useRunAgentC(run.id, {
@@ -1555,11 +1567,28 @@ function NextStagePanel({ run }: { run: Run }) {
           ? hil3Queue
           : null;
   const reviewItems = flattenReviewQueue(activeQueue?.data);
+  const currentAgentBJobScope =
+    stage === "S4_2_AGENT_B_STORIES"
+      ? "epic"
+      : stage === "S4_3_AGENT_B_TASKS"
+        ? "story"
+        : null;
+  const currentAgentBJobs = (agentBJobs.data ?? []).filter(
+    (job) => !currentAgentBJobScope || job.scope_type === currentAgentBJobScope,
+  );
+  const failedAgentBJobs = currentAgentBJobs.filter(
+    (job) => job.status === "FAILED" || job.status === "TIMEOUT",
+  );
+  const runningAgentBJobs = currentAgentBJobs.filter(
+    (job) => job.status === "QUEUED" || job.status === "RUNNING",
+  );
 
   const stageBusy =
     loadContext.isPending ||
     runAgentA.isPending ||
-    runAgentB.isPending ||
+    runAgentBEpics.isPending ||
+    runAgentBStories.isPending ||
+    runAgentBTasks.isPending ||
     runAgentC.isPending ||
     finalizeRun.isPending ||
     signOffRun.isPending ||
@@ -1651,12 +1680,45 @@ function NextStagePanel({ run }: { run: Run }) {
       onAction = () => void approveItems(reviewItems);
       tone = "border-amber-500/30 bg-amber-500/8";
     } else {
-      title = "Next: Run Agent B";
-      description = "Plan QA epics, stories, and tasks, then sync approved scope to Notion.";
-      actionLabel = "Run Agent B";
+      title = "Next: Agent B epics";
+      description = "Create the epic decomposition and sync the approved epic layer.";
+      actionLabel = "Plan epics";
       ActionIcon = Workflow;
-      onAction = () => runAgentB.mutate();
+      onAction = () => runAgentBEpics.mutate();
     }
+  } else if (stage === "S4_1_AGENT_B_EPICS") {
+    title = "Next: Agent B stories";
+    description = "Review or adjust epics, then fan out one story-planning job per epic.";
+    actionLabel = "Plan stories";
+    ActionIcon = Workflow;
+    onAction = () => runAgentBStories.mutate();
+  } else if (stage === "S4_2_AGENT_B_STORIES") {
+    ActionIcon = Workflow;
+    if (agentBJobs.isPending || runningAgentBJobs.length > 0) {
+      title = "Agent B story jobs are running";
+      description = "Wait for the epic fan-out to finish before task planning starts.";
+      actionLabel = null;
+    } else if (failedAgentBJobs.length > 0) {
+      title = "Agent B story jobs need retry";
+      description = "Retry failed epic jobs in the board below before task planning starts.";
+      actionLabel = null;
+      ActionIcon = AlertTriangle;
+      tone = "border-amber-500/30 bg-amber-500/8";
+    } else {
+      title = "Next: Agent B tasks";
+      description = "Story jobs are complete. Fan out task planning per story and run Validation B.";
+      actionLabel = "Plan tasks";
+      onAction = () => runAgentBTasks.mutate();
+    }
+  } else if (stage === "S4_3_AGENT_B_TASKS") {
+    title = failedAgentBJobs.length > 0
+      ? "Agent B task jobs need retry"
+      : "Agent B task jobs are running";
+    description = failedAgentBJobs.length > 0
+      ? "Retry failed story jobs below; the run advances to HIL-2 when all task jobs succeed."
+      : "Task fan-out is still in progress. The job board below will refresh automatically.";
+    ActionIcon = AlertTriangle;
+    tone = "border-amber-500/30 bg-amber-500/8";
   } else if (hil2Enabled) {
     if (reviewItems.length > 0 || queuePending) {
       title = "HIL-2 review required";
@@ -1924,6 +1986,13 @@ export default function RunDashboardPage() {
       })()}
 
       {run ? <NextStagePanel run={run} /> : null}
+      {run?.current_stage === "S4_1_AGENT_B_EPICS" ? <EpicReviewPanel run={run} /> : null}
+      {run?.current_stage === "S4_2_AGENT_B_STORIES" ? (
+        <AgentBJobBoard runId={runId} scope="epic" />
+      ) : null}
+      {run?.current_stage === "S4_3_AGENT_B_TASKS" ? (
+        <AgentBJobBoard runId={runId} scope="story" />
+      ) : null}
 
       {/* Agent runs */}
       <div className="mb-5">

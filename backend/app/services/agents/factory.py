@@ -19,6 +19,10 @@ def build_agent_client(settings: Settings) -> AgentClient:
             api_key=settings.openai_api_key,
             model=settings.openai_model,
             fallback=MockAgentClient(settings.fixture_path),
+            read_timeout_seconds=settings.openai_timeout_read_seconds,
+            model_agent_b1=settings.ai_model_agent_b1,
+            model_agent_b2=settings.ai_model_agent_b2,
+            model_agent_b3=settings.ai_model_agent_b3,
         )
     supported = ", ".join(SUPPORTED_AI_PROVIDERS)
     raise ValueError(f"Unsupported AI_PROVIDER '{settings.ai_provider}'. Supported: {supported}.")

@@ -26,4 +26,6 @@ def pipeline_dependency() -> PipelineService:
         upload_dir=settings.upload_dir,
         max_upload_bytes=settings.max_upload_bytes,
         agent_client=build_agent_client(settings),
+        agent_b2_parallelism=settings.agent_b2_parallelism,
+        agent_b3_parallelism=settings.agent_b3_parallelism,
     )

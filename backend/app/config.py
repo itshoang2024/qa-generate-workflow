@@ -14,6 +14,12 @@ class Settings:
     repository_provider: str
     openai_api_key: str | None
     openai_model: str
+    ai_model_agent_b1: str
+    ai_model_agent_b2: str
+    ai_model_agent_b3: str
+    agent_b2_parallelism: int
+    agent_b3_parallelism: int
+    openai_timeout_read_seconds: float
     anthropic_api_key: str | None
     notion_token: str | None
     supabase_url: str | None
@@ -54,6 +60,14 @@ def get_settings(env_file: Path | None = None) -> Settings:
         repository_provider=_env_value("REPOSITORY_PROVIDER", env_values, "memory").lower(),
         openai_api_key=_env_value("OPENAI_API_KEY", env_values) or None,
         openai_model=_env_value("OPENAI_MODEL", env_values, "gpt-4.1-mini"),
+        ai_model_agent_b1=_env_value("AI_MODEL_AGENT_B1", env_values, "gpt-4o"),
+        ai_model_agent_b2=_env_value("AI_MODEL_AGENT_B2", env_values, "gpt-4o-mini"),
+        ai_model_agent_b3=_env_value("AI_MODEL_AGENT_B3", env_values, "gpt-4o-mini"),
+        agent_b2_parallelism=int(_env_value("AGENT_B2_PARALLELISM", env_values, "3")),
+        agent_b3_parallelism=int(_env_value("AGENT_B3_PARALLELISM", env_values, "5")),
+        openai_timeout_read_seconds=float(
+            _env_value("OPENAI_TIMEOUT_READ_SECONDS", env_values, "120")
+        ),
         anthropic_api_key=_env_value("ANTHROPIC_API_KEY", env_values) or None,
         notion_token=_env_value("NOTION_TOKEN", env_values) or None,
         supabase_url=_env_value("SUPABASE_URL", env_values) or None,

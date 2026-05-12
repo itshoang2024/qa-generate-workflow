@@ -50,6 +50,26 @@ RISK_RULES = {
         "Agent B coverage retry was exhausted before Sync-A/B.",
         "Block downstream sync until the QA plan covers all approved HIL-1 scope.",
     ),
+    "missing_b1_feature_coverage": (
+        RiskSeverity.S1,
+        "Scope gap: Agent B1 omitted an approved feature from the epic skeleton.",
+        "Rerun Agent B1 or manually edit epics before continuing to story planning.",
+    ),
+    "unknown_b1_feature_reference": (
+        RiskSeverity.S1,
+        "Traceability gap: Agent B1 referenced a feature outside approved HIL-1 scope.",
+        "Remove the unknown feature reference before downstream planning.",
+    ),
+    "duplicate_task_cross_story": (
+        RiskSeverity.S2,
+        "Duplicate task candidate detected across Agent B3 story fan-out.",
+        "QA Lead should merge, approve, or reject the duplicate candidate.",
+    ),
+    "duplicate_task_cross_epic": (
+        RiskSeverity.S2,
+        "Duplicate task candidate detected across Agent B3 epic fan-out.",
+        "QA Lead should inspect whether this should be a shared cross-cutting task.",
+    ),
 }
 
 KILL_SWITCH_S1_THRESHOLD = 3

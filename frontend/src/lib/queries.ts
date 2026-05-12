@@ -8,6 +8,7 @@ import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 
 import { api } from "./api";
 import type {
+  AgentBJob,
   AgentRun,
   CoverageReport,
   Epic,
@@ -68,6 +69,7 @@ export const queryKeys = {
   riskEvents: (runId: string) => ["runs", runId, "risk-events"] as const,
   syncEvents: (runId: string) => ["runs", runId, "sync-events"] as const,
   agentRuns: (runId: string) => ["runs", runId, "agent-runs"] as const,
+  agentBJobs: (runId: string) => ["runs", runId, "agent-b-jobs"] as const,
   reviewDecisions: (runId: string) =>
     ["runs", runId, "review-decisions"] as const,
   reviewQueue: (runId: string, tier: HilTier) =>
@@ -295,6 +297,25 @@ export const useAgentRuns = (
     queryKeys.agentRuns(runId),
     `/runs/${runId}/agent-runs`,
     { enabled: Boolean(runId), ...extra }
+  );
+
+export const useAgentBJobs = (
+  runId: string,
+  extra?: ExtraOptions<AgentBJob[]>
+) =>
+  useBaseQuery<AgentBJob[]>(
+    queryKeys.agentBJobs(runId),
+    `/runs/${runId}/agent-b-jobs`,
+    {
+      enabled: Boolean(runId),
+      refetchInterval: (query) => {
+        const jobs = query.state.data as AgentBJob[] | undefined;
+        return jobs?.some((job) => job.status === "QUEUED" || job.status === "RUNNING")
+          ? 2000
+          : false;
+      },
+      ...extra,
+    }
   );
 
 // ---------------------------------------------------------------------------

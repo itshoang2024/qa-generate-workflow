@@ -238,6 +238,22 @@ create table if not exists agent_runs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists agent_b_jobs (
+  id text primary key,
+  run_id text not null references runs(id) on delete cascade,
+  scope_type text not null,
+  scope_id text not null,
+  status text not null,
+  attempt_count integer not null default 0,
+  error_code text,
+  error_message text,
+  started_at timestamptz,
+  finished_at timestamptz,
+  output_summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists sync_events (
   id text primary key,
   run_id text not null references runs(id) on delete cascade,
@@ -282,6 +298,8 @@ create index if not exists idx_features_run_id on features(run_id);
 create index if not exists idx_tasks_run_id on qa_tasks(run_id);
 create index if not exists idx_test_cases_run_id on test_cases(run_id);
 create index if not exists idx_risk_events_run_id on risk_events(run_id);
+create index if not exists idx_agent_b_jobs_run_id on agent_b_jobs(run_id);
+create index if not exists idx_agent_b_jobs_run_scope on agent_b_jobs(run_id, scope_type, scope_id);
 create index if not exists idx_sync_events_run_id_status on sync_events(run_id, status);
 
 notify pgrst, 'reload schema';

@@ -50,6 +50,12 @@ def health() -> dict[str, object]:
             "status": "ok",
             "app_env": settings.app_env,
             "ai_provider": settings.ai_provider,
+            "ai_model_agent_b1": settings.ai_model_agent_b1,
+            "ai_model_agent_b2": settings.ai_model_agent_b2,
+            "ai_model_agent_b3": settings.ai_model_agent_b3,
+            "agent_b2_parallelism": settings.agent_b2_parallelism,
+            "agent_b3_parallelism": settings.agent_b3_parallelism,
+            "openai_timeout_read_seconds": settings.openai_timeout_read_seconds,
             "notion_provider": settings.notion_provider,
             "repository_provider": settings.repository_provider,
         }
@@ -205,41 +211,51 @@ def finalize_run(run_id: str) -> dict[str, object]:
 # ===========================================================================
 # Phase 1.8 — Hierarchical Agent B endpoints.
 #
-# All eight endpoints below are scaffolding only. Each returns HTTP 501 with
-# a `not_implemented` error envelope until the corresponding PipelineService
-# method (or repository method, for the read endpoint) lands. See
-# backend/PLAN.md "Phase 1.8 - Agent B Hierarchical Decomposition" for the
-# target behavior, and backend/TASKS.md for the implementation checklist.
-#
-# Wiring strategy when implementing:
-#   1. Replace `_phase_1_8_not_implemented(...)` with the real service call.
-#   2. Catch LookupError -> 404, PipelineConflictError -> 409, ValueError -> 422
-#      following the same shape as run_agent_a / run_agent_b above.
-#   3. Drop the corresponding TODO comment.
 # ===========================================================================
 
 
 @router.post("/runs/{run_id}/agent-b/epics")
 def run_agent_b_epics(run_id: str) -> dict[str, object]:
     """S4.1 — Agent B1 Epic Planner. Advances S3 -> S4.1, runs Sync-A1."""
-    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_epics(run_id).
-    _phase_1_8_not_implemented("/agent-b/epics", "PipelineService.run_agent_b_epics")
+    try:
+        result = pipeline_dependency().run_agent_b_epics(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(result)
 
 
 @router.post("/runs/{run_id}/agent-b/stories")
 def run_agent_b_stories(run_id: str) -> dict[str, object]:
     """S4.2 — Agent B2 Story Planner, fan-out per epic. Advances S4.1 -> S4.2,
     runs Sync-A2 per epic."""
-    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_stories(run_id).
-    _phase_1_8_not_implemented("/agent-b/stories", "PipelineService.run_agent_b_stories")
+    try:
+        result = pipeline_dependency().run_agent_b_stories(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(result)
 
 
 @router.post("/runs/{run_id}/agent-b/tasks")
 def run_agent_b_tasks(run_id: str) -> dict[str, object]:
     """S4.3 — Agent B3 Task Planner, fan-out per story. Advances S4.2 -> S4.3,
     runs V-B3 (incl. cross-story / cross-epic dedup), then Sync-B."""
-    # TODO(phase-1.8): wire to pipeline_dependency().run_agent_b_tasks(run_id).
-    _phase_1_8_not_implemented("/agent-b/tasks", "PipelineService.run_agent_b_tasks")
+    try:
+        result = pipeline_dependency().run_agent_b_tasks(run_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(result)
 
 
 @router.post("/runs/{run_id}/agent-b/jobs/{job_id}/retry")
@@ -249,65 +265,67 @@ def retry_agent_b_job(
     payload: AgentBJobRetryRequest | None = None,
 ) -> dict[str, object]:
     """Retry a single failed/timeout AgentBJob without re-fanning out siblings."""
-    # TODO(phase-1.8): wire to pipeline_dependency().retry_agent_b_job(run_id, job_id, payload).
-    # Body is currently empty; AgentBJobRetryRequest exists for future fields.
-    _ = payload
-    _phase_1_8_not_implemented(
-        f"/agent-b/jobs/{job_id}/retry", "PipelineService.retry_agent_b_job"
-    )
+    try:
+        job = pipeline_dependency().retry_agent_b_job(run_id, job_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(job)
 
 
 @router.get("/runs/{run_id}/agent-b-jobs")
 def list_agent_b_jobs(run_id: str) -> dict[str, object]:
     """List AgentBJob[] for the run. FE <AgentBJobBoard> polls this every 2s
     while any job is non-terminal."""
-    # TODO(phase-1.8): wire to repository_dependency().list_agent_b_jobs(run_id).
-    _phase_1_8_not_implemented("/agent-b-jobs", "WorkflowRepository.list_agent_b_jobs")
+    _require_run(run_id)
+    return envelope(repository_dependency().list_agent_b_jobs(run_id))
 
 
 @router.patch("/runs/{run_id}/epics/{epic_id}")
 def patch_epic(run_id: str, epic_id: str, payload: EpicPatchRequest) -> dict[str, object]:
     """Lead inline-edit on <EpicReviewPanel> before S4.2. Rejected with 409
     `epic_edit_after_lock` unless current_stage == S4_1_AGENT_B_EPICS."""
-    # TODO(phase-1.8): wire to pipeline_dependency().patch_epic(run_id, epic_id, payload).
-    _ = payload
-    _phase_1_8_not_implemented(
-        f"/epics/{epic_id} (PATCH)", "PipelineService.patch_epic"
-    )
+    try:
+        epic = pipeline_dependency().patch_epic(run_id, epic_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(epic)
 
 
 @router.post("/runs/{run_id}/epics/merge")
 def merge_epics(run_id: str, payload: EpicMergeRequest) -> dict[str, object]:
     """Merge >=2 epics into one. Validates feature_id coverage exhaustively."""
-    # TODO(phase-1.8): wire to pipeline_dependency().merge_epics(run_id, payload).
-    _ = payload
-    _phase_1_8_not_implemented("/epics/merge", "PipelineService.merge_epics")
+    try:
+        epic = pipeline_dependency().merge_epics(run_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(epic)
 
 
 @router.post("/runs/{run_id}/epics/split")
 def split_epic(run_id: str, payload: EpicSplitRequest) -> dict[str, object]:
     """Split one epic into N>=2 new epics. Every original feature_id must
     appear in exactly one split or 409 `epic_edit_feature_coverage` is raised."""
-    # TODO(phase-1.8): wire to pipeline_dependency().split_epic(run_id, payload).
-    _ = payload
-    _phase_1_8_not_implemented("/epics/split", "PipelineService.split_epic")
-
-
-def _phase_1_8_not_implemented(endpoint_label: str, owner: str) -> None:
-    """Helper: return 501 with the standard envelope so clients see a clear
-    `not_implemented` error code instead of a generic 500."""
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "code": "not_implemented",
-            "message": (
-                f"Endpoint '{endpoint_label}' is part of Phase 1.8 (Agent B "
-                f"hierarchical decomposition) and is not yet implemented. "
-                f"Implement '{owner}' to enable it."
-            ),
-            "details": {"phase": "1.8", "owner": owner},
-        },
-    )
+    try:
+        epics = pipeline_dependency().split_epic(run_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PipelineConflictError as exc:
+        _raise_pipeline_conflict(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return envelope(epics)
 
 
 @router.get("/runs/{run_id}/timeline")

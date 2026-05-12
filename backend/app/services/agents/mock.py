@@ -96,6 +96,66 @@ class MockAgentClient(AgentClient):
             feature_context_by_id=feature_context_by_id,
         )
 
+    def plan_epics(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, object],
+    ) -> dict[str, object]:
+        plan = self.plan_qa_tasks(run_id, hil_context=hil_context)
+        return {"epics": plan["epics"]}
+
+    def plan_stories(
+        self,
+        run_id: str,
+        *,
+        epic: dict[str, object],
+        features: list[dict[str, object]],
+        source_text: dict[str, str],
+        story_seq_offset: int,
+    ) -> dict[str, object]:
+        _ = source_text, story_seq_offset
+        feature_ids = [
+            str(feature["feature_id"])
+            for feature in features
+            if isinstance(feature, dict) and isinstance(feature.get("feature_id"), str)
+        ]
+        plan = self.plan_qa_tasks(
+            run_id,
+            hil_context={
+                "approved_feature_ids": feature_ids,
+                "approved_features": features,
+            },
+        )
+        epic_id = str(epic.get("epic_id", ""))
+        stories = [story for story in plan["stories"] if story.epic_id == epic_id]
+        return {"epic_id": epic_id, "stories": stories}
+
+    def plan_tasks(
+        self,
+        run_id: str,
+        *,
+        story: dict[str, object],
+        feature: dict[str, object],
+        source_text: dict[str, str],
+        task_seq_offset: int,
+        past_corrections: list[dict[str, object]] | None = None,
+        existing_tasks: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
+        _ = feature, source_text, task_seq_offset, past_corrections, existing_tasks
+        fixture = self._load_fixture()
+        feature_context_by_id = _agent_b_feature_context_by_id(fixture, None, None)
+        agent_output = AgentBOutput.model_validate(
+            {"epics": _agent_b_epic_payloads(fixture["epics"], feature_context_by_id)}
+        )
+        plan = agent_output.to_domain_plan(
+            run_id,
+            feature_context_by_id=feature_context_by_id,
+        )
+        story_id = str(story.get("story_id", ""))
+        tasks = [task for task in plan["tasks"] if task.story_id == story_id]
+        return {"story_id": story_id, "tasks": tasks}
+
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
         test_cases: list[TestCase] = []
         sequence = 1

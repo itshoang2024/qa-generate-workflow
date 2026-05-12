@@ -255,6 +255,146 @@ def validate_agent_b_plan_coverage(
     return issues
 
 
+def validate_agent_b1_epic_coverage(
+    run_id: str,
+    epics: list[Epic],
+    hil1_context: dict[str, object],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    required_feature_ids = _required_agent_b_feature_ids(hil1_context)
+    approved_features = _approved_features_by_id(hil1_context)
+    occurrences: dict[str, list[str]] = defaultdict(list)
+
+    for epic in epics:
+        for feature_id in epic.feature_ids:
+            if feature_id not in approved_features:
+                issues.append(
+                    _issue(
+                        run_id,
+                        "epic",
+                        epic.epic_id,
+                        ValidationSeverity.S1_CRITICAL,
+                        "unknown_b1_feature_reference",
+                        f"Agent B1 epic references unknown or unapproved feature {feature_id}.",
+                        PipelineStage.S4_1_AGENT_B_EPICS,
+                    )
+                )
+                continue
+            occurrences[feature_id].append(epic.epic_id)
+
+    for feature_id in sorted(required_feature_ids - set(occurrences)):
+        issues.append(
+            _issue(
+                run_id,
+                "feature",
+                feature_id,
+                ValidationSeverity.S1_CRITICAL,
+                "missing_b1_feature_coverage",
+                f"Agent B1 did not place approved feature {feature_id} in any epic.",
+                PipelineStage.S4_1_AGENT_B_EPICS,
+            )
+        )
+
+    for feature_id, epic_ids in sorted(occurrences.items()):
+        feature = approved_features.get(feature_id, {})
+        cross_cutting = bool(feature.get("cross_cutting_flag")) or (
+            feature.get("feature_type") == "cross_cutting"
+        )
+        allowed_count = 3 if cross_cutting else 1
+        if len(epic_ids) > allowed_count:
+            issues.append(
+                _issue(
+                    run_id,
+                    "feature",
+                    feature_id,
+                    ValidationSeverity.S2_RECOVERABLE,
+                    "extra_b1_feature_coverage",
+                    (
+                        f"Agent B1 placed feature {feature_id} in {len(epic_ids)} epics; "
+                        f"allowed maximum is {allowed_count}."
+                    ),
+                    PipelineStage.S4_1_AGENT_B_EPICS,
+                )
+            )
+
+    return issues
+
+
+def validate_agent_b2_story_coverage(
+    run_id: str,
+    epic: Epic,
+    stories: list[Story],
+    features: list[Feature],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    required_feature_ids = {feature.feature_id for feature in features}
+    covered_feature_ids = {
+        story.feature_id
+        for story in stories
+        if story.epic_id == epic.epic_id and story.feature_id in required_feature_ids
+    }
+
+    for feature_id in sorted(required_feature_ids - covered_feature_ids):
+        issues.append(
+            _issue(
+                run_id,
+                "feature",
+                feature_id,
+                ValidationSeverity.S2_RECOVERABLE,
+                "missing_b2_story_for_feature",
+                (
+                    f"Agent B2 did not produce a story for feature {feature_id} "
+                    f"inside epic {epic.epic_id}."
+                ),
+                PipelineStage.S4_2_AGENT_B_STORIES,
+            )
+        )
+
+    story_count = len([story for story in stories if story.epic_id == epic.epic_id])
+    min_count = len(required_feature_ids)
+    max_count = max(min_count * 2, 1)
+    if required_feature_ids and not (min_count <= story_count <= max_count):
+        issues.append(
+            _issue(
+                run_id,
+                "epic",
+                epic.epic_id,
+                ValidationSeverity.S2_RECOVERABLE,
+                "b2_story_count_out_of_range",
+                (
+                    f"Agent B2 produced {story_count} story item(s) for {min_count} "
+                    f"feature(s); expected {min_count}..{max_count}."
+                ),
+                PipelineStage.S4_2_AGENT_B_STORIES,
+            )
+        )
+
+    return issues
+
+
+def validate_agent_b3_full_plan(
+    run_id: str,
+    *,
+    epics: list[Epic],
+    stories: list[Story],
+    tasks: list[QATask],
+    features: list[Feature],
+    sections: list[GDDSection],
+) -> list[ValidationIssue]:
+    issues = validate_tasks(run_id, tasks, features, sections)
+    issues.extend(_cross_scope_duplicate_task_issues(run_id, tasks))
+    for task in tasks:
+        lane = derive_router_lane(
+            task.confidence,
+            dedup_flag=task.dedup_flag,
+            cross_cutting_flag=task.cross_cutting_flag,
+        )
+        _apply_routing_status(task, lane)
+    issues.extend(_missing_task_story_links(run_id, stories, tasks))
+    issues.extend(_missing_story_epic_links(run_id, epics, stories))
+    return issues
+
+
 def validate_tasks_with_routing(
     run_id: str,
     tasks: list[QATask],
@@ -290,6 +430,22 @@ def _required_agent_b_feature_ids(hil1_context: dict[str, object]) -> set[str]:
         and feature.get("delta_status") == DeltaStatus.UNCHANGED.value
     }
     return approved_ids - unchanged_ids
+
+
+def _approved_features_by_id(hil1_context: dict[str, object]) -> dict[str, dict[str, object]]:
+    raw_features = hil1_context.get("approved_features", [])
+    if not isinstance(raw_features, list):
+        return {}
+    features: dict[str, dict[str, object]] = {}
+    for raw_feature in raw_features:
+        if not isinstance(raw_feature, dict):
+            continue
+        feature_id = raw_feature.get("feature_id")
+        if isinstance(feature_id, str):
+            features[feature_id] = raw_feature
+    for feature_id in _required_agent_b_feature_ids(hil1_context):
+        features.setdefault(feature_id, {"feature_id": feature_id})
+    return features
 
 
 def _hil1_epic_candidates(hil1_context: dict[str, object]) -> list[dict[str, object]]:
@@ -445,6 +601,92 @@ def _duplicate_task_issues(run_id: str, tasks: list[QATask]) -> list[ValidationI
                     )
                 )
     return issues
+
+
+def _cross_scope_duplicate_task_issues(
+    run_id: str,
+    tasks: list[QATask],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    emitted: set[tuple[str, str, str]] = set()
+    for index, task in enumerate(tasks):
+        for other in tasks[index + 1 :]:
+            similarity = SequenceMatcher(
+                None,
+                task.title.lower(),
+                other.title.lower(),
+            ).ratio()
+            if similarity < 0.85:
+                continue
+            scopes: list[tuple[str, str]] = []
+            if task.story_id != other.story_id:
+                scopes.append(("duplicate_task_cross_story", other.story_id))
+            if task.epic_id != other.epic_id:
+                scopes.append(("duplicate_task_cross_epic", other.epic_id))
+            for code, other_scope_id in scopes:
+                dedup_key = (task.task_id, other.task_id, code)
+                if dedup_key in emitted:
+                    continue
+                emitted.add(dedup_key)
+                task.dedup_flag = True
+                other.dedup_flag = True
+                issues.append(
+                    _issue(
+                        run_id,
+                        "task",
+                        task.task_id,
+                        ValidationSeverity.S2_RECOVERABLE,
+                        code,
+                        (
+                            f"Task is similar to {other.task_id} in {other_scope_id} "
+                            f"(title similarity {similarity:.2f})."
+                        ),
+                        PipelineStage.S5_VALIDATION_B_SYNC,
+                    )
+                )
+    return issues
+
+
+def _missing_task_story_links(
+    run_id: str,
+    stories: list[Story],
+    tasks: list[QATask],
+) -> list[ValidationIssue]:
+    story_ids = {story.story_id for story in stories}
+    return [
+        _issue(
+            run_id,
+            "task",
+            task.task_id,
+            ValidationSeverity.S1_CRITICAL,
+            "unknown_story",
+            "Task references a story_id that Agent B2 did not create.",
+            PipelineStage.S5_VALIDATION_B_SYNC,
+        )
+        for task in tasks
+        if task.story_id not in story_ids
+    ]
+
+
+def _missing_story_epic_links(
+    run_id: str,
+    epics: list[Epic],
+    stories: list[Story],
+) -> list[ValidationIssue]:
+    epic_ids = {epic.epic_id for epic in epics}
+    return [
+        _issue(
+            run_id,
+            "story",
+            story.story_id,
+            ValidationSeverity.S1_CRITICAL,
+            "unknown_epic",
+            "Story references an epic_id that Agent B1 did not create.",
+            PipelineStage.S5_VALIDATION_B_SYNC,
+        )
+        for story in stories
+        if story.epic_id not in epic_ids
+    ]
 
 
 def _apply_routing_status(item: Feature | QATask | TestCase, lane: str) -> None:

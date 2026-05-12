@@ -3,6 +3,9 @@ from pathlib import Path
 import pytest
 
 from app.domain.models import (
+    AgentBJob,
+    AgentBJobStatus,
+    AgentBScope,
     AgentRun,
     DemoRunRequest,
     GDDSection,
@@ -220,6 +223,21 @@ def test_s0_trigger_creates_run_without_loading_context() -> None:
     assert repository.list_gdd_documents(run.project_id) == []
 
 
+def test_in_memory_repository_tracks_agent_b_jobs() -> None:
+    repository = InMemoryWorkflowRepository()
+    jobs = [
+        AgentBJob(run_id="run_1", scope_type=AgentBScope.EPIC, scope_id=f"E-{index}")
+        for index in range(5)
+    ]
+
+    repository.add_agent_b_jobs(jobs)
+    updated = jobs[0].model_copy(update={"status": AgentBJobStatus.SUCCESS})
+    repository.update_agent_b_job(updated)
+
+    assert len(repository.list_agent_b_jobs("run_1")) == 5
+    assert repository.get_agent_b_job(jobs[0].id).status == AgentBJobStatus.SUCCESS
+
+
 def test_s1_context_loader_registers_versioned_gdd_documents_and_delta() -> None:
     gdd_path = _snake_gdd_path()
     if not gdd_path.exists():
@@ -272,6 +290,39 @@ def test_s1_context_loader_registers_versioned_gdd_documents_and_delta() -> None
         "v2",
         "v1",
     ]
+
+
+def test_hierarchical_agent_b_renumbers_duplicate_task_ids_before_persisting() -> None:
+    gdd_path = _snake_gdd_path()
+    if not gdd_path.exists():
+        pytest.skip("Root-level Snake Escape GDD is not available.")
+
+    repository = InMemoryWorkflowRepository()
+    project_root = Path(__file__).resolve().parents[2]
+    service = PipelineService(
+        repository=repository,
+        fixture_path=project_root / "data" / "snake_escape_fixture.json",
+        snake_gdd_path=gdd_path,
+        agent_client=_DuplicateTaskIdAgentBClient(
+            project_root / "data" / "snake_escape_fixture.json"
+        ),
+    )
+
+    triggered = service.trigger_run(
+        S0TriggerRequest(project_name="Duplicate Task ID Game", gdd_file=str(gdd_path))
+    )
+    run_id = triggered["run_id"]
+    service.load_context(run_id, S1ContextRequest())
+    service.run_agent_a(run_id)
+    _approve_hil1_queue(repository, run_id)
+    service.run_agent_b_epics(run_id)
+    service.run_agent_b_stories(run_id)
+    service.run_agent_b_tasks(run_id)
+
+    tasks = repository.list_tasks(run_id)
+    assert len(tasks) == 11
+    assert [task.task_id for task in tasks] == [f"T-{index:03d}" for index in range(1, 12)]
+    assert len({(task.run_id, task.task_id) for task in tasks}) == len(tasks)
 
 
 class _RetryingAgentBClient(AgentClient):
@@ -337,6 +388,37 @@ class _OpenAIFallbackPartialAgentBClient(_AlwaysPartialAgentBClient):
         if operation == "plan_qa_tasks":
             return "mock_after_openai_network_error"
         return self.provider
+
+
+class _DuplicateTaskIdAgentBClient(MockAgentClient):
+    def plan_tasks(
+        self,
+        run_id: str,
+        *,
+        story: dict[str, object],
+        feature: dict[str, object],
+        source_text: dict[str, str],
+        task_seq_offset: int,
+        past_corrections: list[dict[str, object]] | None = None,
+        existing_tasks: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
+        output = super().plan_tasks(
+            run_id,
+            story=story,
+            feature=feature,
+            source_text=source_text,
+            task_seq_offset=task_seq_offset,
+            past_corrections=past_corrections,
+            existing_tasks=existing_tasks,
+        )
+        return {
+            **output,
+            "tasks": [
+                task.model_copy(update={"task_id": "T-111"})
+                for task in output["tasks"]
+                if isinstance(task, QATask)
+            ],
+        }
 
 
 def _first_feature_context(

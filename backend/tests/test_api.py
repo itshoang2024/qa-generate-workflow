@@ -266,6 +266,60 @@ def test_stepped_pipeline_matches_demo_counts_after_manual_hil_approval() -> Non
     assert coverage["test_case_count"] == 44
 
 
+def test_hierarchical_agent_b_endpoints_match_demo_counts() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+
+    assert client.post(f"/api/v1/runs/{run_id}/agent-a").status_code == 200
+    _approve_queue(client, run_id, "HIL-1")
+
+    epics = client.post(f"/api/v1/runs/{run_id}/agent-b/epics")
+    assert epics.status_code == 200
+    assert epics.json()["data"]["run"]["current_stage"] == "S4_1_AGENT_B_EPICS"
+    assert len(epics.json()["data"]["epics"]) == 5
+
+    stories = client.post(f"/api/v1/runs/{run_id}/agent-b/stories")
+    assert stories.status_code == 200
+    assert stories.json()["data"]["run"]["current_stage"] == "S4_2_AGENT_B_STORIES"
+    assert len(stories.json()["data"]["stories"]) == 5
+
+    tasks = client.post(f"/api/v1/runs/{run_id}/agent-b/tasks")
+    assert tasks.status_code == 200
+    assert tasks.json()["data"]["run"]["current_stage"] == "S5_VALIDATION_B_SYNC"
+    assert len(tasks.json()["data"]["tasks"]) == 11
+
+    jobs = client.get(f"/api/v1/runs/{run_id}/agent-b-jobs")
+    assert jobs.status_code == 200
+    assert len(jobs.json()["data"]) == 10
+    assert {job["status"] for job in jobs.json()["data"]} == {"SUCCESS"}
+
+    phases = [
+        event["payload"]["sync_phase"]
+        for event in client.get(f"/api/v1/runs/{run_id}/sync-events").json()["data"]
+    ]
+    assert phases.count("Sync-A1") == 5
+    assert phases.count("Sync-A2") == 5
+    assert phases.count("Sync-B") == 9
+
+
+def test_epic_patch_endpoint_is_open_between_agent_b1_and_b2() -> None:
+    client = TestClient(app)
+    run_id = _trigger_and_load_context(client)
+
+    assert client.post(f"/api/v1/runs/{run_id}/agent-a").status_code == 200
+    _approve_queue(client, run_id, "HIL-1")
+    assert client.post(f"/api/v1/runs/{run_id}/agent-b/epics").status_code == 200
+    first_epic = client.get(f"/api/v1/runs/{run_id}/epics").json()["data"][0]
+
+    patched = client.patch(
+        f"/api/v1/runs/{run_id}/epics/{first_epic['epic_id']}",
+        json={"title": "Core Gameplay Regression QA"},
+    )
+
+    assert patched.status_code == 200
+    assert patched.json()["data"]["title"] == "Core Gameplay Regression QA"
+
+
 def test_epics_endpoint_returns_generated_epics() -> None:
     client = TestClient(app)
     run_id = _create_demo_run(client)

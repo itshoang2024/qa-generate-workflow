@@ -123,6 +123,19 @@ class MockNotionSyncClient(NotionSyncClient):
             },
         )
 
+    def upsert_epics_batch(self, epics: list[Epic]) -> list[SyncEvent]:
+        events = [self.upsert_epic(epic) for epic in epics]
+        for event in events:
+            event.payload = {**event.payload, "sync_phase": "Sync-A1"}
+        return events
+
+    def upsert_stories_for_epic(self, epic: Epic, stories: list[Story]) -> list[SyncEvent]:
+        _ = epic
+        events = [self.upsert_story(story) for story in stories]
+        for event in events:
+            event.payload = {**event.payload, "sync_phase": "Sync-A2"}
+        return events
+
     def _page_id_for(self, external_id: str) -> str:
         if external_id not in self.page_id_by_external_id:
             safe_id = re.sub(r"[^a-zA-Z0-9]+", "_", external_id).strip("_").lower()

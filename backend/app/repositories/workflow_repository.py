@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.domain.models import (
+    AgentBJob,
     AgentRun,
     Epic,
     Feature,
@@ -152,6 +153,18 @@ class WorkflowRepository(ABC):
     def list_agent_runs(self, run_id: str) -> list[AgentRun]: ...
 
     @abstractmethod
+    def add_agent_b_jobs(self, jobs: list[AgentBJob]) -> list[AgentBJob]: ...
+
+    @abstractmethod
+    def update_agent_b_job(self, job: AgentBJob) -> AgentBJob: ...
+
+    @abstractmethod
+    def list_agent_b_jobs(self, run_id: str) -> list[AgentBJob]: ...
+
+    @abstractmethod
+    def get_agent_b_job(self, job_id: str) -> AgentBJob | None: ...
+
+    @abstractmethod
     def add_sync_events(self, events: list[SyncEvent]) -> list[SyncEvent]: ...
 
     @abstractmethod
@@ -178,6 +191,7 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         self.risk_events: dict[str, list[RiskEvent]] = {}
         self.review_decisions: dict[str, list[ReviewDecision]] = {}
         self.agent_runs: dict[str, list[AgentRun]] = {}
+        self.agent_b_jobs: dict[str, list[AgentBJob]] = {}
         self.sync_events: dict[str, list[SyncEvent]] = {}
 
     def upsert_project(self, project: Project) -> Project:
@@ -326,6 +340,39 @@ class InMemoryWorkflowRepository(WorkflowRepository):
 
     def list_agent_runs(self, run_id: str) -> list[AgentRun]:
         return self.agent_runs.get(run_id, [])
+
+    def add_agent_b_jobs(self, jobs: list[AgentBJob]) -> list[AgentBJob]:
+        for job in jobs:
+            current = self.agent_b_jobs.setdefault(job.run_id, [])
+            existing_index = next(
+                (index for index, existing in enumerate(current) if existing.id == job.id),
+                None,
+            )
+            if existing_index is None:
+                current.append(job)
+            else:
+                current[existing_index] = job
+        return jobs
+
+    def update_agent_b_job(self, job: AgentBJob) -> AgentBJob:
+        current = self.agent_b_jobs.setdefault(job.run_id, [])
+        for index, existing in enumerate(current):
+            if existing.id == job.id:
+                current[index] = job.model_copy(update={"updated_at": utc_now()})
+                return current[index]
+        current.append(job)
+        return job
+
+    def list_agent_b_jobs(self, run_id: str) -> list[AgentBJob]:
+        jobs = self.agent_b_jobs.get(run_id, [])
+        return sorted(jobs, key=lambda job: (job.started_at or job.created_at, job.id))
+
+    def get_agent_b_job(self, job_id: str) -> AgentBJob | None:
+        for jobs in self.agent_b_jobs.values():
+            for job in jobs:
+                if job.id == job_id:
+                    return job
+        return None
 
     def add_sync_events(self, events: list[SyncEvent]) -> list[SyncEvent]:
         if events:

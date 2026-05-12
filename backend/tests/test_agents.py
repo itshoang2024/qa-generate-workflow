@@ -14,9 +14,15 @@ from app.services.agents.contracts import (
     AGENT_A_NAME_MAX_LENGTH,
     AGENT_A_RESPONSE_SCHEMA,
     AGENT_A_SUMMARY_MAX_LENGTH,
+    AGENT_B1_RESPONSE_SCHEMA,
+    AGENT_B2_RESPONSE_SCHEMA,
+    AGENT_B3_RESPONSE_SCHEMA,
     AGENT_B_RESPONSE_SCHEMA,
     AgentBOutput,
     AgentAOutput,
+    build_agent_b1_input,
+    build_agent_b2_input,
+    build_agent_b3_input,
     build_agent_b_input,
 )
 from app.services.agents.factory import build_agent_client
@@ -273,6 +279,95 @@ def test_mock_agent_b_applies_delta_task_behavior() -> None:
     assert archive_task.assignee == "Quan"
 
 
+def test_mock_agent_b_hierarchical_methods_match_bundled_fixture() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    client = MockAgentClient(fixture_path)
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    approved_features = [
+        _approved_feature(feature["feature_id"], feature["feature_type"], None)
+        for feature in fixture["features"]
+    ]
+    hil_context = {
+        "project_id": "snake-escape",
+        "approved_feature_ids": [feature["feature_id"] for feature in approved_features],
+        "approved_features": approved_features,
+    }
+
+    bundled = client.plan_qa_tasks("run_1", hil_context=hil_context)
+    epics = client.plan_epics("run_1", hil_context=hil_context)["epics"]
+    stories = []
+    tasks = []
+    feature_by_id = {feature["feature_id"]: feature for feature in approved_features}
+    for index, epic in enumerate(epics, start=1):
+        epic_features = [feature_by_id[feature_id] for feature_id in epic.feature_ids]
+        story_output = client.plan_stories(
+            "run_1",
+            epic=epic.model_dump(mode="json"),
+            features=epic_features,
+            source_text={},
+            story_seq_offset=index,
+        )
+        stories.extend(story_output["stories"])
+    for index, story in enumerate(stories, start=1):
+        task_output = client.plan_tasks(
+            "run_1",
+            story=story.model_dump(mode="json"),
+            feature=feature_by_id[story.feature_id],
+            source_text={},
+            task_seq_offset=index,
+        )
+        tasks.extend(task_output["tasks"])
+
+    assert [epic.epic_id for epic in epics] == [epic.epic_id for epic in bundled["epics"]]
+    assert [story.story_id for story in stories] == [
+        story.story_id for story in bundled["stories"]
+    ]
+    assert [task.task_id for task in tasks] == [task.task_id for task in bundled["tasks"]]
+
+
+def test_agent_b_substage_builders_trim_payloads() -> None:
+    hil_context = {
+        "project_id": "snake-escape",
+        "mode": "NEW_GAME",
+        "approved_features": [
+            {
+                **_approved_feature("F-001", "gameplay_logic", None),
+                "summary": "x" * 300,
+                "dependencies": [],
+                "key_behaviors": [],
+            }
+        ],
+        "epic_structure": {
+            "epics": [{"epic_id": "HIL1-GAMEPLAY", "title": "Gameplay", "feature_ids": ["F-001"]}]
+        },
+    }
+    b1 = build_agent_b1_input(hil_context)
+    b2 = build_agent_b2_input(
+        epic={"epic_id": "E-CORE", "title": "Core", "feature_ids": ["F-001"]},
+        features=b1["approved_features"],
+        source_text={"S1": "a" * 1400},
+        story_seq_offset=1,
+        project_id="snake-escape",
+        mode="NEW_GAME",
+    )
+    b3 = build_agent_b3_input(
+        story={"story_id": "S-001", "feature_id": "F-001", "acceptance_criteria": []},
+        feature=b1["approved_features"][0],
+        source_text={"S1": "a" * 1400},
+        task_seq_offset=1,
+        project_id="snake-escape",
+        mode="NEW_GAME",
+    )
+
+    assert len(b1["approved_features"][0]["summary"]) == 200
+    assert "dependencies" not in b1["approved_features"][0]
+    assert len(b2["source_sections_text"]["S1"]) == 1200
+    assert "past_corrections" not in b3
+    assert AGENT_B1_RESPONSE_SCHEMA["properties"]["epics"]["items"]["properties"]["epic_id"]
+    assert AGENT_B2_RESPONSE_SCHEMA["required"] == ["epic_id", "stories"]
+    assert AGENT_B3_RESPONSE_SCHEMA["required"] == ["story_id", "tasks"]
+
+
 def test_openai_agent_b_uses_structured_contract_and_normalized_assignee() -> None:
     fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
     http_client = _FakeOpenAIHTTPClient(_agent_b_payload(assignee="Minh"))
@@ -305,6 +400,29 @@ def test_openai_agent_b_uses_structured_contract_and_normalized_assignee() -> No
     assert request_payload["text"]["format"]["schema"] == AGENT_B_RESPONSE_SCHEMA
     assert output["tasks"][0].assignee == "Ngoc Anh"
     assert output["tasks"][0].priority_justification == "Core gameplay loop."
+
+
+def test_openai_agent_b1_streaming_uses_final_output_text_once() -> None:
+    fixture_path = Path(__file__).resolve().parents[2] / "data" / "snake_escape_fixture.json"
+    http_client = _StreamingOpenAIHTTPClient(_agent_b1_payload())
+    client = OpenAIAgentClient(
+        api_key="sk-test",
+        model="gpt-test",
+        fallback=MockAgentClient(fixture_path),
+        http_client=http_client,
+        stream_agent_b_substages=True,
+    )
+
+    output = client.plan_epics(
+        "run_1",
+        hil_context={
+            "project_id": "snake-escape",
+            "approved_features": [_approved_feature("F-001", "gameplay_logic", None)],
+        },
+    )
+
+    assert [epic.epic_id for epic in output["epics"]] == ["E-CORE"]
+    assert http_client.requests[0]["stream"] is True
 
 
 def test_build_agent_b_input_includes_validation_feedback_for_retry() -> None:
@@ -439,6 +557,22 @@ def _agent_b_payload(assignee: str) -> dict[str, object]:
     }
 
 
+def _agent_b1_payload() -> dict[str, object]:
+    return {
+        "epics": [
+            {
+                "epic_id": "E-CORE",
+                "title": "Core Gameplay",
+                "description": "Core gameplay QA.",
+                "feature_ids": ["F-001"],
+                "rationale": "Groups the approved core loop feature.",
+                "external_id": "snake-escape-E-CORE",
+                "delta_status": None,
+            }
+        ]
+    }
+
+
 def _approved_feature(
     feature_id: str,
     feature_type: str,
@@ -479,6 +613,55 @@ class _FakeOpenAIHTTPClient:
     def post(self, *args: object, **kwargs: object) -> _FakeOpenAIResponse:
         self.requests.append(kwargs["json"])
         return _FakeOpenAIResponse(self.structured_payload)
+
+
+class _StreamingOpenAIResponse:
+    text = "{}"
+    status_code = 200
+
+    def __init__(self, structured_payload: dict[str, object]) -> None:
+        output_text = json.dumps(structured_payload)
+        split_at = len(output_text) // 2
+        self.events = [
+            {
+                "type": "response.output_text.delta",
+                "delta": output_text[:split_at],
+            },
+            {
+                "type": "response.output_text.delta",
+                "delta": output_text[split_at:],
+            },
+            {
+                "type": "response.output_text.done",
+                "text": output_text,
+            },
+            {
+                "type": "response.completed",
+                "response": {"output": []},
+            },
+        ]
+
+    def __enter__(self) -> "_StreamingOpenAIResponse":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def iter_lines(self) -> list[str]:
+        return [f"data: {json.dumps(event)}" for event in self.events] + ["data: [DONE]"]
+
+
+class _StreamingOpenAIHTTPClient:
+    def __init__(self, structured_payload: dict[str, object]) -> None:
+        self.structured_payload = structured_payload
+        self.requests: list[dict[str, object]] = []
+
+    def stream(self, *args: object, **kwargs: object) -> _StreamingOpenAIResponse:
+        self.requests.append(kwargs["json"])
+        return _StreamingOpenAIResponse(self.structured_payload)
 
 
 class _FailingOpenAIResponse:

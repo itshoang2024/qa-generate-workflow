@@ -11,9 +11,9 @@ Complete the backend according to the four source-of-truth solution files in the
 
 The backend must remain mock-first for the local demo while evolving toward the full staged workflow: S0 trigger/mode detection, S1 rule-based context loading, Agent A/B/C structured JSON output, validation routers, HIL gates, Notion Sync-A/B/C, risk handling, and final coverage/sign-off.
 
-## Current Backend State (2026-05-12 - Phase 1.8 docs landed)
+## Current Backend State (2026-05-12 - Phase 1.8 implementation landed)
 
-> **Phase 1.8 (Agent B Hierarchical Decomposition) docs pass complete; implementation pending.** The real-provider regression on `run_fc5f488fe767` showed Agent B `/v1/responses` calls consistently `ReadTimeout` at 60s and 180s with 25 approved features + 6 HIL-1 epic candidates. Root cause is output-token volume × strict-JSON constraint search latency for the bundled Epic→Story→Task tree. The Phase 1.6 coverage guard correctly traps the resulting partial mock fallback, but the underlying real-provider path is unusable for non-trivial games. Phase 1.8 splits Agent B into three sub-agents (B1 Epic Planner, B2 Story Planner fan-out per epic, B3 Task Planner fan-out per story), introduces an `AgentBJob` model for per-job progress, adds new `/agent-b/epics`, `/agent-b/stories`, `/agent-b/tasks` endpoints (plus `/agent-b-jobs` and epic CRUD endpoints for `<EpicReviewPanel>`), and splits Sync-A into Sync-A1 + Sync-A2.
+> **Phase 1.8 (Agent B Hierarchical Decomposition) implementation landed.** The real-provider regression on `run_fc5f488fe767` showed Agent B `/v1/responses` calls consistently `ReadTimeout` at 60s and 180s with 25 approved features + 6 HIL-1 epic candidates. Root cause is output-token volume × strict-JSON constraint search latency for the bundled Epic→Story→Task tree. The new stepped path splits Agent B into B1 Epic Planner, B2 Story Planner fan-out per epic, and B3 Task Planner fan-out per story; introduces `AgentBJob` persistence; adds `/agent-b/epics`, `/agent-b/stories`, `/agent-b/tasks`, `/agent-b-jobs`, retry, and epic edit endpoints; and splits Sync-A into Sync-A1 + Sync-A2.
 
 ## Current Backend State (2026-05-11)
 
@@ -230,9 +230,9 @@ Acceptance:
 - Invalid assignees and duplicate tasks are caught before sync.
 - Partial plans from the real provider trigger coverage feedback and bounded retry before any artifacts are persisted or synced.
 
-### Phase 1.8 - Agent B Hierarchical Decomposition (planning)
+### Phase 1.8 - Agent B Hierarchical Decomposition (implemented, polish remaining)
 
-This is the target architecture for Agent B going forward. Implementation tasks live in `backend/TASKS.md` under "Phase 1.8".
+This is the implemented core architecture for Agent B going forward. Remaining polish tasks live in `backend/TASKS.md` under "Phase 1.8".
 
 **New domain stages** (additions to `PipelineStage` enum in `app/domain/models.py`):
 
@@ -240,7 +240,7 @@ This is the target architecture for Agent B going forward. Implementation tasks 
 - `S4_2_AGENT_B_STORIES`
 - `S4_3_AGENT_B_TASKS`
 
-Legacy `S4_AGENT_B` and `S5_VALIDATION_B_SYNC` remain for the bundled `/demo-runs` path. The stepped UI advances through the three new stages; `/demo-runs` keeps using the legacy stage transitions so its snake-escape counts (8/5/5/11/44) stay exactly stable.
+Legacy `S4_AGENT_B` and `S5_VALIDATION_B_SYNC` remain for the bundled `/demo-runs` path and the legacy `/agent-b` endpoint. The stepped UI advances through the three new stages so its snake-escape counts (8/5/5/11/44) stay exactly stable.
 
 **New domain model**: `AgentBJob`
 
@@ -280,29 +280,27 @@ class AgentClient(ABC):
     @abstractmethod
     def plan_qa_tasks(self, run_id: str, *, hil_context: dict | None = None) -> dict: ...
 
-    # New Phase 1.8 methods:
-    @abstractmethod
+    # New Phase 1.8 methods use concrete default raises so older test doubles
+    # can adopt them incrementally.
     def plan_epics(self, run_id: str, *, hil_context: dict) -> dict:
         """Return {'epics': [AgentBEpicSkeleton]} for S4.1."""
 
-    @abstractmethod
     def plan_stories(self, run_id: str, *, epic: dict, features: list[dict], source_text: dict[str, str], story_seq_offset: int) -> dict:
         """Return {'epic_id': str, 'stories': [AgentBStorySkeleton]} for S4.2."""
 
-    @abstractmethod
     def plan_tasks(self, run_id: str, *, story: dict, feature: dict, source_text: dict[str, str], task_seq_offset: int, past_corrections: list[dict] | None = None, existing_tasks: list[dict] | None = None) -> dict:
         """Return {'story_id': str, 'tasks': [AgentBTaskOutput]} for S4.3."""
 ```
 
 `MockAgentClient` implements all three by reading the existing `snake_escape_fixture.json` and slicing it to the requested epic/story scope. `plan_qa_tasks()` keeps returning the full bundle for `/demo-runs`.
 
-`OpenAIAgentClient` implements all three with the B1/B2/B3 system prompts and JSON schemas from `Task-2-Agent-prompts-JSON.md`. It does NOT implement `plan_qa_tasks()`: for real provider the bundled method raises `NotImplementedError` (or delegates to a wrapper that runs B1→B2→B3 sequentially for non-streaming consumers; decide during implementation).
+`OpenAIAgentClient` implements all three with the B1/B2/B3 system prompts and JSON schemas from `Task-2-Agent-prompts-JSON.md`. The existing bundled `plan_qa_tasks()` remains for legacy compatibility.
 
 **Pipeline split** (in `app/services/pipeline.py`):
 
 - `_stage_s4_1_epics(run)` — calls `plan_epics`, persists Epic[] (no stories/tasks yet), runs `validate_agent_b1_epic_coverage`, advances to `S4_1_AGENT_B_EPICS`, triggers `_sync_a1_epics(epics)`. Returns immediately so UI gets epic list quickly.
-- `_stage_s4_2_stories(run)` — for each epic in repository, schedules an `AgentBJob{scope=epic}`. Uses `asyncio.gather` with `Semaphore(AGENT_B2_PARALLELISM)` (default 3). Each job calls `plan_stories`, persists Story[] for that epic, runs `validate_agent_b2_story_coverage(epic)`, triggers `_sync_a2_stories(epic, stories)`. Stage advances to `S4_2_AGENT_B_STORIES` after all jobs reach terminal state (success or failed-after-retry).
-- `_stage_s4_3_tasks(run)` — for each story, schedules an `AgentBJob{scope=story}`. Same fan-out pattern with `Semaphore(AGENT_B3_PARALLELISM)` (default 5). Each job calls `plan_tasks`, persists QATask[] for that story. After all jobs terminal, runs `validate_agent_b3_full_plan` (schema + traceability + cross-story dedup + assignee + cross-epic dedup) and advances to `S4_3_AGENT_B_TASKS`, then to `S5_VALIDATION_B_SYNC`.
+- `_stage_s4_2_stories(run)` — for each epic in repository, creates an `AgentBJob{scope=epic}`. Each job calls `plan_stories`, persists Story[] for that epic, runs `validate_agent_b2_story_coverage(epic)`, triggers `_sync_a2_stories(epic, stories)`, and records partial failures for manual retry. `AGENT_B2_PARALLELISM` is configured for the future async executor polish pass.
+- `_stage_s4_3_tasks(run)` — for each story, creates an `AgentBJob{scope=story}`. Each job calls `plan_tasks`, persists QATask[] for that story. After all jobs terminal, runs `validate_agent_b3_full_plan` (schema + traceability + cross-story dedup + assignee + cross-epic dedup) and advances to `S4_3_AGENT_B_TASKS`, then to `S5_VALIDATION_B_SYNC`. `AGENT_B3_PARALLELISM` is configured for future async executor polish.
 
 Each job's retry policy: schema fail → re-prompt with feedback × 2; transient HTTP error → exponential backoff × 2; timeout → mark `TIMEOUT`, NO auto-retry (manual retry via API).
 
@@ -316,7 +314,7 @@ Each job's retry policy: schema fail → re-prompt with feedback × 2; transient
 - `PATCH /api/v1/runs/{run_id}/epics/{epic_id}` — Lead edit before S4.2. Body: `{title?, description?, feature_ids?}`. Reject if `current_stage != S4_1_AGENT_B_EPICS`.
 - `POST /api/v1/runs/{run_id}/epics/merge` — body `{source_epic_ids: [...], target_title, target_description}`. Creates new epic, redirects features, deletes sources.
 - `POST /api/v1/runs/{run_id}/epics/split` — body `{epic_id, splits: [{title, description, feature_ids}, ...]}`. Replaces source epic with N new epics.
-- Existing `POST /api/v1/runs/{run_id}/agent-b` becomes a sequential wrapper (calls `_stage_s4_1_epics` → `_stage_s4_2_stories` → `_stage_s4_3_tasks` in turn) so `/demo-runs` and CLI smoke tests still work without code path change.
+- Existing `POST /api/v1/runs/{run_id}/agent-b` remains the legacy bundled compatibility path; the stepped dashboard uses the three new endpoints.
 
 **New validators** (in `app/services/validators.py`):
 
@@ -336,9 +334,9 @@ Each job's retry policy: schema fail → re-prompt with feedback × 2; transient
 - Settings `AI_MODEL_AGENT_B1`, `AI_MODEL_AGENT_B2`, `AI_MODEL_AGENT_B3` with `gpt-4o-mini` default for B2/B3 (cheaper, faster) and `gpt-4o` default for B1 (fewer calls, more grounding).
 - httpx timeout split: `OPENAI_TIMEOUT_CONNECT=10s`, `OPENAI_TIMEOUT_READ=120s` (per sub-call), `OPENAI_TIMEOUT_WRITE=10s`.
 - Streaming response handling: switch `OpenAIAgentClient._post_response` to consume `text.delta` events. Inter-token gap, not total wall-time, drives `ReadTimeout`.
-- Log `AgentRun.output_snapshot.timing` with `{wall_time_ms, output_tokens, input_tokens}` per sub-call for future tuning.
+- Remaining polish: log `AgentRun.output_snapshot.timing` with `{wall_time_ms, output_tokens, input_tokens}` per sub-call for future tuning.
 
-**Idempotency**: Task `external_id` seq is per `(project_id, feature_id)`, NOT per story or per run. Allocator runs in repository under transaction (Supabase) or under a per-feature lock (in-memory). This makes S4.3 retry-safe — failing one story's tasks does not interfere with sibling stories' tasks already persisted.
+**Idempotency polish remaining**: task `external_id` allocation should become transactional per `(project_id, feature_id)` in Supabase and lock-protected in memory. The current implementation preserves retry-stability by scanning existing tasks and tracking feature-local offsets within the S4.3 request.
 
 Acceptance:
 

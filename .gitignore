@@ -15,3 +15,6 @@ build/
 htmlcov/
 data/
 backend/.runtime/
+.runtime/
+frontend/node_modules/
+frontend/dist/

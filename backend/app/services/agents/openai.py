@@ -12,11 +12,23 @@ from app.services.agents import AgentClient, AgentOutputValidationError
 from app.services.agents.contracts import (
     AGENT_A_RESPONSE_SCHEMA,
     AGENT_A_SYSTEM_PROMPT,
+    AGENT_B1_RESPONSE_SCHEMA,
+    AGENT_B1_SYSTEM_PROMPT,
+    AGENT_B2_RESPONSE_SCHEMA,
+    AGENT_B2_SYSTEM_PROMPT,
+    AGENT_B3_RESPONSE_SCHEMA,
+    AGENT_B3_SYSTEM_PROMPT,
     AGENT_B_RESPONSE_SCHEMA,
     AGENT_B_SYSTEM_PROMPT,
+    AgentB1Output,
+    AgentB2Output,
+    AgentB3Output,
     AgentAOutput,
     AgentBOutput,
     agent_b_feature_context_by_id,
+    build_agent_b1_input,
+    build_agent_b2_input,
+    build_agent_b3_input,
     build_agent_a_input,
     build_agent_b_input,
 )
@@ -46,22 +58,44 @@ class OpenAIAgentClient(AgentClient):
         fallback: AgentClient,
         http_client: httpx.Client | None = None,
         timeout_seconds: float = 60,
+        read_timeout_seconds: float | None = None,
         retry_count: int = 2,
         retry_sleep_seconds: float = 0.5,
+        model_agent_b1: str | None = None,
+        model_agent_b2: str | None = None,
+        model_agent_b3: str | None = None,
+        stream_agent_b_substages: bool = True,
     ) -> None:
         self.api_key = api_key
         self.model = model
+        self.model_agent_b1 = model_agent_b1 or model
+        self.model_agent_b2 = model_agent_b2 or model
+        self.model_agent_b3 = model_agent_b3 or model
         self.fallback = fallback
-        self.http_client = http_client or httpx.Client(timeout=timeout_seconds)
+        timeout = (
+            httpx.Timeout(timeout_seconds, read=read_timeout_seconds)
+            if read_timeout_seconds is not None
+            else timeout_seconds
+        )
+        self.http_client = http_client or httpx.Client(timeout=timeout)
         self.timeout_seconds = timeout_seconds
+        self.read_timeout_seconds = read_timeout_seconds
         self.retry_count = retry_count
         self.retry_sleep_seconds = retry_sleep_seconds
+        self.stream_agent_b_substages = stream_agent_b_substages
         self._last_provider_by_operation: dict[str, str] = {}
 
     def provider_for(self, operation: str) -> str:
         if operation in self._last_provider_by_operation:
             return self._last_provider_by_operation[operation]
-        if operation in {"analyze_gdd", "plan_qa_tasks"}:
+        openai_operations = {
+            "analyze_gdd",
+            "plan_qa_tasks",
+            "plan_epics",
+            "plan_stories",
+            "plan_tasks",
+        }
+        if operation in openai_operations:
             return self.provider
         return self.fallback.provider_for(operation)
 
@@ -163,6 +197,179 @@ class OpenAIAgentClient(AgentClient):
             feature_context_by_id=agent_b_feature_context_by_id(hil_context),
         )
 
+    def plan_epics(
+        self,
+        run_id: str,
+        *,
+        hil_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        request_payload = self._build_request_payload(
+            build_agent_b1_input(hil_context),
+            system_prompt=AGENT_B1_SYSTEM_PROMPT,
+            schema_name="agent_b1_output",
+            schema=AGENT_B1_RESPONSE_SCHEMA,
+            model=self.model_agent_b1,
+        )
+        try:
+            response_payload = self._post_response(
+                request_payload,
+                "OpenAI Agent B1",
+                stream=self.stream_agent_b_substages,
+            )
+            agent_output = AgentB1Output.model_validate(
+                _extract_structured_json(response_payload, "OpenAI Agent B1")
+            )
+        except OpenAIProviderHTTPError as exc:
+            if exc.status_code not in TRANSIENT_STATUS_CODES:
+                raise
+            self._last_provider_by_operation["plan_epics"] = "mock_after_openai_transient_error"
+            return self.fallback.plan_epics(run_id, hil_context=hil_context)
+        except httpx.HTTPError:
+            self._last_provider_by_operation["plan_epics"] = "mock_after_openai_network_error"
+            return self.fallback.plan_epics(run_id, hil_context=hil_context)
+        except (AgentOutputValidationError, ValidationError):
+            self._last_provider_by_operation["plan_epics"] = self.provider
+            raise
+
+        self._last_provider_by_operation["plan_epics"] = self.provider
+        return {"epics": agent_output.to_domain_epics(run_id)}
+
+    def plan_stories(
+        self,
+        run_id: str,
+        *,
+        epic: dict[str, Any],
+        features: list[dict[str, Any]],
+        source_text: dict[str, str],
+        story_seq_offset: int,
+    ) -> dict[str, Any]:
+        request_payload = self._build_request_payload(
+            build_agent_b2_input(
+                epic=epic,
+                features=features,
+                source_text=source_text,
+                story_seq_offset=story_seq_offset,
+                project_id=str(epic.get("project_id") or "project"),
+                mode=str(epic.get("mode") or RunMode.NEW_GAME.value),
+            ),
+            system_prompt=AGENT_B2_SYSTEM_PROMPT,
+            schema_name="agent_b2_output",
+            schema=AGENT_B2_RESPONSE_SCHEMA,
+            model=self.model_agent_b2,
+        )
+        try:
+            response_payload = self._post_response(
+                request_payload,
+                "OpenAI Agent B2",
+                stream=self.stream_agent_b_substages,
+            )
+            agent_output = AgentB2Output.model_validate(
+                _extract_structured_json(response_payload, "OpenAI Agent B2")
+            )
+        except OpenAIProviderHTTPError as exc:
+            if exc.status_code not in TRANSIENT_STATUS_CODES:
+                raise
+            self._last_provider_by_operation["plan_stories"] = "mock_after_openai_transient_error"
+            return self.fallback.plan_stories(
+                run_id,
+                epic=epic,
+                features=features,
+                source_text=source_text,
+                story_seq_offset=story_seq_offset,
+            )
+        except httpx.HTTPError:
+            self._last_provider_by_operation["plan_stories"] = "mock_after_openai_network_error"
+            return self.fallback.plan_stories(
+                run_id,
+                epic=epic,
+                features=features,
+                source_text=source_text,
+                story_seq_offset=story_seq_offset,
+            )
+        except (AgentOutputValidationError, ValidationError):
+            self._last_provider_by_operation["plan_stories"] = self.provider
+            raise
+
+        self._last_provider_by_operation["plan_stories"] = self.provider
+        return {"epic_id": agent_output.epic_id, "stories": agent_output.to_domain_stories(run_id)}
+
+    def plan_tasks(
+        self,
+        run_id: str,
+        *,
+        story: dict[str, Any],
+        feature: dict[str, Any],
+        source_text: dict[str, str],
+        task_seq_offset: int,
+        past_corrections: list[dict[str, Any]] | None = None,
+        existing_tasks: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        request_payload = self._build_request_payload(
+            build_agent_b3_input(
+                story=story,
+                feature=feature,
+                source_text=source_text,
+                task_seq_offset=task_seq_offset,
+                project_id=str(story.get("project_id") or "project"),
+                mode=str(story.get("mode") or RunMode.NEW_GAME.value),
+                past_corrections=past_corrections,
+                existing_tasks=existing_tasks,
+            ),
+            system_prompt=AGENT_B3_SYSTEM_PROMPT,
+            schema_name="agent_b3_output",
+            schema=AGENT_B3_RESPONSE_SCHEMA,
+            model=self.model_agent_b3,
+        )
+        try:
+            response_payload = self._post_response(
+                request_payload,
+                "OpenAI Agent B3",
+                stream=self.stream_agent_b_substages,
+            )
+            agent_output = AgentB3Output.model_validate(
+                _extract_structured_json(response_payload, "OpenAI Agent B3")
+            )
+        except OpenAIProviderHTTPError as exc:
+            if exc.status_code not in TRANSIENT_STATUS_CODES:
+                raise
+            self._last_provider_by_operation["plan_tasks"] = "mock_after_openai_transient_error"
+            return self.fallback.plan_tasks(
+                run_id,
+                story=story,
+                feature=feature,
+                source_text=source_text,
+                task_seq_offset=task_seq_offset,
+                past_corrections=past_corrections,
+                existing_tasks=existing_tasks,
+            )
+        except httpx.HTTPError:
+            self._last_provider_by_operation["plan_tasks"] = "mock_after_openai_network_error"
+            return self.fallback.plan_tasks(
+                run_id,
+                story=story,
+                feature=feature,
+                source_text=source_text,
+                task_seq_offset=task_seq_offset,
+                past_corrections=past_corrections,
+                existing_tasks=existing_tasks,
+            )
+        except (AgentOutputValidationError, ValidationError):
+            self._last_provider_by_operation["plan_tasks"] = self.provider
+            raise
+
+        self._last_provider_by_operation["plan_tasks"] = self.provider
+        feature_context_by_id = {
+            str(feature["feature_id"]): feature
+        } if isinstance(feature.get("feature_id"), str) else {}
+        return {
+            "story_id": agent_output.story_id,
+            "tasks": agent_output.to_domain_tasks(
+                run_id,
+                story=story,
+                feature_context_by_id=feature_context_by_id,
+            ),
+        }
+
     def generate_test_cases(self, run_id: str, tasks: list[QATask]) -> list[TestCase]:
         return self.fallback.generate_test_cases(run_id, tasks)
 
@@ -173,9 +380,10 @@ class OpenAIAgentClient(AgentClient):
         system_prompt: str,
         schema_name: str,
         schema: dict[str, Any],
+        model: str | None = None,
     ) -> dict[str, Any]:
         return {
-            "model": self.model,
+            "model": model or self.model,
             "input": [
                 {"role": "system", "content": system_prompt},
                 {
@@ -193,10 +401,18 @@ class OpenAIAgentClient(AgentClient):
             },
         }
 
-    def _post_response(self, payload: dict[str, Any], operation_label: str) -> dict[str, Any]:
+    def _post_response(
+        self,
+        payload: dict[str, Any],
+        operation_label: str,
+        *,
+        stream: bool = False,
+    ) -> dict[str, Any]:
         last_network_error: httpx.HTTPError | None = None
         for attempt_index in range(self.retry_count + 1):
             try:
+                if stream:
+                    return self._post_streaming_response(payload, operation_label)
                 response = self.http_client.post(
                     OPENAI_RESPONSES_URL,
                     headers={
@@ -225,6 +441,73 @@ class OpenAIAgentClient(AgentClient):
         if last_network_error is not None:
             raise last_network_error
         raise AgentOutputValidationError(f"{operation_label} request did not return a response.")
+
+    def _post_streaming_response(
+        self,
+        payload: dict[str, Any],
+        operation_label: str,
+    ) -> dict[str, Any]:
+        if not hasattr(self.http_client, "stream"):
+            return self._post_response(payload, operation_label, stream=False)
+
+        streamed_payload = {**payload, "stream": True}
+        delta_chunks: list[str] = []
+        final_text_chunks: list[str] = []
+        content_part_chunks: list[str] = []
+        completed_payload: dict[str, Any] | None = None
+        with self.http_client.stream(
+            "POST",
+            OPENAI_RESPONSES_URL,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            json=streamed_payload,
+            timeout=self.timeout_seconds,
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                if isinstance(line, bytes):
+                    line = line.decode("utf-8", errors="ignore")
+                data = line[6:].strip() if line.startswith("data: ") else line.strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                event_type = str(event.get("type", ""))
+                delta = event.get("delta")
+                if event_type == "response.output_text.delta" and isinstance(delta, str):
+                    delta_chunks.append(delta)
+                elif event_type == "response.output_text.done" and isinstance(
+                    event.get("text"), str
+                ):
+                    final_text_chunks.append(event["text"])
+                elif event_type == "response.content_part.done":
+                    part = event.get("part")
+                    if (
+                        isinstance(part, dict)
+                        and part.get("type") == "output_text"
+                        and isinstance(part.get("text"), str)
+                    ):
+                        content_part_chunks.append(part["text"])
+                elif event_type == "response.completed" and isinstance(event.get("response"), dict):
+                    completed_payload = event["response"]
+
+        if final_text_chunks:
+            return {"output_text": "".join(final_text_chunks)}
+        if content_part_chunks:
+            return {"output_text": "".join(content_part_chunks)}
+        if delta_chunks:
+            return {"output_text": "".join(delta_chunks)}
+        if completed_payload is not None:
+            return completed_payload
+        raise AgentOutputValidationError(
+            f"{operation_label} streaming response did not include output text."
+        )
 
     def _sleep_before_retry(self) -> None:
         if self.retry_sleep_seconds > 0:

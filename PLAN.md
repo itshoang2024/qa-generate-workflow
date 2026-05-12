@@ -13,13 +13,13 @@ The prototype should show how a GDD upload and project selection become a mode-a
 
 Mock mode remains mandatory for a stable local demo. Real AI, real Notion, Supabase persistence, DELTA processing, and LLM-generated GDD version descriptions are target capabilities.
 
-## Current State (last reviewed 2026-05-12 - Phase 1.8 planning for Agent B hierarchical decomposition)
+## Current State (last reviewed 2026-05-12 - Phase 1.8 implementation for Agent B hierarchical decomposition landed)
 
 > **New blocker discovered 2026-05-12 (Phase 1.6+ regression):** the Agent B coverage guard works as designed, but with 25 approved features + 6 HIL-1 epic candidates the real OpenAI `/v1/responses` call for Agent B consistently `ReadTimeout` at both 60s and 180s timeouts. Pipeline falls back to the static mock planner, the mock plan covers only the gameplay fixture, the coverage guard then trips `agent_b_coverage_exhausted` and returns 409.
 >
 > Diagnosis evidence (run `run_fc5f488fe767`): `approved_feature_count=25`, `epic_candidate_count=6`, `agent_input_json_chars=18,756`, `request_json_chars=23,517`, `provider=mock_after_openai_network_error`. Root cause is NOT context size starvation, NOT schema invalidity — it is output token volume × strict-JSON constraint search latency for the bundled Epic→Story→Task tree.
 >
-> Fix direction (Phase 1.8 below): decompose S4 into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). Smaller per-call payload, parallelizable, failure-isolable. Skips a separate "mitigations" phase per user direction; latency mitigations (input trim, model swap, streaming) bundled into Phase 1.8 implementation work.
+> Fix shipped in Phase 1.8: S4 now decomposes into S4.1 (Epic Planner), S4.2 (Story Planner, fan-out per epic), S4.3 (Task Planner, fan-out per story). Smaller per-call payloads, per-job retry, input trimming, model selection, and streaming response handling replace the single bundled Agent B call for the stepped UI path.
 
 
 
@@ -41,6 +41,7 @@ Already implemented:
 - Provider readiness endpoint `GET /api/v1/providers/status` reporting AI / Notion / repository credential state.
 - In-memory repository by default and optional Supabase repository, with full parity across projects, runs, GDD documents, sections, HIL-0 questions/resolutions, agent runs, review decisions, and sync events.
 - Risk event model/API, kill switch, reviewer sign-off endpoint, and coverage report extensions for `risk_summary`, `sync_summary`, `gdd_version_metadata`, and `sign_off`.
+- Phase 1.8 Agent B hierarchical path: B1/B2/B3 contracts, mock/OpenAI adapters, `AgentBJob` persistence, new `/agent-b/epics|stories|tasks` endpoints, retry endpoint, epic patch/merge/split endpoints, Sync-A1/A2 split, validators, and dashboard UI surfaces.
 - Supabase schema in `supabase/schema.sql` including `runs` upgrades for `session_memory`, `gdd_document_id`, `source_version_id`, `source_metadata`, `delta_report`, and generated artifact/risk/sync tables.
 - Backend tests (parser, validators, pipeline, agents, API, config, supabase schema) covering the demo counts, S0 split, S1 versioning + DELTA, HIL queues, and review-decision lane updates.
 - Docs, contracts, runbooks, fixture guide, and planning docs.
@@ -59,7 +60,6 @@ Closed before final walkthrough:
 - **Agent B coverage gap in real-provider mode**: run `run_1cefe76fe58c` showed Agent A + HIL-1 approved features across multiple feature types and deterministic epic candidates, but real Agent B returned only one `Gameplay Logic Scope` epic. The backend now validates approved-feature and HIL-1 epic coverage, retries Agent B with feedback, and blocks Sync-A/B on exhausted coverage retry.
 
 Still missing for the final prototype:
-- **Phase 1.8 implementation (planned, documented):** Agent B hierarchical decomposition into B1/B2/B3 with progressive UI; addresses real-provider timeout regression on `run_fc5f488fe767`.
 - Real Agent C adapter using the Task 2 structured JSON contract; Agent A/B are real-provider capable, while Agent C still uses mock fallback.
 - Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
@@ -155,9 +155,9 @@ The MVP pipeline originally ran as one synchronous `/demo-runs` batch. This phas
 
 The `auto_approve=True` knob on `/demo-runs` remains the way to bypass HIL gates in tests and CLI smoke runs. Frontend never sends it.
 
-### Phase 1.8 - Agent B Hierarchical Decomposition (planning, not implemented)
+### Phase 1.8 - Agent B Hierarchical Decomposition (implemented, polish remaining)
 
-This phase decomposes the monolithic Agent B call into three sub-stages so the real OpenAI provider can complete within typical timeout budgets, so the QA Lead gets a progressive UI, and so partial failures are isolable.
+This phase decomposes the monolithic Agent B call into three sub-stages so the real OpenAI provider can complete within typical timeout budgets, so the QA Lead gets a progressive UI, and so partial failures are isolable. The core backend/frontend implementation has landed; backend and frontend task files track remaining polish.
 
 **Source-of-truth doc updates (this phase only, ahead of implementation):**
 
@@ -166,7 +166,7 @@ This phase decomposes the monolithic Agent B call into three sub-stages so the r
 - `Task-3-Sync-to-Notion.md` — Sync-A split into Sync-A1 (epics after S4.1) + Sync-A2 (stories after S4.2 per epic); external_id format note updated for retry-stability.
 - `Task-4-Risk-Failure-handling.md` — adds failure mode 7a (sub-stage timeout / partial fan-out) and 7b (cross-epic/cross-story task duplication); kill-switch threshold tuned to tolerate <50% fan-out failure.
 
-**Backend scope (Phase 1.8 implementation, not in scope for this docs pass):**
+**Backend scope (Phase 1.8 implementation shipped):**
 
 - New domain stages: `PipelineStage.S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS`. Existing `S4_AGENT_B` kept as alias for the legacy bundled path in `/demo-runs`.
 - New domain model: `AgentBJob{run_id, scope_type: "epic"|"story", scope_id, status, attempt_count, error, started_at, finished_at}` for fan-out progress tracking.
@@ -180,7 +180,7 @@ This phase decomposes the monolithic Agent B call into three sub-stages so the r
 - Idempotency strategy: task `external_id` seq counted per `(project_id, feature_id)` (NOT per story) so retrying S4.3 for one story does not collide with sibling stories' tasks.
 - Latency mitigations bundled: input payload trimming (drop empty fields), `AI_MODEL_AGENT_B*` settings with `gpt-4o-mini` default for B2/B3, streaming response handling, separated `(connect, read, write)` httpx timeouts.
 
-**Frontend scope (Phase 1.8 implementation, not in scope for this docs pass):**
+**Frontend scope (Phase 1.8 implementation shipped):**
 
 - `<NextStagePanel>` state machine extended for `S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS` substages.
 - New inline component `<AgentBJobBoard>` rendering kanban (Queued / Running / Done / Failed) of `AgentBJob[]` with per-job Retry. Polls `/agent-b-jobs` while substage is running.
@@ -188,12 +188,12 @@ This phase decomposes the monolithic Agent B call into three sub-stages so the r
 - Epics tab repurposed as the primary surface between S4.1 and S4.2 (cards with feature chips, expand to show stories after S4.2).
 - Stories tab gains streaming progress indicator (spinner per epic during S4.2 fan-out).
 
-**Acceptance (for Phase 1.8 doc pass — this current task):**
+**Acceptance:**
 
 - All four source-of-truth docs describe S4.1/S4.2/S4.3 with their own prompts/schemas/sync events.
 - Root `PLAN.md` and `TASKS.md`, `backend/PLAN.md` and `backend/TASKS.md`, `frontend/PLAN.md` and `frontend/TASKS.md` all include Phase 1.8 sections with checkboxes ready for implementation work.
 - `docs/architecture.md`, `docs/contracts/pipeline-contract.md`, `docs/contracts/api-contract.md` describe target stages, AgentBJob model, new endpoints, and new validation/risk codes.
-- Code is NOT yet modified — implementation work follows in subsequent phases.
+- Core backend/frontend code is implemented. Remaining polish is tracked in `backend/TASKS.md` and `frontend/TASKS.md`.
 
 ### Phase 1.6 - Agent B Coverage Guard (implemented)
 

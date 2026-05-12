@@ -34,6 +34,17 @@ def test_supabase_schema_includes_agent_b_task_columns() -> None:
     assert "add column if not exists delta_status" in schema_sql
 
 
+def test_supabase_schema_includes_agent_b_jobs_table() -> None:
+    schema_sql = (Path(__file__).resolve().parents[2] / "supabase" / "schema.sql").read_text(
+        encoding="utf-8"
+    )
+
+    assert "create table if not exists agent_b_jobs" in schema_sql
+    assert "scope_type text not null" in schema_sql
+    assert "output_summary jsonb not null" in schema_sql
+    assert "idx_agent_b_jobs_run_scope" in schema_sql
+
+
 def test_supabase_task_upsert_can_retry_without_optional_agent_b_columns() -> None:
     exc = Exception(
         '{"message": "Could not find the \'delta_status\' column of \'qa_tasks\' '

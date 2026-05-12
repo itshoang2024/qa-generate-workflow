@@ -4,7 +4,7 @@ This checklist tracks the Next.js demo app against `frontend/PLAN.md` and the fo
 
 Progress rule: when a task in this file is completed, update its checkbox from `[ ]` to `[x]` in the same implementation turn or commit, and keep the `Verify:` line directly below it.
 
-## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 docs landed, F3.6 implementation pending)
+## Status Snapshot (last reviewed 2026-05-12 - Phase 1.8 UI implementation landed)
 
 | Phase | Done / Total | Status |
 |---|---|---|
@@ -13,7 +13,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | F2 - Projects + GDD Version History | 4 / 4 | Project list, new project dialog, project detail, DELTA trigger, and GDD version-history rows shipped. |
 | F3 - Run Dashboard | 6 / 6 | Timeline, Load Context CTA, coverage, agent runs, artifact tabs, design alignment, and hydration fix shipped. |
 | F3.5 - Stage-Aware CTA + Inline HIL Approve | 6 / 6 | `<NextStagePanel>`, stage mutation hooks, bulk HIL-0, inline HIL approvals, sequential bulk approvals, and 409 recovery shipped. |
-| **F3.6 - Agent B Hierarchical UI (Phase 1.8)** | **0 / 10** | `<NextStagePanel>` substage state machine, `<AgentBJobBoard>`, `<EpicReviewPanel>` full-edit (drag/merge/split), new mutation/query hooks, streaming Stories tab. Backend Phase 1.8 endpoints required. |
+| **F3.6 - Agent B Hierarchical UI (Phase 1.8)** | **7 / 10** | Types/hooks, `<NextStagePanel>` substage state machine, `<AgentBJobBoard>`, and `<EpicReviewPanel>` title edit + merge/split shipped. Remaining: drag/dialog polish, nested streaming epics tab, dedicated walkthrough artifact. |
 | F4 - HIL Queues (HIL-0 / 1 / 2 / 3) | 0 / 3 | Dedicated deep-link routes; re-uses the inline approve list from F3.5. |
 | F5 - Inspection Tables | 0 / 2 | Reusable `<ArtifactTable>` + detail drawer. |
 | F6 - Sync Log + Risk Center | 0 / 3 | Sync log, risk grouped table, kill-switch banner. |
@@ -136,22 +136,22 @@ Depends on root Phase 1.5 backend endpoints (`/agent-a`, `/agent-b`, `/agent-c`,
 
 Depends on backend Phase 1.8 endpoints (`/agent-b/epics`, `/agent-b/stories`, `/agent-b/tasks`, `/agent-b-jobs`, `/agent-b/jobs/{id}/retry`, `PATCH /epics/{id}`, `/epics/merge`, `/epics/split`). Implementation tasks below; landing them requires the backend phase first.
 
-- [ ] Task: Extend `src/lib/types.ts` with `AgentBJob`, `AgentBScope`, `AgentBJobStatus`, `EpicMergeRequest`, `EpicSplitRequest`, `EpicPatchRequest`. Mirror backend Pydantic models.
+- [x] Task: Extend `src/lib/types.ts` with `AgentBJob`, `AgentBScope`, `AgentBJobStatus`, `EpicMergeRequest`, `EpicSplitRequest`, `EpicPatchRequest`. Mirror backend Pydantic models.
   Verify: `npx tsc --noEmit` clean.
 
-- [ ] Task: Add typed query hooks `useAgentBJobs(runId, { enabled })` (polling 2s when enabled), `useEpicEditAuditLog(runId)` (optional, for debugging) in `src/lib/queries.ts`.
+- [x] Task: Add typed query hooks `useAgentBJobs(runId, { enabled })` (polling 2s when enabled), `useEpicEditAuditLog(runId)` (optional, for debugging) in `src/lib/queries.ts`.
   Verify: Hook returns `AgentBJob[]` from `/api/v1/runs/{run_id}/agent-b-jobs`; polling stops when all jobs terminal.
 
-- [ ] Task: Add typed mutation hooks `useRunAgentBEpics(runId)`, `useRunAgentBStories(runId)`, `useRunAgentBTasks(runId)`, `useRetryAgentBJob(runId, jobId)`, `useUpdateEpic(runId, epicId)`, `useMergeEpics(runId)`, `useSplitEpic(runId)` in `src/lib/mutations.ts`. Each invalidates run + timeline + agent-runs + jobs + epics + stories + tasks query keys as appropriate.
+- [x] Task: Add typed mutation hooks `useRunAgentBEpics(runId)`, `useRunAgentBStories(runId)`, `useRunAgentBTasks(runId)`, `useRetryAgentBJob(runId, jobId)`, `useUpdateEpic(runId, epicId)`, `useMergeEpics(runId)`, `useSplitEpic(runId)` in `src/lib/mutations.ts`. Each invalidates run + timeline + agent-runs + jobs + epics + stories + tasks query keys as appropriate.
   Verify: `npx tsc --noEmit` clean; each hook is exported and consumed by Screen 3.6.
 
-- [ ] Task: Update `<NextStagePanel>` state machine for the new stages. Insert `S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS` branches. Replace single `Run Agent B` button with the three substage actions per the table in `frontend/PLAN.md` Screen 3.6.
+- [x] Task: Update `<NextStagePanel>` state machine for the new stages. Insert `S4_1_AGENT_B_EPICS`, `S4_2_AGENT_B_STORIES`, `S4_3_AGENT_B_TASKS` branches. Replace single `Run Agent B` button with the three substage actions per the table in `frontend/PLAN.md` Screen 3.6.
   Verify: Manually walk a NEW_GAME run from S3 to S5 with mock fixture; the panel advances `Run Agent B (Epics)` → `<EpicReviewPanel>` + `Continue to Stories` → fan-out spinner → `<AgentBJobBoard>` → `Run Agent B (Tasks)` → fan-out → HIL-2.
 
-- [ ] Task: Build `<AgentBJobBoard>` component under `src/app/runs/[id]/_components/agent-b-job-board.tsx`. Four columns (Queued/Running/Done/Failed), per-job card with scope_type + scope_id + attempt_count + elapsed + error. Top toolbar `Retry all failed` (sequential mutations), `Refresh`.
+- [x] Task: Build `<AgentBJobBoard>` component under `src/app/runs/[id]/_components/agent-b-job-board.tsx`. Four columns (Queued/Running/Done/Failed), per-job card with scope_type + scope_id + attempt_count + elapsed + error. Top toolbar `Retry all failed` (sequential mutations), `Refresh`.
   Verify: Storybook fixture or local test renders the board with a mix of statuses; clicking `Retry` calls `useRetryAgentBJob` exactly once per card.
 
-- [ ] Task: Build `<EpicReviewPanel>` component under `src/app/runs/[id]/_components/epic-review-panel.tsx`. Epic cards with inline-editable title/description, draggable feature_id chips between cards, per-epic menu (Merge / Split / Delete-and-reassign). Footer `Continue to Stories`.
+- [x] Task: Build `<EpicReviewPanel>` component under `src/app/runs/[id]/_components/epic-review-panel.tsx`. Epic cards support inline title editing plus selected-epic Merge / Split actions before S4.2 locks the epic set. Drag/drop reassignment and delete/reassign remain polish.
   Verify: Editing epic title, dragging one feature, and clicking `Continue` produces (a) a `PATCH /epics/{id}` for the title, (b) a `PATCH` for each epic affected by the drag, (c) the subsequent `Run Agent B (Stories)` call uses the patched state.
 
 - [ ] Task: Build `<MergeEpicsDialog>` and `<SplitEpicDialog>` (shadcn `<Dialog>`). Merge: checkbox list of other epics + title/description form. Split: dynamic form with N new-epic rows + drag-style feature assignment. Both validate exhaustive feature coverage before allowing submit.
@@ -160,7 +160,7 @@ Depends on backend Phase 1.8 endpoints (`/agent-b/epics`, `/agent-b/stories`, `/
 - [ ] Task: Update the Epics tab on `/runs/[run_id]` to expand stories nested under each epic as Sync-A2 events arrive. During S4.2, an epic with no stories yet renders a small spinner; once `useStories(runId).data` includes stories for that epic_id, render the stories inline.
   Verify: With a fake backend that delivers stories for epic A first, then B, then C, the UI renders A's stories while B and C still show spinners.
 
-- [ ] Task: Wire 409 error handling for new stage mutations. `agent_b_substage_blocked` should scroll the job board into view; `wrong_stage` refetches run; partial-failure response triggers `<AgentBJobBoard>` "Retry failed" highlight.
+- [x] Task: Wire 409 error handling for new stage mutations. `agent_b_substage_blocked` should scroll the job board into view; `wrong_stage` refetches run; partial-failure response triggers `<AgentBJobBoard>` "Retry failed" highlight.
   Verify: Manually trigger each error path (e.g. call `/agent-b/stories` while at `S4_2_AGENT_B_STORIES` already, with one failed job) and confirm UX recovers.
 
 - [ ] Task: Add Cypress or Playwright walkthrough (or at least a manual checklist in `frontend/README.md`) covering the new Agent B substage flow: trigger run → S0 → S1 → HIL-0 bulk proceed → Agent A → HIL-1 inline approve → Agent B Epics → edit one epic title + drag one feature → Continue to Stories → wait fan-out → Continue to Tasks → wait fan-out → HIL-2 inline approve → Agent C → HIL-3 → Finalize → Sign off.

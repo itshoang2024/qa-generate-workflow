@@ -25,6 +25,9 @@ export type PipelineStage =
   | "S2_AGENT_A"
   | "S3_VALIDATION_A"
   | "S4_AGENT_B"
+  | "S4_1_AGENT_B_EPICS"
+  | "S4_2_AGENT_B_STORIES"
+  | "S4_3_AGENT_B_TASKS"
   | "S5_VALIDATION_B_SYNC"
   | "S6_AGENT_C"
   | "S7_VALIDATION_C_SYNC"
@@ -62,6 +65,15 @@ export type ValidationSeverity =
 export type RiskSeverity = "S1" | "S2" | "S3";
 
 export type SyncStatus = "PENDING" | "SUCCESS" | "FAILED" | "REPLAYED";
+
+export type AgentBScope = "epic" | "story";
+
+export type AgentBJobStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILED"
+  | "TIMEOUT";
 
 export type GDDDescriptionStatus = "PENDING" | "USER_PROVIDED" | "AI_GENERATED";
 
@@ -372,6 +384,22 @@ export interface AgentRun {
   created_at: string;
 }
 
+export interface AgentBJob {
+  id: string;
+  run_id: string;
+  scope_type: AgentBScope;
+  scope_id: string;
+  status: AgentBJobStatus;
+  attempt_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  output_summary: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SyncEvent {
   id: string;
   run_id: string;
@@ -520,6 +548,40 @@ export interface ReviewDecisionRequest {
 
 export interface SignOffRequest {
   reviewer?: string;
+}
+
+export interface AgentBStageResponse {
+  run: Run;
+  epics?: Epic[];
+  stories?: Story[];
+  tasks?: QATask[];
+  jobs?: AgentBJob[];
+}
+
+export interface EpicPatchRequest {
+  title?: string;
+  description?: string;
+  feature_ids?: string[];
+  rationale?: string;
+}
+
+export interface EpicMergeRequest {
+  source_epic_ids: string[];
+  target_title: string;
+  target_description: string;
+  target_rationale?: string;
+}
+
+export interface EpicSplitChild {
+  title: string;
+  description: string;
+  feature_ids: string[];
+  rationale?: string;
+}
+
+export interface EpicSplitRequest {
+  epic_id: string;
+  splits: EpicSplitChild[];
 }
 
 export interface SyncReplayResponse {

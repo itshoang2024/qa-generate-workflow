@@ -682,6 +682,21 @@ class AgentB1Output(BaseModel):
 
     epics: list[AgentB1EpicOutput] = Field(min_length=1)
 
+    def to_domain_epics(self, run_id: str) -> list[Epic]:
+        return [
+            Epic(
+                id=f"epic_{uuid4().hex[:12]}",
+                run_id=run_id,
+                epic_id=epic.epic_id,
+                title=epic.title,
+                description=epic.description,
+                feature_ids=epic.feature_ids,
+                external_id=epic.external_id,
+                review_status=ReviewStatus.AUTO_APPROVED,
+            )
+            for epic in self.epics
+        ]
+
 
 AGENT_B1_SYSTEM_PROMPT = """You are QA-Planner-B1, an AI agent that groups approved
 game features into QA Epic skeletons. Your output drives a downstream Story
@@ -745,12 +760,42 @@ AGENT_B1_RESPONSE_SCHEMA: dict[str, Any] = {
 def build_agent_b1_input(hil_context: dict[str, Any]) -> dict[str, Any]:
     """Compose the input payload for Agent B1.
 
-    TODO(phase-1.8): implement. Should read approved_features, epic_candidates,
-    project_id, mode, kb_rules from hil_context (set up by PipelineService
-    `_build_hil1_context` + epic structure derivation). Trim empty/None fields
-    to keep payload under ~8KB for a 25-feature run.
+    Reads approved_features, epic_candidates, project_id, mode, and kb_rules
+    from PipelineService's HIL-1 context. Empty fields are stripped so unit
+    tests can assert payload size deterministically.
     """
-    raise NotImplementedError("Phase 1.8: build_agent_b1_input() pending implementation.")
+    context = hil_context or {}
+    epic_structure = context.get("epic_structure", {})
+    epic_candidates = (
+        epic_structure.get("epics", [])
+        if isinstance(epic_structure, dict)
+        else []
+    )
+    payload: dict[str, Any] = {
+        "project_id": context.get("project_id", "project"),
+        "mode": context.get("mode", RunMode.NEW_GAME.value),
+        "approved_features": [
+            _compact_feature_for_agent_b(feature)
+            for feature in agent_b_feature_context_by_id(context).values()
+        ],
+        "epic_candidates": [
+            _compact(
+                {
+                    "epic_id": candidate.get("epic_id"),
+                    "title": candidate.get("title"),
+                    "feature_ids": candidate.get("feature_ids", []),
+                }
+            )
+            for candidate in epic_candidates
+            if isinstance(candidate, dict)
+        ],
+        "kb_rules": _agent_b_kb_rules(),
+    }
+    if context.get("mode") == RunMode.DELTA.value:
+        payload["delta_report"] = context.get("delta_report") or {}
+    if context.get("validation_feedback"):
+        payload["validation_feedback"] = context["validation_feedback"]
+    return _compact(payload)
 
 
 # ---- Agent B2 — Story Planner (fan-out per epic) -------------------------
@@ -772,6 +817,23 @@ class AgentB2Output(BaseModel):
 
     epic_id: str = Field(min_length=1)
     stories: list[AgentB2StoryOutput] = Field(min_length=1)
+
+    def to_domain_stories(self, run_id: str) -> list[Story]:
+        return [
+            Story(
+                id=f"story_{uuid4().hex[:12]}",
+                run_id=run_id,
+                story_id=story.story_id,
+                epic_id=self.epic_id,
+                title=story.title,
+                description=story.description,
+                feature_id=story.feature_id,
+                acceptance_criteria=story.acceptance_criteria,
+                external_id=story.external_id,
+                review_status=ReviewStatus.AUTO_APPROVED,
+            )
+            for story in self.stories
+        ]
 
 
 AGENT_B2_SYSTEM_PROMPT = """You are QA-Planner-B2, an AI agent that breaks ONE
@@ -840,10 +902,22 @@ def build_agent_b2_input(
 ) -> dict[str, Any]:
     """Compose the input payload for one Agent B2 fan-out call.
 
-    TODO(phase-1.8): implement. Each fan-out call gets ONE epic + its feature
-    subset + verbatim source text for grounding. Keep payload < ~6KB.
+    Each fan-out call gets one epic, its approved feature subset, and only
+    source text referenced by those features.
     """
-    raise NotImplementedError("Phase 1.8: build_agent_b2_input() pending implementation.")
+    return _compact(
+        {
+            "project_id": project_id,
+            "mode": mode,
+            "epic": _compact_epic_for_agent_b(epic),
+            "features": [_compact_feature_for_agent_b(feature) for feature in features],
+            "source_sections_text": _compact_source_text(source_text),
+            "story_seq_offset": story_seq_offset,
+            "kb_rules": {
+                "story_count_target": {"min_per_feature": 1, "max_per_feature": 2},
+            },
+        }
+    )
 
 
 # ---- Agent B3 — Task Planner (fan-out per story) -------------------------
@@ -871,6 +945,48 @@ class AgentB3Output(BaseModel):
 
     story_id: str = Field(min_length=1)
     tasks: list[AgentB3TaskOutput] = Field(min_length=1)
+
+    def to_domain_tasks(
+        self,
+        run_id: str,
+        *,
+        story: dict[str, Any],
+        feature_context_by_id: dict[str, dict[str, Any]],
+    ) -> list[QATask]:
+        story_epic_id = str(story.get("epic_id", ""))
+        tasks: list[QATask] = []
+        for task in self.tasks:
+            feature_context = feature_context_by_id.get(task.feature_id, {})
+            assignee = _assignee_for_feature(feature_context, task.assignee)
+            tasks.append(
+                QATask(
+                    id=f"task_{uuid4().hex[:12]}",
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    story_id=self.story_id,
+                    epic_id=story_epic_id,
+                    feature_id=task.feature_id,
+                    title=task.title,
+                    description=task.description,
+                    assignee=assignee,
+                    priority=task.priority,
+                    priority_justification=task.priority_justification,
+                    estimate=task.estimate,
+                    source_sections=task.source_sections,
+                    external_id=task.external_id,
+                    delta_status=task.delta_status,
+                    confidence=task.confidence,
+                    status=_task_status_for_delta(task.delta_status),
+                    review_status=(
+                        ReviewStatus.NEEDS_REVIEW
+                        if task.delta_status == TaskDeltaStatus.ARCHIVE
+                        else ReviewStatus.AUTO_APPROVED
+                        if task.confidence >= 0.85
+                        else ReviewStatus.NEEDS_REVIEW
+                    ),
+                )
+            )
+        return tasks
 
 
 AGENT_B3_SYSTEM_PROMPT = """You are QA-Planner-B3, an AI agent that breaks ONE
@@ -969,7 +1085,118 @@ def build_agent_b3_input(
 ) -> dict[str, Any]:
     """Compose the input payload for one Agent B3 fan-out call.
 
-    TODO(phase-1.8): implement. Each fan-out call gets ONE story + its feature +
-    verbatim source text. past_corrections injects long-term memory.
+    Each fan-out call gets one story, the feature it belongs to, source text,
+    and optional correction/existing-task context.
     """
-    raise NotImplementedError("Phase 1.8: build_agent_b3_input() pending implementation.")
+    payload: dict[str, Any] = {
+        "project_id": project_id,
+        "mode": mode,
+        "story": _compact_story_for_agent_b(story),
+        "feature": _compact_feature_for_agent_b(feature),
+        "source_sections_text": _compact_source_text(source_text),
+        "task_seq_offset": task_seq_offset,
+        "kb_rules": _agent_b_kb_rules(),
+    }
+    if past_corrections:
+        payload["past_corrections"] = [_compact(correction) for correction in past_corrections]
+    if existing_tasks:
+        payload["existing_tasks"] = [_compact(task) for task in existing_tasks]
+    return _compact(payload)
+
+
+def _agent_b_kb_rules() -> dict[str, Any]:
+    return {
+        "assignee_mapping": {
+            feature_type.value: assignee
+            for feature_type, assignee in QA_ASSIGNEE_BY_FEATURE_TYPE.items()
+        },
+        "task_count_warn": {"min_per_story": 1, "max_per_story": 4},
+    }
+
+
+def _compact_feature_for_agent_b(feature: dict[str, Any]) -> dict[str, Any]:
+    return _compact(
+        {
+            "feature_id": feature.get("feature_id"),
+            "name": _truncate(feature.get("name"), 120),
+            "summary": _truncate(feature.get("summary"), 200),
+            "feature_type": _enum_value(feature.get("feature_type")),
+            "source_sections": feature.get("source_sections", []),
+            "key_behaviors": [
+                _truncate(behavior, 160)
+                for behavior in feature.get("key_behaviors", [])
+                if isinstance(behavior, str)
+            ],
+            "dependencies": feature.get("dependencies", []),
+            "confidence": feature.get("confidence"),
+            "assignee": feature.get("assignee"),
+            "review_status": _enum_value(feature.get("review_status")),
+            "delta_status": _enum_value(feature.get("delta_status")),
+            "cross_cutting_flag": feature.get("cross_cutting_flag"),
+        }
+    )
+
+
+def _compact_epic_for_agent_b(epic: dict[str, Any]) -> dict[str, Any]:
+    return _compact(
+        {
+            "epic_id": epic.get("epic_id"),
+            "title": _truncate(epic.get("title"), 120),
+            "description": _truncate(epic.get("description"), 240),
+            "feature_ids": epic.get("feature_ids", []),
+            "external_id": epic.get("external_id"),
+        }
+    )
+
+
+def _compact_story_for_agent_b(story: dict[str, Any]) -> dict[str, Any]:
+    return _compact(
+        {
+            "story_id": story.get("story_id"),
+            "epic_id": story.get("epic_id"),
+            "title": _truncate(story.get("title"), 140),
+            "description": _truncate(story.get("description"), 300),
+            "feature_id": story.get("feature_id"),
+            "acceptance_criteria": [
+                _truncate(criteria, 200)
+                for criteria in story.get("acceptance_criteria", [])
+                if isinstance(criteria, str)
+            ],
+            "external_id": story.get("external_id"),
+        }
+    )
+
+
+def _compact_source_text(source_text: dict[str, str]) -> dict[str, str]:
+    return {
+        section_id: _truncate(text, 1200)
+        for section_id, text in sorted(source_text.items())
+        if section_id and text
+    }
+
+
+def _compact(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: compacted
+            for key, raw in value.items()
+            if (compacted := _compact(raw)) not in (None, "", [], {})
+        }
+    if isinstance(value, list):
+        return [
+            compacted
+            for raw in value
+            if (compacted := _compact(raw)) not in (None, "", [], {})
+        ]
+    return _enum_value(value)
+
+
+def _enum_value(value: Any) -> Any:
+    return value.value if hasattr(value, "value") else value
+
+
+def _truncate(value: Any, max_length: int) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    return text if len(text) <= max_length else text[: max_length - 3].rstrip() + "..."
