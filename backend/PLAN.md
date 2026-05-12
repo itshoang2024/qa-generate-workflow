@@ -28,7 +28,7 @@ The backend must remain mock-first for the local demo while evolving toward the 
 - Closed S4/S5 gap: real Agent B output can no longer omit approved HIL-1 features / epic candidates and proceed to sync. In `run_1cefe76fe58c`, Agent B returned only `Gameplay Logic Scope`; Validation B now catches that partial coverage, retries with feedback, and blocks Sync-A/B when retries are exhausted.
 - Router lanes ship end-to-end: `derive_router_lane` thresholds in `domain/models.py`, applied by `validate_*_with_routing`, exposed as computed `Feature.lane` / `QATask.lane` / `TestCase.lane`, and surfaced via `GET /api/v1/runs/{run_id}/review-queues/{HIL-tier}`. `ReviewDecision` cascades epic -> features + stories.
 - Validation C covers related-task links, source traceability, category coverage, low confidence, forbidden vague phrases, RNG repeatability, and one-assertion expected results before HIL-3 / Sync-C routing.
-- `NotionSyncClient` abstract base and `MockNotionSyncClient` are implemented. Sync-A writes epics/stories, Sync-B writes eligible tasks with mock page-id relations, and Sync-C writes eligible test cases and transitions synced parent tasks to `Test Cases Ready`.
+- `NotionSyncClient` abstract base and `MockNotionSyncClient` are implemented. Current implementation slice adds the real `httpx` Notion adapter, factory wiring, schema preflight, retry/backoff, dead-letter events, persisted page-id relation hydration, and replay that calls Notion from pipeline state.
 - Risk events, kill switch, reviewer sign-off, and the extended coverage report (`risk_summary`, `sync_summary`, `gdd_version_metadata`, `sign_off`) are implemented. Learning-loop correction memory is still open.
 - Frontend is scaffolded and wired to the staged backend flow. Remaining frontend work is mostly deep-link review/sync/risk/sign-off pages and submission screenshots.
 
@@ -379,14 +379,17 @@ Target behavior:
 
 - Notion is destination only; pipeline state is source of truth.
 - Upsert by `external_id`, never title/description.
-- Sync failure does not block downstream pipeline work.
-- Retry with backoff; use dead-letter queue after max retries.
-- Maintain external_id -> Notion page_id mapping for relations.
+- Use `NOTION_PROVIDER=mock` by default; `NOTION_PROVIDER=real` requires token and Epic/Story/Task/Test Case database IDs.
+- Preflight each configured database schema before first write and fail fast with a `FAILED` sync event when required properties are missing or have the wrong type.
+- Retry 429/5xx/network errors with exponential backoff and `Retry-After` support; use dead-letter `SyncStatus.FAILED` after max retries.
+- Maintain target/page mappings from persisted sync events so S4.1, S4.2, S4.3, and S7 can run in separate HTTP requests.
+- Replay failed sync events by reconstructing artifacts from repository state and calling the Notion adapter again.
+- Sync failure generally does not block downstream generation, except missing parent page IDs fail relation-dependent child sync records.
 
 Acceptance:
 
 - Sync events preserve payload, action, status, retry count, and error.
-- Replay can resume from pipeline state without duplicates.
+- Replay can resume from pipeline state without duplicates and marks successful retries as `REPLAYED`.
 
 ### S6 Agent C - Test Case Generator
 

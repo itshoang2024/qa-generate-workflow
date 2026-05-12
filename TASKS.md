@@ -11,7 +11,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | Phase 1.5 - Stage Orchestration Endpoints | 7 / 7 | Per-stage endpoints, blocking HIL gates, bulk HIL-0 resolution, and regression tests shipped. |
 | Phase 1.6 - Agent B Coverage Guard | 5 / 5 | Real Agent B cannot persist/sync a partial plan that omits approved HIL-1 features or epic candidates. |
 | **Phase 1.8 - Agent B Hierarchical Decomposition** | **9 / 9 docs, implementation shipped with polish remaining** | B1 epic / B2 stories / B3 tasks, AgentBJobBoard, EpicReviewPanel edit/merge/split, Sync-A1/A2, OpenAI streaming adapters, validators, and API wiring shipped. Remaining polish is tracked in backend/frontend task files. |
-| Phase 2 - Real AI / Notion / Risk | 8 / 11 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B/C adapters shipped. Real Notion adapter, Notion schema preflight/rate limit/dead-letter, and GDD description generation still open. |
+| Phase 2 - Real AI / Notion / Risk | 10 / 15 | NotionSyncClient interface, Sync-A/B/C phases, RiskEvent + kill switch + sign-off shipped; Agent A retry/repair plus OpenAI Agent A/B/C adapters shipped. Real Notion adapter, schema preflight, retry/dead-letter, relation hydration, and replay are test-covered. GDD description generation remains open. |
 | Phase 3 - Frontend | 10 / 12 | Stage-aware dashboard CTA, stage mutation hooks, inline HIL approval, bulk HIL-0, and offline font build support shipped; deep-link HIL routes and sync/risk pages remain. |
 | Phase 4 - Verification & Submission | 4 / 8 | Backend tests/lint and frontend lint/typecheck/build pass; screenshots, README polish, browser walkthrough capture, and real Notion smoke remain. |
 
@@ -30,7 +30,7 @@ Remaining implementation and polish should focus on:
 
 Lower-priority follow-ups (do **after** the walkthrough works):
 
-- Real Notion adapter (`NotionSyncClient` httpx implementation) with schema preflight, rate-limit/backoff, dead-letter queue, and a `POST /sync-replay` producer that actually moves `SyncStatus.FAILED` → `REPLAYED`.
+- Real Notion adapter (`NotionSyncClient` httpx implementation) with schema preflight, rate-limit/backoff, dead-letter queue, relation page-id hydration, and a `POST /sync-replay` producer that actually calls Notion before moving `SyncStatus.FAILED` to `REPLAYED`.
 - Per-task Agent C job orchestration (Task 1 says C should fire as parallel jobs as each task is approved; current stage endpoint runs the eligible set in one stage).
 - Final English-only pass over `Task-1..4.md` for the submission package.
 
@@ -206,11 +206,11 @@ This bugfix slice prevents real Agent B from silently producing a partial plan l
 - [x] Task: Implement Task 3 Sync-A/B/C semantics.
   Verify: `pipeline.run_demo()` calls `_sync_a_epics_stories()` (after Agent B + Validation B), `_sync_b_tasks()` (filtered to `AUTO_APPROVED`/`APPROVED`), and `_sync_c_test_cases()` (per approved task, flips task `status` → `Test Cases Ready`). Demo emits 10 Sync-A + 9 Sync-B + 36 Sync-C events. Covered by `test_sync_events_endpoint_shows_sync_a_b_c_phases`.
 
-- [ ] Task: Add real Notion upsert by `external_id` for epics, stories, tasks, and test cases.
-  Verify: Running demo with Notion credentials creates or updates Notion records without duplicates. Provider hook is in place (`NotionSyncClient` interface + `notion_sync_client` injection on `PipelineService`); the httpx adapter itself is not implemented.
+- [x] Task: Add real Notion factory/config and `httpx` upsert by `external_id` for epics, stories, tasks, and test cases.
+  Verify: Unit tests fake Notion query/create/update calls; `NOTION_PROVIDER=real` requires token + DB IDs and mock mode still runs without credentials.
 
-- [ ] Task: Add Notion schema preflight, rate limiting, replay, and dead-letter handling.
-  Verify: Schema mismatch pauses sync; 429 retries with backoff; failed records are replayable. (`replay_failed_sync_events` + `POST /api/v1/runs/{id}/sync-replay` exist on the repository/API; need a producer of `SyncStatus.FAILED` events inside a real Notion adapter.)
+- [x] Task: Add Notion schema preflight, rate limiting, relation hydration, replay, and dead-letter handling.
+  Verify: Schema mismatch creates `SyncStatus.FAILED`; 429 retries with backoff; staged requests resolve parent page IDs from prior successful sync events; `POST /api/v1/runs/{id}/sync-replay` calls Notion and moves successful failures to `REPLAYED`.
 
 - [x] Task: Add Task 4 risk events, dashboard data, and kill-switch thresholds.
   Verify: `RiskEvent` model + `RiskSeverity` enum + repository `add_risk_events`/`list_risk_events` + `GET /api/v1/runs/{run_id}/risk-events`. `risk_events_from_validation_issues` maps validator codes → risk events. `kill_switch_state` trips when S1 count ≥ 3 and aborts the run before Agent C with a stored `kill_switch_tripped` risk event. Covered by `test_risk_events_*`, `test_risk_events_endpoint_returns_validator_escalations`.

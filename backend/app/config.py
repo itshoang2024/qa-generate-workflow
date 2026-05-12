@@ -22,6 +22,15 @@ class Settings:
     openai_timeout_read_seconds: float
     anthropic_api_key: str | None
     notion_token: str | None
+    notion_api_base_url: str
+    notion_version: str
+    notion_epic_database_id: str | None
+    notion_story_database_id: str | None
+    notion_task_database_id: str | None
+    notion_test_case_database_id: str | None
+    notion_retry_count: int
+    notion_retry_backoff_seconds: float
+    notion_timeout_seconds: float
     supabase_url: str | None
     supabase_service_role_key: str | None
     project_root: Path
@@ -70,6 +79,22 @@ def get_settings(env_file: Path | None = None) -> Settings:
         ),
         anthropic_api_key=_env_value("ANTHROPIC_API_KEY", env_values) or None,
         notion_token=_env_value("NOTION_TOKEN", env_values) or None,
+        notion_api_base_url=_env_value(
+            "NOTION_API_BASE_URL",
+            env_values,
+            "https://api.notion.com/v1",
+        ).rstrip("/"),
+        notion_version=_env_value("NOTION_VERSION", env_values, "2022-06-28"),
+        notion_epic_database_id=_env_value("NOTION_EPIC_DATABASE_ID", env_values) or None,
+        notion_story_database_id=_env_value("NOTION_STORY_DATABASE_ID", env_values) or None,
+        notion_task_database_id=_env_value("NOTION_TASK_DATABASE_ID", env_values) or None,
+        notion_test_case_database_id=_env_value("NOTION_TEST_CASE_DATABASE_ID", env_values)
+        or None,
+        notion_retry_count=int(_env_value("NOTION_RETRY_COUNT", env_values, "3")),
+        notion_retry_backoff_seconds=float(
+            _env_value("NOTION_RETRY_BACKOFF_SECONDS", env_values, "1")
+        ),
+        notion_timeout_seconds=float(_env_value("NOTION_TIMEOUT_SECONDS", env_values, "20")),
         supabase_url=_env_value("SUPABASE_URL", env_values) or None,
         supabase_service_role_key=_env_value("SUPABASE_SERVICE_ROLE_KEY", env_values) or None,
         project_root=project_root,

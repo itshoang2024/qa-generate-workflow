@@ -48,6 +48,7 @@ import {
   useRunAgentBStories,
   useRunAgentBTasks,
   useRunAgentC,
+  useReplaySync,
   useSignOffRun,
 } from "@/lib/mutations";
 import type {
@@ -532,6 +533,7 @@ function AgentRunRow({
 
 function AgentRunsPanel({ runId }: { runId: string }) {
   const { data, isPending, isError } = useAgentRuns(runId);
+  const replaySync = useReplaySync(runId);
   const runs = (data ?? []) as AgentRun[];
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [manualExpanded, setManualExpanded] = useState(false);
@@ -584,9 +586,18 @@ function AgentRunsPanel({ runId }: { runId: string }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12.5px] font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors">
-            <RefreshCw size={13} />
-            Replay
+          <button
+            type="button"
+            onClick={() => replaySync.mutate()}
+            disabled={replaySync.isPending}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12.5px] font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100 disabled:opacity-60 disabled:pointer-events-none transition-colors"
+          >
+            {replaySync.isPending ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+            {replaySync.isPending ? "Replaying" : "Replay"}
           </button>
           <button className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12.5px] font-medium text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors">
             <FileText size={13} />

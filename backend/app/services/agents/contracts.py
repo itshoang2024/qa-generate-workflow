@@ -260,6 +260,13 @@ class AgentCStepOutput(BaseModel):
     action: str = Field(min_length=1)
 
 
+class AgentCTestDataEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1)
+    value: str | int | float | bool | None
+
+
 class AgentCTestCaseOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -269,7 +276,7 @@ class AgentCTestCaseOutput(BaseModel):
     category: TestCategory
     priority: Priority
     preconditions: list[str] = Field(min_length=1)
-    test_data: dict[str, Any] = Field(min_length=1)
+    test_data: list[AgentCTestDataEntry] = Field(min_length=1)
     steps: list[AgentCStepOutput] = Field(min_length=1)
     expected_result: str = Field(min_length=1)
     related_task_id: str = Field(min_length=1)
@@ -301,6 +308,7 @@ class AgentCOutput(BaseModel):
     ) -> list[TestCase]:
         test_cases: list[TestCase] = []
         for index, item in enumerate(self.test_cases, start=test_case_seq_offset):
+            test_data = {entry.key: entry.value for entry in item.test_data}
             test_cases.append(
                 TestCase(
                     id=f"tc_{uuid4().hex[:12]}",
@@ -320,7 +328,7 @@ class AgentCOutput(BaseModel):
                     dedup_flag=task.dedup_flag,
                     cross_cutting_flag=task.cross_cutting_flag,
                     test_data={
-                        **item.test_data,
+                        **test_data,
                         "source_task_external_id": task.external_id,
                     },
                     review_status=(
@@ -612,11 +620,12 @@ Hard rules:
 4. Use one assertion per test case. Split chained "and" assertions into separate cases.
 5. Preconditions and test_data must be concrete. Forbidden phrases: "valid state",
    "appropriate setup", "typical conditions", "and so on".
-6. Steps must be repeatable. If a case depends on RNG, include rng_seed in test_data.
+6. Return test_data as an array of concrete {"key", "value"} entries.
+7. Steps must be repeatable. If a case depends on RNG, include rng_seed in test_data.
    If RNG cannot be seeded, prefix the title with "[NON-DET]" and explain why.
-7. Generate at least one positive, negative, and edge case. Generate integration coverage
+8. Generate at least one positive, negative, and edge case. Generate integration coverage
    when related_features are provided; otherwise use integration_count=0.
-8. If source is insufficient for a category, output a "[GAP]" placeholder instead of
+9. If source is insufficient for a category, output a "[GAP]" placeholder instead of
    inventing behavior.
 """
 
@@ -653,10 +662,24 @@ AGENT_C_RESPONSE_SCHEMA: dict[str, Any] = {
                         "minItems": 1,
                     },
                     "test_data": {
-                        "type": "object",
-                        "minProperties": 1,
-                        "additionalProperties": {
-                            "type": ["string", "number", "integer", "boolean", "null"],
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {"type": "string", "minLength": 1},
+                                "value": {
+                                    "anyOf": [
+                                        {"type": "string"},
+                                        {"type": "number"},
+                                        {"type": "integer"},
+                                        {"type": "boolean"},
+                                        {"type": "null"},
+                                    ]
+                                },
+                            },
+                            "required": ["key", "value"],
+                            "additionalProperties": False,
                         },
                     },
                     "steps": {

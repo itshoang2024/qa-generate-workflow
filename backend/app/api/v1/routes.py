@@ -29,6 +29,7 @@ from app.domain.models import (
 from app.domain.responses import envelope
 from app.domain.qa_roster import QA_MEMBERS
 from app.services.agents.factory import SUPPORTED_AI_PROVIDERS
+from app.services.notion.factory import SUPPORTED_NOTION_PROVIDERS, real_notion_settings_ready
 from app.services.pipeline import PipelineConflictError
 from app.services.review_queues import build_review_queue
 
@@ -515,8 +516,7 @@ def create_hil2_task_decision(
 @router.post("/runs/{run_id}/sync-replay")
 def replay_sync(run_id: str) -> dict[str, object]:
     _require_run(run_id)
-    replayed = repository_dependency().replay_failed_sync_events(run_id)
-    return envelope({"replayed_count": len(replayed), "events": replayed})
+    return envelope(pipeline_dependency().replay_sync(run_id))
 
 
 @router.post("/runs/{run_id}/sign-off")
@@ -622,9 +622,12 @@ def _ai_credentials_ready(settings: Settings) -> bool:
 
 
 def _notion_credentials_ready(settings: Settings) -> bool:
-    if settings.notion_provider.lower() == "mock":
+    provider = settings.notion_provider.lower()
+    if provider == "mock":
         return True
-    return bool(settings.notion_token)
+    if provider == "real":
+        return real_notion_settings_ready(settings)
+    return provider in SUPPORTED_NOTION_PROVIDERS
 
 
 def _repository_credentials_ready(settings: Settings) -> bool:

@@ -6,6 +6,11 @@ from app.domain.models import Epic, QATask, Story, SyncEvent, TestCase
 
 
 class NotionSyncClient(ABC):
+    provider = "notion"
+
+    def prime_page_mappings(self, sync_events: list[SyncEvent]) -> None:
+        _ = sync_events
+
     @abstractmethod
     def upsert_epic(self, epic: Epic) -> SyncEvent: ...
 

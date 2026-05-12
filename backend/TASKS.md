@@ -17,7 +17,7 @@ Progress rule: when a task in this file is completed, update its checkbox from `
 | S4 Agent B (legacy bundled) | 6 / 6 | Agent B has the Task 2 contract/OpenAI path, assignee normalization, DELTA behavior, and coverage-feedback retry for partial real-provider output. |
 | **Phase 1.8 — Agent B Hierarchical Decomposition** | **21 / 24 implementation** | Domain stages, AgentBJob persistence, B1/B2/B3 contracts/adapters, functional sub-stages, endpoints, validators, Sync-A1/A2, settings, and streaming response handling shipped. Remaining: transactional external-id allocator, legacy wrapper refactor, per-call timing/token usage. |
 | S5 Validation B + Router B + HIL-2 | 6 / 6 | Validators, lanes, HIL-2 decisions, approved-feature coverage, HIL-1 epic coverage, and Sync-A/B blocking on exhausted coverage retry shipped. |
-| S5b Notion Sync-A/B | 3 / 4 | `NotionSyncClient` interface + mock implementation shipped; Sync-A/B separated with mock page-id mappings. Real schema preflight / retry / dead-letter still open. |
+| S5b Notion Sync-A/B | 7 / 8 | `NotionSyncClient` interface + mock implementation shipped; real factory/adapter, schema preflight, retry/dead-letter, relation hydration, and replay are test-covered. |
 | S6 Agent C | 3 / 3 | Agent C has mock + OpenAI structured-output adapters; concrete test data and repeatability guardrails ship. |
 | S7 Validation C + HIL-3 | 2 / 2 | Category coverage, source traceability, low-confidence, forbidden-vague-phrase, RNG repeatability, one-assertion expected-result validators, and HIL-3 queue ship. |
 | S7b Notion Sync-C | 2 / 2 | Sync-C emits separate test-case sync events and transitions eligible parent tasks to `Test Cases Ready`. |
@@ -36,13 +36,15 @@ Recently completed:
 
 Every Task-1 stage (S0..S7 + HIL-0..HIL-3 + Final), every Task-2 contract for Agent A/B/C (with structured-output OpenAI adapter + bounded validation retry where needed), every Task-3 sync phase (A/B/C with eligibility gating + page-id mapping + parent-task status transition), and every Task-4 backbone (RiskEvent + kill switch + sign-off + risk_summary/sync_summary in the coverage report) ships and is test-covered.
 
-The reviewer-facing stage UI is now wired. Backend work that can run in parallel with frontend polish:
+The reviewer-facing stage UI is now wired. Current backend focus:
 
-1. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps the `https://api.notion.com/v1` API, posts properties matching Task 3 schemas, retries with backoff on 429, and emits `SyncStatus.FAILED` events on persistent failures so `POST /api/v1/runs/{id}/sync-replay` has real targets to replay.
-2. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` and verify required properties exist; pause sync and emit a Task-4 risk event on mismatch.
-3. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
+1. **Real Notion `httpx` adapter** under `app/services/notion/notion.py`: wraps `https://api.notion.com/v1`, posts Task 3 properties, retries with backoff on 429/5xx, and emits `SyncStatus.FAILED` on persistent failures.
+2. **Notion factory/config**: `NOTION_PROVIDER=real` constructs the adapter only when token + Epic/Story/Task/Test Case DB IDs are present; `/providers/status` reports readiness.
+3. **Notion schema preflight**: before any upsert, `GET /v1/databases/{id}` verifies required properties and emits failed sync/risk evidence on mismatch.
+4. **Relation hydration + replay**: parent page IDs are loaded from persisted successful sync events across staged requests; `POST /api/v1/runs/{id}/sync-replay` reconstructs artifacts and calls Notion again.
+5. **Correction memory**: persist HIL decisions with patch payload as the Task 4 learning-loop store; expose `GET /api/v1/projects/{id}/corrections` so future runs can feed prior corrections to Agent A/B prompts.
 
-Pick real Notion if the homework grader needs external-provider proof; pick correction memory and validator polish for demo realism without external dependencies; otherwise keep those items as Phase 4 polish.
+Pick real Notion first if the homework grader needs external-provider proof; correction memory remains Phase 4 polish.
 
 ## Phase 0 Items From Root Plan
 
@@ -306,8 +308,17 @@ This phase implements the design in `backend/PLAN.md` "Phase 1.8" section. Mock 
 - [x] Task: Implement Sync-B for Task after HIL-2 or Router B auto-approval.
   Verify: Task upserts use `external_id`, relation page IDs, and only AUTO/APPROVED tasks are synced in Sync-B. Covered by `test_sync_events_endpoint_shows_sync_a_b_c_phases`.
 
-- [ ] Task: Add Notion schema validation, throttling, retry, replay, and dead-letter behavior.
-  Verify: Missing properties block sync; 429 retries; failed events are replayable.
+- [x] Task: Add Notion factory/config and real `httpx` adapter.
+  Verify: `build_notion_sync_client()` returns mock by default, requires token + DB IDs for `NOTION_PROVIDER=real`, and unit tests fake query/create/update by `external_id`.
+
+- [x] Task: Add Notion schema validation, throttling, retry, and dead-letter behavior.
+  Verify: Missing properties produce `SyncStatus.FAILED`; 429 retries respect `Retry-After`; persistent failures keep status `FAILED` with retry/error metadata.
+
+- [x] Task: Hydrate Notion page-id relations from persisted sync events.
+  Verify: Running S4.1 and S4.2/S4.3 in separate API requests still links Story -> Epic, Task -> Story/Epic, and Test Case -> Task.
+
+- [x] Task: Implement real sync replay from pipeline state.
+  Verify: `POST /api/v1/runs/{id}/sync-replay` reconstructs failed targets, calls the Notion adapter, and changes successful retries to `SyncStatus.REPLAYED`.
 
 ## Phase S6 - Agent C
 

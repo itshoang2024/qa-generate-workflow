@@ -196,7 +196,11 @@ def test_agent_c_response_schema_requires_concrete_case_fields() -> None:
     assert case_schema["properties"]["test_case_id"]["pattern"] == "^TC-[0-9]{4,}$"
     assert case_schema["properties"]["title"]["maxLength"] == 100
     assert case_schema["properties"]["source_sections"]["minItems"] == 1
-    assert case_schema["properties"]["test_data"]["minProperties"] == 1
+    test_data_schema = case_schema["properties"]["test_data"]
+    assert test_data_schema["type"] == "array"
+    assert test_data_schema["minItems"] == 1
+    assert test_data_schema["items"]["required"] == ["key", "value"]
+    assert test_data_schema["items"]["additionalProperties"] is False
     assert "test_data" in case_schema["required"]
     assert step_schema["required"] == ["step_number", "action"]
 
@@ -658,7 +662,11 @@ def _agent_c_payload(related_task_id: str = "T-001") -> dict[str, object]:
                 "category": category,
                 "priority": "P0",
                 "preconditions": ["board=5x5", "health=3", "snake_A at (2,2)"],
-                "test_data": {"board": "5x5", "health": 3, "snake": "snake_A"},
+                "test_data": [
+                    {"key": "board", "value": "5x5"},
+                    {"key": "health", "value": 3},
+                    {"key": "snake", "value": "snake_A"},
+                ],
                 "steps": [{"step_number": 1, "action": "Tap snake_A at (2,2)"}],
                 "expected_result": "snake_A follows the clear path.",
                 "related_task_id": related_task_id,

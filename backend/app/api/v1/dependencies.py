@@ -4,6 +4,7 @@ from app.config import Settings, get_settings
 from app.repositories.factory import build_repository
 from app.repositories.workflow_repository import WorkflowRepository
 from app.services.agents.factory import build_agent_client
+from app.services.notion.factory import build_notion_sync_client
 from app.services.pipeline import PipelineService
 
 
@@ -26,6 +27,7 @@ def pipeline_dependency() -> PipelineService:
         upload_dir=settings.upload_dir,
         max_upload_bytes=settings.max_upload_bytes,
         agent_client=build_agent_client(settings),
+        notion_sync_client=build_notion_sync_client(settings),
         agent_b2_parallelism=settings.agent_b2_parallelism,
         agent_b3_parallelism=settings.agent_b3_parallelism,
     )

@@ -12,7 +12,7 @@ app = FastAPI(
     title="QA Generate Workflow API",
     description=(
         "Prototype API for an AI-assisted QA workflow: GDD parsing, feature inventory, "
-        "task planning, test-case generation, validation gates, and mock Notion sync."
+        "task planning, test-case generation, validation gates, and Notion sync."
     ),
     version="0.1.0",
 )

@@ -168,6 +168,9 @@ class WorkflowRepository(ABC):
     def add_sync_events(self, events: list[SyncEvent]) -> list[SyncEvent]: ...
 
     @abstractmethod
+    def update_sync_event(self, event: SyncEvent) -> SyncEvent: ...
+
+    @abstractmethod
     def list_sync_events(self, run_id: str) -> list[SyncEvent]: ...
 
     @abstractmethod
@@ -378,6 +381,16 @@ class InMemoryWorkflowRepository(WorkflowRepository):
         if events:
             self.sync_events.setdefault(events[0].run_id, []).extend(events)
         return events
+
+    def update_sync_event(self, event: SyncEvent) -> SyncEvent:
+        events = self.sync_events.setdefault(event.run_id, [])
+        for index, current in enumerate(events):
+            if current.id == event.id:
+                updated = event.model_copy(update={"updated_at": utc_now()})
+                events[index] = updated
+                return updated
+        events.append(event)
+        return event
 
     def list_sync_events(self, run_id: str) -> list[SyncEvent]:
         return self.sync_events.get(run_id, [])

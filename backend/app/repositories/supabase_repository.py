@@ -252,6 +252,11 @@ class SupabaseWorkflowRepository(WorkflowRepository):
         self._bulk_insert("sync_events", events)
         return events
 
+    def update_sync_event(self, event: SyncEvent) -> SyncEvent:
+        updated = event.model_copy(update={"updated_at": utc_now()})
+        self.client.table("sync_events").update(self._dump(updated)).eq("id", event.id).execute()
+        return updated
+
     def list_sync_events(self, run_id: str) -> list[SyncEvent]:
         return self._list_run_rows("sync_events", run_id, SyncEvent)
 

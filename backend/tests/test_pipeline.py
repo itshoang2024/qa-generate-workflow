@@ -17,6 +17,8 @@ from app.domain.models import (
     RunMode,
     S0TriggerRequest,
     S1ContextRequest,
+    SyncEvent,
+    SyncStatus,
     TestCase as DomainTestCase,
     ReviewStatus,
 )
@@ -58,6 +60,42 @@ def test_demo_pipeline_generates_complete_execution_plan() -> None:
     assert run.coverage_report["task_count"] == 11
     assert run.coverage_report["test_case_count"] == 44
     assert repository.list_validation_issues(run.id)
+
+
+def test_sync_stage_summary_reports_provider_and_failures(tmp_path: Path) -> None:
+    repository = InMemoryWorkflowRepository()
+    service = PipelineService(
+        repository=repository,
+        fixture_path=tmp_path / "fixture.json",
+        snake_gdd_path=tmp_path / "gdd.docx",
+    )
+    events = [
+        SyncEvent(
+            run_id="run_1",
+            target_type="test_case",
+            target_id="TC-0001",
+            external_id="snake-TC-0001",
+            action="upsert",
+            provider="notion",
+            payload={"sync_phase": "Sync-C"},
+        ),
+        SyncEvent(
+            run_id="run_1",
+            target_type="test_case",
+            target_id="TC-0002",
+            external_id="snake-TC-0002",
+            action="upsert",
+            provider="notion",
+            status=SyncStatus.FAILED,
+            payload={"sync_phase": "Sync-C", "error_code": "notion_schema_mismatch"},
+            error="Notion test_case schema mismatch.",
+        ),
+    ]
+
+    assert (
+        service._sync_stage_summary("Sync-C", events)
+        == "Sync-C via notion: 1/2 records succeeded, 1 failed"
+    )
 
 
 def test_demo_pipeline_snapshots_hil1_context_for_agent_b() -> None:

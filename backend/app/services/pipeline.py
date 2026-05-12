@@ -30,6 +30,8 @@ from app.domain.models import (
     ProjectCreateRequest,
     QATask,
     ReviewStatus,
+    RiskEvent,
+    RiskSeverity,
     Run,
     RunMode,
     RunStatus,
@@ -37,6 +39,8 @@ from app.domain.models import (
     S1ContextRequest,
     StageEvent,
     Story,
+    SyncEvent,
+    SyncStatus,
     TestCase,
     ValidationIssue,
     ValidationSeverity,
@@ -162,6 +166,69 @@ class PipelineService:
         if self.repository.get_run(run_id) is None:
             raise LookupError(f"Run not found: {run_id}")
         return self._coverage_report(run_id)
+
+    def replay_sync(self, run_id: str) -> dict[str, object]:
+        self._require_run(run_id)
+        failed_events = sorted(
+            self._failed_sync_events(self.repository.list_sync_events(run_id)),
+            key=self._sync_replay_order,
+        )
+        replayed: list[SyncEvent] = []
+        for event in failed_events:
+            self._prime_notion_page_mappings(run_id)
+            attempt = self._replay_sync_event(event)
+            if attempt.status == SyncStatus.SUCCESS:
+                updated = event.model_copy(
+                    update={
+                        "status": SyncStatus.REPLAYED,
+                        "retry_count": event.retry_count + attempt.retry_count + 1,
+                        "error": None,
+                        "payload": {
+                            **event.payload,
+                            **{
+                                key: value
+                                for key, value in attempt.payload.items()
+                                if key
+                                in {
+                                    "notion_page_id",
+                                    "notion_url",
+                                    "operation",
+                                    "properties",
+                                }
+                            },
+                            "replayed_at": utc_now().isoformat(),
+                        },
+                        "updated_at": utc_now(),
+                    }
+                )
+            else:
+                updated = event.model_copy(
+                    update={
+                        "retry_count": event.retry_count + attempt.retry_count + 1,
+                        "error": attempt.error,
+                        "payload": {
+                            **event.payload,
+                            **{
+                                key: value
+                                for key, value in attempt.payload.items()
+                                if key
+                                in {
+                                    "database",
+                                    "database_id",
+                                    "error_code",
+                                    "schema_errors",
+                                    "status_code",
+                                }
+                            },
+                            "last_replay_error_code": attempt.payload.get("error_code"),
+                            "last_replay_at": utc_now().isoformat(),
+                        },
+                        "updated_at": utc_now(),
+                    }
+                )
+            replayed.append(self.repository.update_sync_event(updated))
+        self._record_sync_risk_events([event for event in replayed if event.status == SyncStatus.FAILED])
+        return {"replayed_count": len(replayed), "events": replayed}
 
     def run_demo(self, request: DemoRunRequest) -> Run:
         if request.preset != "snake_escape":
@@ -291,6 +358,7 @@ class PipelineService:
                 self.repository.add_validation_issues(issues)
                 self._record_risk_events(issues)
                 self.repository.add_sync_events(events)
+                self._record_sync_risk_events(events)
             if self._all_agent_b_jobs_success(run.id, AgentBScope.EPIC):
                 self._mark_agent_b_status(run, "s4_2_status", "COMPLETE")
                 self._stage(run, PipelineStage.S4_2_AGENT_B_STORIES, "Agent B2 retry completed.")
@@ -594,12 +662,13 @@ class PipelineService:
         eligible_tasks = self._eligible_for_sync(tasks)
         sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
         self.repository.add_sync_events(sync_a_events + sync_b_events)
+        self._record_sync_risk_events(sync_a_events + sync_b_events)
         run = self._stage(
             run,
             PipelineStage.S5_VALIDATION_B_SYNC,
             f"Task validation produced {len(task_issues)} issues; "
-            f"Sync-A wrote {len(sync_a_events)} records; "
-            f"Sync-B wrote {len(sync_b_events)} task records.",
+            f"{self._sync_stage_summary('Sync-A', sync_a_events)}; "
+            f"{self._sync_stage_summary('Sync-B', sync_b_events)}.",
         )
         run = self._update_kill_switch_state(run)
         if self._should_abort_run(run):
@@ -662,14 +731,19 @@ class PipelineService:
         self.repository.set_epics(run.id, epics)
         sync_events = self._sync_a1_epics(epics)
         self.repository.add_sync_events(sync_events)
+        self._record_sync_risk_events(sync_events)
         return self._stage(
             run,
             PipelineStage.S4_1_AGENT_B_EPICS,
-            f"Agent B1 generated {len(epics)} epics; Sync-A1 wrote {len(sync_events)} records.",
+            (
+                f"Agent B1 generated {len(epics)} epics; "
+                f"{self._sync_stage_summary('Sync-A1', sync_events)}."
+            ),
         )
 
     def _stage_s4_2_stories(self, run: Run) -> Run:
         epics = self.repository.list_epics(run.id)
+        self._assert_sync_a1_ready(run.id, epics)
         features_by_id = {feature.feature_id: feature for feature in self.repository.list_features(run.id)}
         sections = self.repository.list_sections(run.id)
         jobs = [
@@ -702,6 +776,7 @@ class PipelineService:
         self.repository.add_validation_issues(issues)
         self._record_risk_events(issues)
         self.repository.add_sync_events(sync_events)
+        self._record_sync_risk_events(sync_events)
         failed_jobs = self._failed_agent_b_jobs(run.id, AgentBScope.EPIC)
         self.repository.add_agent_run(
             AgentRun(
@@ -729,7 +804,7 @@ class PipelineService:
             PipelineStage.S4_2_AGENT_B_STORIES,
             (
                 f"Agent B2 generated {len(stories)} stories; "
-                f"Sync-A2 wrote {len(sync_events)} records."
+                f"{self._sync_stage_summary('Sync-A2', sync_events)}."
             ),
         )
         if failed_jobs:
@@ -823,11 +898,12 @@ class PipelineService:
         eligible_tasks = self._eligible_for_sync(tasks)
         sync_b_events = self._sync_b_tasks(eligible_tasks, feature_name_by_id)
         self.repository.add_sync_events(sync_b_events)
+        self._record_sync_risk_events(sync_b_events)
         run = self._stage(
             run,
             PipelineStage.S5_VALIDATION_B_SYNC,
             f"Agent B3 validation produced {len(task_issues)} issues; "
-            f"Sync-B wrote {len(sync_b_events)} task records.",
+            f"{self._sync_stage_summary('Sync-B', sync_b_events)}.",
         )
         run = self._update_kill_switch_state(run)
         if self._should_abort_run(run):
@@ -880,12 +956,13 @@ class PipelineService:
         eligible_test_cases = self._eligible_for_sync(test_cases)
         test_case_sync_events = self._sync_c_test_cases(eligible_test_cases, tasks)
         self.repository.add_sync_events(test_case_sync_events)
+        self._record_sync_risk_events(test_case_sync_events)
         return self._stage(
             run,
             PipelineStage.S7_VALIDATION_C_SYNC,
             (
                 f"Test-case validation produced {len(test_case_issues)} issues; "
-                f"synced {len(test_case_sync_events)} mock Notion records."
+                f"{self._sync_stage_summary('Sync-C', test_case_sync_events)}."
             ),
         )
 
@@ -1277,10 +1354,47 @@ class PipelineService:
         }
 
     def _sync_a1_epics(self, epics: list[Epic]) -> list[Any]:
+        if epics:
+            self._prime_notion_page_mappings(epics[0].run_id)
         return self.notion_sync.upsert_epics_batch(epics)
 
     def _sync_a2_stories(self, epic: Epic, stories: list[Story]) -> list[Any]:
+        if stories:
+            self._prime_notion_page_mappings(stories[0].run_id)
+        else:
+            self._prime_notion_page_mappings(epic.run_id)
         return self.notion_sync.upsert_stories_for_epic(epic, stories)
+
+    def _prime_notion_page_mappings(self, run_id: str) -> None:
+        self.notion_sync.prime_page_mappings(self.repository.list_sync_events(run_id))
+
+    def _assert_sync_a1_ready(self, run_id: str, epics: list[Epic]) -> None:
+        synced_epic_ids = {
+            event.target_id
+            for event in self.repository.list_sync_events(run_id)
+            if event.target_type == "epic"
+            and event.status in {SyncStatus.SUCCESS, SyncStatus.REPLAYED}
+            and isinstance(event.payload.get("notion_page_id"), str)
+        }
+        missing_epic_ids = [
+            epic.epic_id for epic in epics if epic.epic_id not in synced_epic_ids
+        ]
+        if not missing_epic_ids:
+            return
+        failed_events = [
+            event
+            for event in self.repository.list_sync_events(run_id)
+            if event.target_type == "epic" and event.target_id in set(missing_epic_ids)
+        ]
+        raise PipelineConflictError(
+            "notion_sync_a1_failed",
+            "Sync-A1 must succeed before story planning can link stories to epic pages.",
+            {
+                "run_id": run_id,
+                "missing_epic_ids": missing_epic_ids,
+                "failed_sync_events": [self._sync_event_detail(event) for event in failed_events],
+            },
+        )
 
     def _failed_agent_b_jobs(self, run_id: str, scope: AgentBScope) -> list[AgentBJob]:
         return [
@@ -1378,6 +1492,18 @@ class PipelineService:
                 return story
         raise LookupError(f"Story not found: {story_id}")
 
+    def _require_task(self, run_id: str, task_id: str) -> QATask:
+        for task in self.repository.list_tasks(run_id):
+            if task.id == task_id or task.task_id == task_id:
+                return task
+        raise LookupError(f"Task not found: {task_id}")
+
+    def _require_test_case(self, run_id: str, test_case_id: str) -> TestCase:
+        for test_case in self.repository.list_test_cases(run_id):
+            if test_case.id == test_case_id or test_case.test_case_id == test_case_id:
+                return test_case
+        raise LookupError(f"Test case not found: {test_case_id}")
+
     def _find_epic(self, epics: list[Epic], epic_id: str) -> tuple[int, Epic]:
         for index, epic in enumerate(epics):
             if epic.id == epic_id or epic.epic_id == epic_id:
@@ -1426,7 +1552,11 @@ class PipelineService:
         return f"E-{_safe_id(title).upper().replace('_', '-')}"
 
     def _sync_a_epics_stories(self, epics: list[Any], stories: list[Any]) -> list[Any]:
+        if epics:
+            self._prime_notion_page_mappings(epics[0].run_id)
         events = [self.notion_sync.upsert_epic(epic) for epic in epics]
+        if events:
+            self.notion_sync.prime_page_mappings(events)
         events.extend(self.notion_sync.upsert_story(story) for story in stories)
         return events
 
@@ -1435,14 +1565,25 @@ class PipelineService:
         tasks: list[Any],
         feature_name_by_id: dict[str, str],
     ) -> list[Any]:
+        if tasks:
+            self._prime_notion_page_mappings(tasks[0].run_id)
         return [
             self.notion_sync.upsert_task(task, feature_name_by_id.get(task.feature_id, "Unknown"))
             for task in tasks
         ]
 
     def _sync_c_test_cases(self, test_cases: list[Any], tasks: list[Any]) -> list[Any]:
+        if test_cases:
+            self._prime_notion_page_mappings(test_cases[0].run_id)
         events = [self.notion_sync.upsert_test_case(test_case) for test_case in test_cases]
-        synced_task_ids = {test_case.related_task_id for test_case in test_cases}
+        synced_case_ids = {
+            event.target_id for event in events if event.status in {SyncStatus.SUCCESS, SyncStatus.REPLAYED}
+        }
+        synced_task_ids = {
+            test_case.related_task_id
+            for test_case in test_cases
+            if test_case.test_case_id in synced_case_ids
+        }
         for task in tasks:
             if task.task_id in synced_task_ids and task.review_status in {
                 ReviewStatus.AUTO_APPROVED,
@@ -1459,6 +1600,96 @@ class PipelineService:
             for item in items
             if item.review_status in {ReviewStatus.AUTO_APPROVED, ReviewStatus.APPROVED}
         ]
+
+    def _failed_sync_events(self, events: list[SyncEvent]) -> list[SyncEvent]:
+        return [event for event in events if event.status == SyncStatus.FAILED]
+
+    def _sync_stage_summary(self, phase_label: str, events: list[SyncEvent]) -> str:
+        provider = self._sync_provider_label(events)
+        attempted_count = len(events)
+        success_count = sum(
+            1 for event in events if event.status in {SyncStatus.SUCCESS, SyncStatus.REPLAYED}
+        )
+        failed_count = sum(1 for event in events if event.status == SyncStatus.FAILED)
+        if attempted_count == 0:
+            return f"{phase_label} via {provider}: 0 records eligible"
+        summary = f"{phase_label} via {provider}: {success_count}/{attempted_count} records succeeded"
+        if failed_count:
+            summary = f"{summary}, {failed_count} failed"
+        return summary
+
+    def _sync_provider_label(self, events: list[SyncEvent]) -> str:
+        provider = events[0].provider if events else getattr(self.notion_sync, "provider", "notion")
+        return provider.replace("_", " ")
+
+    def _record_sync_risk_events(self, events: list[SyncEvent]) -> None:
+        failed_events = self._failed_sync_events(events)
+        if not failed_events:
+            return
+        self.repository.add_risk_events(
+            [
+                RiskEvent(
+                    run_id=event.run_id,
+                    severity=RiskSeverity.S2,
+                    code=event.payload.get("error_code", "notion_sync_failed"),
+                    summary=f"Notion sync failed for {event.target_type} {event.target_id}.",
+                    target_type=event.target_type,
+                    target_id=event.target_id,
+                    owner_action=(
+                        "Fix Notion credentials/schema or connectivity, then run sync replay "
+                        "from the Sync log."
+                    ),
+                )
+                for event in failed_events
+            ]
+        )
+
+    def _sync_event_detail(self, event: SyncEvent) -> dict[str, Any]:
+        return {
+            "id": event.id,
+            "target_type": event.target_type,
+            "target_id": event.target_id,
+            "external_id": event.external_id,
+            "status": event.status.value,
+            "error": event.error,
+            "error_code": event.payload.get("error_code"),
+        }
+
+    def _sync_replay_order(self, event: SyncEvent) -> tuple[int, str]:
+        priority = {
+            "epic": 0,
+            "story": 1,
+            "task": 2,
+            "test_case": 3,
+        }
+        return priority.get(event.target_type, 99), event.created_at.isoformat()
+
+    def _replay_sync_event(self, event: SyncEvent) -> SyncEvent:
+        if event.target_type == "epic":
+            epic = self._require_epic(event.run_id, event.target_id)
+            return self.notion_sync.upsert_epic(epic)
+        if event.target_type == "story":
+            story = self._require_story(event.run_id, event.target_id)
+            return self.notion_sync.upsert_story(story)
+        if event.target_type == "task":
+            task = self._require_task(event.run_id, event.target_id)
+            feature_names = {
+                feature.feature_id: feature.name
+                for feature in self.repository.list_features(event.run_id)
+            }
+            return self.notion_sync.upsert_task(
+                task,
+                feature_names.get(task.feature_id, "Unknown"),
+            )
+        if event.target_type == "test_case":
+            test_case = self._require_test_case(event.run_id, event.target_id)
+            return self.notion_sync.upsert_test_case(test_case)
+        return event.model_copy(
+            update={
+                "error": f"Unsupported sync replay target type: {event.target_type}",
+                "updated_at": utc_now(),
+            }
+        )
 
     def _record_risk_events(self, issues: list[Any]) -> None:
         self.repository.add_risk_events(risk_events_from_validation_issues(issues))

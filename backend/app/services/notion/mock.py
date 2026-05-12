@@ -7,11 +7,26 @@ from app.services.notion import NotionSyncClient
 
 
 class MockNotionSyncClient(NotionSyncClient):
+    provider = "mock_notion"
+
     def __init__(self) -> None:
         self.page_id_by_external_id: dict[str, str] = {}
         self.epic_page_id_by_epic_id: dict[str, str] = {}
         self.story_page_id_by_story_id: dict[str, str] = {}
         self.task_page_id_by_task_id: dict[str, str] = {}
+
+    def prime_page_mappings(self, sync_events: list[SyncEvent]) -> None:
+        for event in sync_events:
+            page_id = event.payload.get("notion_page_id")
+            if not isinstance(page_id, str) or not page_id:
+                continue
+            self.page_id_by_external_id[event.external_id] = page_id
+            if event.target_type == "epic":
+                self.epic_page_id_by_epic_id[event.target_id] = page_id
+            elif event.target_type == "story":
+                self.story_page_id_by_story_id[event.target_id] = page_id
+            elif event.target_type == "task":
+                self.task_page_id_by_task_id[event.target_id] = page_id
 
     def upsert_epic(self, epic: Epic) -> SyncEvent:
         page_id = self._page_id_for(epic.external_id)
@@ -22,6 +37,7 @@ class MockNotionSyncClient(NotionSyncClient):
             target_id=epic.epic_id,
             external_id=epic.external_id,
             action="upsert",
+            provider=self.provider,
             payload={
                 "sync_phase": "Sync-A",
                 "database": "Epic",
@@ -43,6 +59,7 @@ class MockNotionSyncClient(NotionSyncClient):
             target_id=story.story_id,
             external_id=story.external_id,
             action="upsert",
+            provider=self.provider,
             payload={
                 "sync_phase": "Sync-A",
                 "database": "Story",
@@ -66,6 +83,7 @@ class MockNotionSyncClient(NotionSyncClient):
             target_id=task.task_id,
             external_id=task.external_id,
             action="upsert",
+            provider=self.provider,
             payload={
                 "sync_phase": "Sync-B",
                 "database": "Task",
@@ -100,6 +118,7 @@ class MockNotionSyncClient(NotionSyncClient):
             target_id=test_case.test_case_id,
             external_id=test_case.external_id,
             action="upsert",
+            provider=self.provider,
             payload={
                 "sync_phase": "Sync-C",
                 "database": "Test Case",

@@ -59,8 +59,11 @@ Closed before final walkthrough:
 
 - **Agent B coverage gap in real-provider mode**: run `run_1cefe76fe58c` showed Agent A + HIL-1 approved features across multiple feature types and deterministic epic candidates, but real Agent B returned only one `Gameplay Logic Scope` epic. The backend now validates approved-feature and HIL-1 epic coverage, retries Agent B with feedback, and blocks Sync-A/B on exhausted coverage retry.
 
+Current implementation slice:
+- Real Notion provider behind `NOTION_PROVIDER=real`: `httpx` adapter, schema preflight, upsert by `external_id`, 429/5xx retry with backoff, failed/dead-letter `SyncEvent` records, persisted page-id relation hydration across staged requests, and replay that calls Notion again instead of only marking rows.
+
 Still missing for the final prototype:
-- Real Notion adapter with schema preflight, rate limiting, retry with backoff, and dead-letter handling (the repository-level `replay_failed_sync_events` is in place but has no real producer of `SyncStatus.FAILED` events yet).
+- Real Notion smoke against a grader-owned workspace once `NOTION_TOKEN` and database IDs are configured.
 - LLM-generated GDD version descriptions (`description_status=AI_GENERATED` is modelled but has no producer).
 - Correction memory for the Task 4 learning loop.
 - Final submission polish: full English pass over `Task-1..4.md`, walkthrough script, screenshots.
@@ -207,7 +210,8 @@ This phase closes the real-provider regression found in `run_1cefe76fe58c`, wher
 ### Phase 2 - Real AI And Real Notion
 
 - Add real LLM provider with structured output, low temperature, schema validation, retry/repair policy, and raw output logging.
-- Add real Notion provider with schema preflight, external-id upsert, page-id relation mapping, conflict detection, rate limiting, and dead-letter queue.
+- Add real Notion provider with schema preflight, external-id upsert, persisted page-id relation mapping, rate limiting, retry/backoff, dead-letter queue, and replay from pipeline state.
+- Defer manual-edit conflict detection to a follow-up after create/update/replay is stable.
 - Preserve mock fallback for local demo and tests.
 
 ### Phase 3 - Frontend Demo App
