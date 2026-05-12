@@ -4,7 +4,7 @@ A FastAPI turns the Snake Escape sample GDD into a QA execution plan with featur
 
 Live demo: https://qa-generate-workflow.vercel.app/
 
-Phase 1 focuses on backend/API. The frontend can be built later against the documented `/api/v1` endpoints.
+The current prototype includes a FastAPI backend and a Next.js frontend for the hosted walkthrough. The backend API remains documented under `/api/v1` for local and hosted demo flows.
 
 The target product behavior is defined by the four root-level solution files in the parent workspace:
 
@@ -128,9 +128,9 @@ pytest
 - `docs/runbooks/supabase.md` - optional Supabase Cloud setup and recovery notes.
 - `docs/fixtures.md` - how to edit deterministic mock agent data safely.
 
-## Phase 2 Frontend Direction
+## Frontend Walkthrough
 
-Build a Next.js frontend that consumes only the API:
+The Next.js frontend consumes the API and demonstrates the submission walkthrough:
 
 - Run dashboard and timeline
 - GDD section viewer
