@@ -2,6 +2,8 @@
 
 A FastAPI turns the Snake Escape sample GDD into a QA execution plan with feature inventory, QA tasks, test cases, validation issues, and mock Notion sync payloads.
 
+Live demo: https://qa-generate-workflow.vercel.app/
+
 Phase 1 focuses on backend/API. The frontend can be built later against the documented `/api/v1` endpoints.
 
 The target product behavior is defined by the four root-level solution files in the parent workspace:
